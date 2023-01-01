@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+
+  web:
+    build: .
+    ports:
+      - 8000:8000
+    command: uvicorn app.main:app --host 0.0.0.0
+    volumes:
+      - ./app:/src/app
+      - ./config:/src/config
+    env_file: .env
+    depends_on:
+      - broker
+
+  worker:
+    build: .
+    command: celery --app=app.worker.celery worker --loglevel=info -c 1
+    volumes:
+      - ./app:/src/app
+      - ./config:/src/config
+    env_file: .env
+    depends_on:
+      - web
+      - broker
+
+  dashboard:
+    build: .
+    command: celery --app=app.worker.celery flower --port=5555
+    ports:
+      - 5555:5555
+    env_file: .env
+    depends_on:
+      - broker
+      - worker
+
+  broker:
+    image: rabbitmq:3-management
+    ports:
+      - 5672:5672
+      - 15672:15672
+    env_file: .env
