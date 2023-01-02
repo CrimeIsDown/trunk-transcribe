@@ -19,11 +19,7 @@ broker_url = os.getenv("CELERY_BROKER_URL")
 result_backend = os.getenv("CELERY_RESULT_BACKEND")
 celery = Celery(__name__, broker=broker_url, backend=result_backend)
 
-model_name = os.getenv("WHISPER_MODEL", "tiny.en")
-if torch.cuda.is_available():
-    model = whisper.load_model(model_name).cuda()
-else:
-    model = whisper.load_model(model_name)
+model = None
 model_lock = Lock()
 
 with open("config/radio-ids.json") as file:
@@ -31,6 +27,13 @@ with open("config/radio-ids.json") as file:
 
 with open("config/telegram-channels.json") as file:
     telegram_channel_mappings = json.loads(file.read())
+
+
+def load_model():
+    global model
+    if not model:
+        model_name = os.getenv("WHISPER_MODEL", "tiny.en")
+        model = whisper.load_model(model_name)
 
 
 def parse_radio_id(input: str, system: str) -> tuple[str, str]:
@@ -52,6 +55,7 @@ def parse_radio_id(input: str, system: str) -> tuple[str, str]:
 
 def whisper_transcribe(audio_file: str, initial_prompt: str = "") -> dict:
     with model_lock:
+        load_model()
         return model.transcribe(
             audio_file, language="en", initial_prompt=initial_prompt
         )
