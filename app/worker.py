@@ -168,7 +168,8 @@ def transcribe_analog(audio_file: str, metadata: dict) -> str:
 
 
 def convert_to_ogg(audio_file: str) -> tempfile._TemporaryFileWrapper:
-    ogg_file = tempfile.NamedTemporaryFile(suffix=".ogg")
+    ogg_file = tempfile.NamedTemporaryFile(delete=False, suffix=".ogg")
+    ogg_file.close()
     p = subprocess.run(
         [
             "ffmpeg",
@@ -222,7 +223,7 @@ def post_transcription(
     response = requests.post(
         url=f"https://api.telegram.org/bot{os.getenv('TELEGRAM_BOT_TOKEN')}/sendVoice",
         data=data,
-        files={"voice": voice},
+        files={"voice": open(voice.name, 'rb')},
         timeout=(1, 10),
     )
 
@@ -251,7 +252,7 @@ def transcribe(metadata: dict, audio_file_b64: str, debug: bool = False) -> dict
         voice=voice, metadata=metadata, transcript=transcript, debug=debug
     )
 
-    voice.close()
+    os.unlink(voice.name)
     os.unlink(audio_file.name)
 
     return result

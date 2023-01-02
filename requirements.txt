@@ -4,3 +4,4 @@ python-multipart
 requests
 celery
 flower
+gevent

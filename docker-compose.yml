@@ -7,25 +7,29 @@ services:
     build: .
     ports:
       - 8000:8000
-    command: uvicorn app.main:app --host 0.0.0.0
+    command: web
     volumes:
       - ./app:/src/app
       - ./config:/src/config
+      - ./docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
     env_file: .env
 
   worker:
     image: crimeisdown/trunk-transcribe:main-medium.en
     build: .
-    command: celery --app=app.worker.celery worker --loglevel=info -c 1
+    command: worker
     volumes:
       - ./app:/src/app
       - ./config:/src/config
+      - ./docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
     env_file: .env
 
   dashboard:
     image: crimeisdown/trunk-transcribe:main-medium.en
     build: .
-    command: celery --app=app.worker.celery flower --port=5555
+    command: flower
+    volumes:
+      - ./docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
     ports:
       - 5555:5555
     env_file: .env

@@ -29,6 +29,7 @@ RUN pip3 install -r requirements.txt
 COPY app app
 COPY config config
 
-EXPOSE 8000
+COPY docker-entrypoint.sh /usr/local/bin/
+ENTRYPOINT ["docker-entrypoint.sh"]
 
-CMD uvicorn app.main:app --host 0.0.0.0
+CMD ["worker"]
