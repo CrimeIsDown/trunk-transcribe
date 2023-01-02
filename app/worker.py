@@ -224,7 +224,7 @@ def post_transcription(
         url=f"https://api.telegram.org/bot{os.getenv('TELEGRAM_BOT_TOKEN')}/sendVoice",
         data=data,
         files={"voice": open(voice.name, 'rb')},
-        timeout=(1, 10),
+        timeout=(5, 15),
     )
 
     logging.debug(response.json())
