@@ -24,7 +24,6 @@ services:
       - ./config:/src/config
     env_file: .env
     depends_on:
-      - web
       - broker
 
   dashboard:
@@ -36,7 +35,6 @@ services:
     env_file: .env
     depends_on:
       - broker
-      - worker
 
   broker:
     image: rabbitmq:3-management
