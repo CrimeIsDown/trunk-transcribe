@@ -17,7 +17,7 @@ from celery import Celery
 
 broker_url = os.getenv("CELERY_BROKER_URL")
 result_backend = os.getenv("CELERY_RESULT_BACKEND")
-celery = Celery(__name__, broker=broker_url, backend=result_backend)
+celery = Celery("worker", broker=broker_url, backend=result_backend)
 
 model = None
 model_lock = Lock()
@@ -32,7 +32,7 @@ with open("config/telegram-channels.json") as file:
 def load_model():
     global model
     if not model:
-        model_name = os.getenv("WHISPER_MODEL", "tiny.en")
+        model_name = os.getenv("WHISPER_MODEL")
         model = whisper.load_model(model_name)
 
 
