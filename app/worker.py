@@ -191,12 +191,12 @@ def convert_to_ogg(audio_file: str) -> tempfile._TemporaryFileWrapper:
 
 def get_chat_id(
     metadata: dict,
-) -> str | None:
+) -> tuple[str | None, str | None]:
     for regex, id in telegram_channel_mappings.items():
         if re.compile(regex).match(f"{metadata['talkgroup']}@{metadata['short_name']}"):
-            return id
+            return regex, id
 
-    return None
+    return None, None
 
 
 def post_transcription(
@@ -205,9 +205,9 @@ def post_transcription(
     transcript: str,
     debug: bool = False,
 ) -> dict:
-    chat_id = get_chat_id(metadata) or telegram_channel_mappings["default"]
+    regex, chat_id = get_chat_id(metadata) or telegram_channel_mappings["default"]
 
-    if "[" in telegram_channel_mappings.index(chat_id):
+    if "[" in regex:
         transcript = transcript + f"\n<b>{metadata['talkgroup_tag']}</b>"
 
     data = {
