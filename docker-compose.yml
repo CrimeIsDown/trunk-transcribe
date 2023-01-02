@@ -12,8 +12,6 @@ services:
       - ./app:/src/app
       - ./config:/src/config
     env_file: .env
-    depends_on:
-      - broker
 
   worker:
     image: crimeisdown/trunk-transcribe:main-medium.en
@@ -23,8 +21,6 @@ services:
       - ./app:/src/app
       - ./config:/src/config
     env_file: .env
-    depends_on:
-      - broker
 
   dashboard:
     image: crimeisdown/trunk-transcribe:main-medium.en
@@ -33,8 +29,6 @@ services:
     ports:
       - 5555:5555
     env_file: .env
-    depends_on:
-      - broker
 
   broker:
     image: rabbitmq:3-management
