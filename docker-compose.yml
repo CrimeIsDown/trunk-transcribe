@@ -29,7 +29,9 @@ services:
     build: .
     command: flower
     volumes:
+      - ./flowerconfig.py:/src/flowerconfig.py
       - ./docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
+      - flowerdb:/src/data
     ports:
       - 5555:5555
     env_file: .env
@@ -40,3 +42,6 @@ services:
       - 5672:5672
       - 15672:15672
     env_file: .env
+
+volumes:
+  flowerdb:
