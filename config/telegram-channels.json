@@ -1,9 +1,30 @@
 {
-    "default": "-1005810719458",
-    "^9051@sc21": "-1001858957886",
-    "^[13]@chi_cfd$": "-1001646104346",
-    "^[24]@chi_cfd$": "-1001614980216",
-    "^11@chi_cpd$": "-1001893999789",
-    "^14@chi_cpd$": "-1001796224921",
-    "^15@chi_cpd$": "-1001762146703"
+    "default": {
+        "chat_id": "-1005810719458",
+        "append_talkgroup": true
+    },
+    "^9051@sc21": {
+        "chat_id": "-1001858957886",
+        "append_talkgroup": false
+    },
+    "^[13]@chi_cfd$": {
+        "chat_id": "-1001646104346",
+        "append_talkgroup": true
+    },
+    "^[24]@chi_cfd$": {
+        "chat_id": "-1001614980216",
+        "append_talkgroup": true
+    },
+    "^11@chi_cpd$": {
+        "chat_id": "-1001893999789",
+        "append_talkgroup": false
+    },
+    "^14@chi_cpd$": {
+        "chat_id": "-1001796224921",
+        "append_talkgroup": false
+    },
+    "^15@chi_cpd$": {
+        "chat_id": "-1001762146703",
+        "append_talkgroup": false
+    }
 }

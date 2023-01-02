@@ -8,7 +8,7 @@ from celery.result import AsyncResult
 from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 
-from .worker import get_chat_id, transcribe
+from .worker import get_telegram_channel, transcribe
 
 app = FastAPI()
 
@@ -25,7 +25,7 @@ def queue_for_transcription(
 ):
     metadata = json.loads(call_json.file.read())
 
-    if not get_chat_id(metadata):
+    if not get_telegram_channel(metadata):
         raise HTTPException(
             status_code=400, detail="Transcribing not setup for talkgroup"
         )
