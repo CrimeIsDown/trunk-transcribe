@@ -3,6 +3,7 @@ version: '3.8'
 services:
 
   web:
+    image: crimeisdown/trunk-transcribe:main-medium.en
     build: .
     ports:
       - 8000:8000
@@ -15,6 +16,7 @@ services:
       - broker
 
   worker:
+    image: crimeisdown/trunk-transcribe:main-medium.en
     build: .
     command: celery --app=app.worker.celery worker --loglevel=info -c 1
     volumes:
@@ -26,6 +28,7 @@ services:
       - broker
 
   dashboard:
+    image: crimeisdown/trunk-transcribe:main-medium.en
     build: .
     command: celery --app=app.worker.celery flower --port=5555
     ports:

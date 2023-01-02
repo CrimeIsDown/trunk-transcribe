@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        model: [small.en, medium.en]
+        model: [tiny.en, small.en, medium.en]
         platform: [linux/amd64]
     steps:
     - name: Checkout
