@@ -129,7 +129,7 @@ def transcribe_analog(audio_file: str, metadata: dict) -> str:
     prev_transcript = ""
 
     basename = os.path.splitext(audio_file)[0]
-    whisper_file = f"{basename}_whisper.wav"
+    whisper_file = f"{basename}-whisper.wav"
 
     split = True
 
@@ -255,24 +255,30 @@ def post_transcription(
 
 
 def transcribe(metadata: dict, audio_file: str, debug: bool) -> dict:
-    # Ensure we have a valid audio file and frontload conversion
-    voice_file = convert_to_ogg(audio_file=audio_file)
+    voice_file = None
+    try:
+        # Ensure we have a valid audio file and frontload conversion
+        voice_file = convert_to_ogg(audio_file=audio_file)
 
-    if metadata["audio_type"] == "digital":
-        transcript = transcribe_digital(audio_file=audio_file, metadata=metadata)
-    elif metadata["audio_type"] == "analog":
-        transcript = transcribe_analog(audio_file=audio_file, metadata=metadata)
-    else:
-        raise Exception(f"Audio type {metadata['audio_type']} not supported")
+        if metadata["audio_type"] == "digital":
+            transcript = transcribe_digital(audio_file=audio_file, metadata=metadata)
+        elif metadata["audio_type"] == "analog":
+            transcript = transcribe_analog(audio_file=audio_file, metadata=metadata)
+        else:
+            raise Exception(f"Audio type {metadata['audio_type']} not supported")
 
-    logging.debug(transcript)
+        logging.debug(transcript)
 
-    result = post_transcription(
-        voice_file=voice_file, metadata=metadata, transcript=transcript, debug=debug
-    )
-
-    os.unlink(voice_file)
-    os.unlink(audio_file)
+        result = post_transcription(
+            voice_file=voice_file, metadata=metadata, transcript=transcript, debug=debug
+        )
+    finally:
+        if voice_file:
+            os.unlink(voice_file)
+        os.unlink(audio_file)
+        basename = os.path.splitext(audio_file)[0]
+        for file in glob(f"{basename}-*.wav"):
+            os.unlink(file)
 
     return result
 
