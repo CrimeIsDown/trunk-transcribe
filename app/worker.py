@@ -22,11 +22,12 @@ model = None
 model_lock = Lock()
 
 
-def load_model():
+def load_model() -> whisper.Whisper:
     global model
     if not model:
-        model_name = os.getenv("WHISPER_MODEL")
+        model_name = os.getenv("WHISPER_MODEL", "")
         model = whisper.load_model(model_name)
+    return model
 
 
 def parse_radio_id(
@@ -50,8 +51,7 @@ def parse_radio_id(
 
 def whisper_transcribe(audio_file: str, initial_prompt: str = "") -> dict:
     with model_lock:
-        load_model()
-        return model.transcribe(
+        return load_model().transcribe(
             audio_file, language="en", initial_prompt=initial_prompt
         )
 
@@ -174,7 +174,7 @@ def transcribe_analog(audio_file: str, metadata: dict) -> str:
     return "\n".join(transcript)
 
 
-def convert_to_ogg(audio_file: str) -> tempfile._TemporaryFileWrapper:
+def convert_to_ogg(audio_file: str) -> str:
     ogg_file = tempfile.NamedTemporaryFile(delete=False, suffix=".ogg")
     ogg_file.close()
     p = subprocess.run(
@@ -194,7 +194,7 @@ def convert_to_ogg(audio_file: str) -> tempfile._TemporaryFileWrapper:
         ]
     )
     p.check_returncode()
-    return ogg_file
+    return ogg_file.name
 
 
 def get_telegram_channel(
@@ -208,7 +208,7 @@ def get_telegram_channel(
 
 
 def post_transcription(
-    voice: tempfile._TemporaryFileWrapper,
+    voice_file: str,
     metadata: dict,
     transcript: str,
     debug: bool = False,
@@ -243,7 +243,7 @@ def post_transcription(
     response = requests.post(
         url=f"https://api.telegram.org/bot{os.getenv('TELEGRAM_BOT_TOKEN')}/sendVoice",
         data=data,
-        files={"voice": open(voice.name, "rb")},
+        files={"voice": open(voice_file, "rb")},
         timeout=(5, 15),
     )
 
@@ -251,28 +251,33 @@ def post_transcription(
     return response.json()
 
 
-@celery.task(name="transcribe")
-def transcribe(metadata: dict, audio_file_b64: str, debug: bool = False) -> dict:
-    audio_file = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
-    audio_file.write(b64decode(audio_file_b64))
-    audio_file.close()
-
-    voice = convert_to_ogg(audio_file=audio_file.name)
+def transcribe(metadata: dict, audio_file: str, debug: bool) -> dict:
+    # Ensure we have a valid audio file and frontload conversion
+    voice_file = convert_to_ogg(audio_file=audio_file)
 
     if metadata["audio_type"] == "digital":
-        transcript = transcribe_digital(audio_file=audio_file.name, metadata=metadata)
+        transcript = transcribe_digital(audio_file=audio_file, metadata=metadata)
     elif metadata["audio_type"] == "analog":
-        transcript = transcribe_analog(audio_file=audio_file.name, metadata=metadata)
+        transcript = transcribe_analog(audio_file=audio_file, metadata=metadata)
     else:
         raise Exception(f"Audio type {metadata['audio_type']} not supported")
 
     logging.debug(transcript)
 
     result = post_transcription(
-        voice=voice, metadata=metadata, transcript=transcript, debug=debug
+        voice_file=voice_file, metadata=metadata, transcript=transcript, debug=debug
     )
 
-    os.unlink(voice.name)
-    os.unlink(audio_file.name)
+    os.unlink(voice_file)
+    os.unlink(audio_file)
 
     return result
+
+
+@celery.task(name="transcribe")
+def transcribe_task(metadata: dict, audio_file_b64: str, debug: bool = False) -> dict:
+    audio_file = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
+    audio_file.write(b64decode(audio_file_b64))
+    audio_file.close()
+
+    return transcribe(metadata=metadata, audio_file=audio_file.name, debug=debug)
