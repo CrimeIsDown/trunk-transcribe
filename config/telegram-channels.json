@@ -19,6 +19,14 @@
         "chat_id": "-1001833821942",
         "append_talkgroup": false
     },
+    "^8@chi_cpd$": {
+        "chat_id": "-1001721776635",
+        "append_talkgroup": false
+    },
+    "^9@chi_cpd$": {
+        "chat_id": "-1001827004103",
+        "append_talkgroup": false
+    },
     "^11@chi_cpd$": {
         "chat_id": "-1001893999789",
         "append_talkgroup": false
