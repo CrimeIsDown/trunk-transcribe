@@ -8,7 +8,7 @@ from celery.result import AsyncResult
 from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 
-from .worker import get_telegram_channel, transcribe
+from .worker import get_telegram_channel, transcribe_task
 
 app = FastAPI()
 
@@ -36,7 +36,7 @@ def queue_for_transcription(
         )
 
     audio_file_b64 = b64encode(call_audio.file.read()).decode("utf-8")
-    task = transcribe.delay(
+    task = transcribe_task.delay(
         metadata=metadata, audio_file_b64=audio_file_b64, debug=debug
     )
     return JSONResponse({"task_id": task.id}, status_code=201)
