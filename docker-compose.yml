@@ -13,6 +13,7 @@ services:
       - ./config:/src/config
       - ./docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
     env_file: .env
+    restart: always
 
   worker:
     image: crimeisdown/trunk-transcribe:main-medium.en
@@ -23,6 +24,7 @@ services:
       - ./config:/src/config
       - ./docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
     env_file: .env
+    restart: always
 
   dashboard:
     image: crimeisdown/trunk-transcribe:main-medium.en
@@ -35,6 +37,7 @@ services:
     ports:
       - 5555:5555
     env_file: .env
+    restart: always
 
   broker:
     image: rabbitmq:3-management
@@ -42,6 +45,7 @@ services:
       - 5672:5672
       - 15672:15672
     env_file: .env
+    restart: always
 
 volumes:
   flowerdb:
