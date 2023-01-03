@@ -272,6 +272,8 @@ def transcribe(metadata: dict, audio_file: str, debug: bool) -> dict:
         result = post_transcription(
             voice_file=voice_file, metadata=metadata, transcript=transcript, debug=debug
         )
+    except RuntimeError as e:
+        result = {"error": str(e)}
     finally:
         if voice_file:
             os.unlink(voice_file)
