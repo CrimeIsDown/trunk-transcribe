@@ -22,12 +22,6 @@ celery = Celery("worker", broker=broker_url, backend=result_backend)
 model = None
 model_lock = Lock()
 
-with open("config/radio-ids.json") as file:
-    radio_id_replacements = json.loads(file.read())
-
-with open("config/telegram-channels.json") as file:
-    telegram_channel_mappings = json.loads(file.read())
-
 
 def load_model():
     global model
@@ -36,7 +30,9 @@ def load_model():
         model = whisper.load_model(model_name)
 
 
-def parse_radio_id(input: str, system: str) -> tuple[str, str]:
+def parse_radio_id(
+    input: str, system: str, radio_id_replacements: dict
+) -> tuple[str, str]:
     if system in radio_id_replacements.keys():
         replacements = radio_id_replacements[system]
         for replacement, patterns in replacements.items():
@@ -62,6 +58,14 @@ def whisper_transcribe(audio_file: str, initial_prompt: str = "") -> dict:
 
 
 def transcribe_digital(audio_file: str, metadata: dict) -> str:
+    try:
+        radio_id_replacements = requests.get(
+            url=f"{os.getenv('API_BASE_URL')}/config/radio-ids.json"
+        ).json()
+    except:
+        with open("config/radio-ids.json") as file:
+            radio_id_replacements = json.loads(file.read())
+
     result = ""
 
     prev_transcript = ""
@@ -93,7 +97,9 @@ def transcribe_digital(audio_file: str, metadata: dict) -> str:
             prev_transcript += " " + metadata["talkgroup_description"].split("|")[1]
         except:
             pass
-        parsed_src, parsed_src_prompt = parse_radio_id(str(src), metadata["short_name"])
+        parsed_src, parsed_src_prompt = parse_radio_id(
+            str(src), metadata["short_name"], radio_id_replacements
+        )
         if len(parsed_src_prompt):
             prev_transcript += f" {parsed_src_prompt}"
 
@@ -191,7 +197,7 @@ def convert_to_ogg(audio_file: str) -> tempfile._TemporaryFileWrapper:
 
 
 def get_telegram_channel(
-    metadata: dict,
+    metadata: dict, telegram_channel_mappings: dict
 ) -> dict | None:
     for regex, mapping in telegram_channel_mappings.items():
         if re.compile(regex).match(f"{metadata['talkgroup']}@{metadata['short_name']}"):
@@ -206,7 +212,18 @@ def post_transcription(
     transcript: str,
     debug: bool = False,
 ) -> dict:
-    channel = get_telegram_channel(metadata) or telegram_channel_mappings["default"]
+    try:
+        telegram_channel_mappings = requests.get(
+            url=f"{os.getenv('API_BASE_URL')}/config/telegram-channels.json"
+        ).json()
+    except:
+        with open("config/telegram-channels.json") as file:
+            telegram_channel_mappings = json.loads(file.read())
+
+    channel = (
+        get_telegram_channel(metadata, telegram_channel_mappings)
+        or telegram_channel_mappings["default"]
+    )
 
     if channel["append_talkgroup"]:
         transcript = transcript + f"\n<b>{metadata['talkgroup_tag']}</b>"
@@ -223,7 +240,7 @@ def post_transcription(
     response = requests.post(
         url=f"https://api.telegram.org/bot{os.getenv('TELEGRAM_BOT_TOKEN')}/sendVoice",
         data=data,
-        files={"voice": open(voice.name, 'rb')},
+        files={"voice": open(voice.name, "rb")},
         timeout=(5, 15),
     )
 

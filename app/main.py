@@ -25,7 +25,7 @@ def queue_for_transcription(
 ):
     metadata = json.loads(call_json.file.read())
 
-    if not get_telegram_channel(metadata):
+    if not get_telegram_channel(metadata, telegram_channel_mappings):
         raise HTTPException(
             status_code=400, detail="Transcribing not setup for talkgroup"
         )
@@ -51,3 +51,12 @@ def get_status(task_id):
         "task_result": task_result.result,
     }
     return JSONResponse(result)
+
+
+@app.get("/config/{filename}")
+def get_config(filename):
+    if filename not in os.listdir("config"):
+        raise HTTPException(status_code=404, detail="Config file not found")
+
+    with open(f"config/{filename}") as config:
+        return JSONResponse(json.loads(config.read()))
