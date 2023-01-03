@@ -31,5 +31,4 @@ jobs:
     - name: Build and Publish the Docker image
       run: |
         DOCKER_IMAGE_VERSION=$REPO_NAME:$GITHUB_REF_NAME-${{ matrix.model }}
-        docker pull "${DOCKER_IMAGE_VERSION}"
-        docker buildx build . --cache-from="${DOCKER_IMAGE_VERSION}" --platform=${{ matrix.platform }} --build-arg WHISPER_MODEL=${{ matrix.model }} -t "${DOCKER_IMAGE_VERSION}" --push
+        docker buildx build . --platform=${{ matrix.platform }} --build-arg WHISPER_MODEL=${{ matrix.model }} -t "${DOCKER_IMAGE_VERSION}" --push
