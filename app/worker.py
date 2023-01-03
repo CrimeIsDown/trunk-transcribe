@@ -172,7 +172,7 @@ def transcribe_analog(audio_file: str, metadata: dict) -> str:
     if len(transcript) < 1:
         raise RuntimeError("Transcript empty/null")
     # When the transcript is just "Thank you." it's almost never speech
-    if "Thank you." in transcript:
+    if len(transcript) == 1 and "Thank you." in transcript:
         raise RuntimeError("No speech found")
     return "\n".join(transcript)
 
