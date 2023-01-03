@@ -11,7 +11,6 @@ from glob import glob
 from threading import Lock
 
 import requests
-import torch
 import whisper
 from celery import Celery
 
@@ -59,9 +58,11 @@ def whisper_transcribe(audio_file: str, initial_prompt: str = "") -> dict:
 
 def transcribe_digital(audio_file: str, metadata: dict) -> str:
     try:
-        radio_id_replacements = requests.get(
+        r = requests.get(
             url=f"{os.getenv('API_BASE_URL')}/config/radio-ids.json"
-        ).json()
+        )
+        r.raise_for_status()
+        radio_id_replacements = r.json()
     except:
         with open("config/radio-ids.json") as file:
             radio_id_replacements = json.loads(file.read())
@@ -213,9 +214,11 @@ def post_transcription(
     debug: bool = False,
 ) -> dict:
     try:
-        telegram_channel_mappings = requests.get(
+        r = requests.get(
             url=f"{os.getenv('API_BASE_URL')}/config/telegram-channels.json"
-        ).json()
+        )
+        r.raise_for_status()
+        telegram_channel_mappings = r.json()
     except:
         with open("config/telegram-channels.json") as file:
             telegram_channel_mappings = json.loads(file.read())
