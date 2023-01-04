@@ -12,7 +12,7 @@
         "chat_id": "-1001646104346",
         "append_talkgroup": true,
         "alerts": {
-            "@EricTendian": [
+            "1056863528": [
                 "person shot",
                 "gunshot victim",
                 "shooting victim",
@@ -36,7 +36,7 @@
         "chat_id": "-1001614980216",
         "append_talkgroup": true,
         "alerts": {
-            "@EricTendian": [
+            "1056863528": [
                 "person shot",
                 "gunshot victim",
                 "shooting victim",
@@ -60,7 +60,7 @@
         "chat_id": "-1001833821942",
         "append_talkgroup": false,
         "alerts": {
-            "@EricTendian": [
+            "1056863528": [
                 "person shot",
                 "gunshot victim",
                 "shooting victim",
@@ -84,7 +84,7 @@
         "chat_id": "-1001721776635",
         "append_talkgroup": false,
         "alerts": {
-            "@EricTendian": [
+            "1056863528": [
                 "person shot",
                 "gunshot victim",
                 "shooting victim",
@@ -108,7 +108,7 @@
         "chat_id": "-1001827004103",
         "append_talkgroup": false,
         "alerts": {
-            "@EricTendian": [
+            "1056863528": [
                 "person shot",
                 "gunshot victim",
                 "shooting victim",
@@ -132,7 +132,7 @@
         "chat_id": "-1001893999789",
         "append_talkgroup": false,
         "alerts": {
-            "@EricTendian": [
+            "1056863528": [
                 "person shot",
                 "gunshot victim",
                 "shooting victim",
@@ -156,7 +156,7 @@
         "chat_id": "-1001796224921",
         "append_talkgroup": false,
         "alerts": {
-            "@EricTendian": [
+            "1056863528": [
                 "person shot",
                 "gunshot victim",
                 "shooting victim",
@@ -180,7 +180,7 @@
         "chat_id": "-1001762146703",
         "append_talkgroup": false,
         "alerts": {
-            "@EricTendian": [
+            "1056863528": [
                 "person shot",
                 "gunshot victim",
                 "shooting victim",
