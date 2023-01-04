@@ -30,6 +30,38 @@ def load_model() -> whisper.Whisper:
     return model
 
 
+def raise_for_status(response):
+    """Raises :class:`HTTPError`, if one occurred."""
+
+    http_error_msg = ""
+    if isinstance(response.reason, bytes):
+        # We attempt to decode utf-8 first because some servers
+        # choose to localize their reason strings. If the string
+        # isn't utf-8, we fall back to iso-8859-1 for all other
+        # encodings. (See PR #3538)
+        try:
+            reason = response.reason.decode("utf-8")
+        except UnicodeDecodeError:
+            reason = response.reason.decode("iso-8859-1")
+    else:
+        reason = response.reason
+
+    if 400 <= response.status_code < 500:
+        http_error_msg = (
+            f"{response.status_code} Client Error: {reason} for url: {response.url}"
+        )
+
+    elif 500 <= response.status_code < 600:
+        http_error_msg = (
+            f"{response.status_code} Server Error: {reason} for url: {response.url}"
+        )
+
+    if http_error_msg:
+        if isinstance(response.text, str):
+            http_error_msg += u' Response Body: %s' % response.body_text[:response.max_text_length]
+        raise requests.HTTPError(http_error_msg, response=response)
+
+
 def parse_radio_id(
     input: str, system: str, radio_id_replacements: dict
 ) -> tuple[str, str]:
@@ -249,7 +281,7 @@ def post_transcription(
         files={"voice": open(voice_file, "rb")},
         timeout=(5, 15),
     )
-    response.raise_for_status()
+    raise_for_status(response)
 
     message = response.json()["result"]
     logging.debug(message)
@@ -267,7 +299,7 @@ def post_transcription(
                 },
                 timeout=(5, 15),
             )
-            forward_response.raise_for_status()
+            raise_for_status(forward_response)
 
     return message
 
