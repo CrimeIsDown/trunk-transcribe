@@ -58,7 +58,7 @@ def raise_for_status(response):
 
     if http_error_msg:
         if isinstance(response.text, str):
-            http_error_msg += u' Response Body: %s' % response.body_text[:response.max_text_length]
+            http_error_msg += u' Response Body: %s' % response.text
         raise requests.HTTPError(http_error_msg, response=response)
 
 
