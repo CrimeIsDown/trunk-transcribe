@@ -251,21 +251,23 @@ def post_transcription(
     )
     response.raise_for_status()
 
-    message = response.json()
+    message = response.json()["result"]
     logging.debug(message)
 
-    matched_keywords = [keyword for keyword in channel["alert_keywords"] if keyword in message.caption.lower()]
-    if len(matched_keywords):
-        forward_response = requests.post(
-            url=f"https://api.telegram.org/bot{os.getenv('TELEGRAM_BOT_TOKEN')}/forwardMessage",
-            data={
-                "chat_id": channel["alert_chat_id"],
-                "from_chat_id": message["chat"]["id"],
-                "message_id": message["message_id"]
-            },
-            timeout=(5, 15),
-        )
-        forward_response.raise_for_status()
+    for alert_chat_id, alert_keywords in channel["alerts"].items():
+        matched_keywords = [keyword for keyword in alert_keywords if keyword in message["caption"].lower()]
+        if len(matched_keywords):
+            logging.debug(f"Found keywords {str(matched_keywords)} in message {message['message_id']}, forwarding to {alert_chat_id}")
+            forward_response = requests.post(
+                url=f"https://api.telegram.org/bot{os.getenv('TELEGRAM_BOT_TOKEN')}/forwardMessage",
+                data={
+                    "chat_id": alert_chat_id,
+                    "from_chat_id": message["chat"]["id"],
+                    "message_id": message["message_id"]
+                },
+                timeout=(5, 15),
+            )
+            forward_response.raise_for_status()
 
     return message
 

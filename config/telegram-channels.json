@@ -6,195 +6,198 @@
     "^9051@sc21": {
         "chat_id": "-1001858957886",
         "append_talkgroup": false,
-        "alert_keywords": [
-            "the 10-1",
-            "that 10-1",
-            "a 10-1"
-        ],
-        "alert_chat_id": "@EricTendian"
+        "alerts": {}
     },
     "^[13]@chi_cfd$": {
         "chat_id": "-1001646104346",
         "append_talkgroup": true,
-        "alert_keywords": [
-            "person shot",
-            "gunshot victim",
-            "shooting victim",
-            "EMS plan",
-            "still in box",
-            "stone box alarm",
-            "fill and box",
-            "pin in",
-            "opinion response",
-            "level one",
-            "level 1",
-            "the 10-1",
-            "that 10-1",
-            "a 10-1",
-            "5-1-5:",
-            "threatening to jump"
-        ],
-        "alert_chat_id": "@EricTendian"
+        "alerts": {
+            "@EricTendian": [
+                "person shot",
+                "gunshot victim",
+                "shooting victim",
+                "EMS plan",
+                "still in box",
+                "stone box alarm",
+                "fill and box",
+                "pin in",
+                "opinion response",
+                "level one",
+                "level 1",
+                "the 10-1",
+                "that 10-1",
+                "a 10-1",
+                "5-1-5:",
+                "threatening to jump"
+            ]
+        }
     },
     "^[24]@chi_cfd$": {
         "chat_id": "-1001614980216",
         "append_talkgroup": true,
-        "alert_keywords": [
-            "person shot",
-            "gunshot victim",
-            "shooting victim",
-            "EMS plan",
-            "still in box",
-            "stone box alarm",
-            "fill and box",
-            "pin in",
-            "opinion response",
-            "level one",
-            "level 1",
-            "the 10-1",
-            "that 10-1",
-            "a 10-1",
-            "5-1-5:",
-            "threatening to jump"
-        ],
-        "alert_chat_id": "@EricTendian"
+        "alerts": {
+            "@EricTendian": [
+                "person shot",
+                "gunshot victim",
+                "shooting victim",
+                "EMS plan",
+                "still in box",
+                "stone box alarm",
+                "fill and box",
+                "pin in",
+                "opinion response",
+                "level one",
+                "level 1",
+                "the 10-1",
+                "that 10-1",
+                "a 10-1",
+                "5-1-5:",
+                "threatening to jump"
+            ]
+        }
     },
     "^3@chi_cpd$": {
         "chat_id": "-1001833821942",
         "append_talkgroup": false,
-        "alert_keywords": [
-            "person shot",
-            "gunshot victim",
-            "shooting victim",
-            "EMS plan",
-            "still in box",
-            "stone box alarm",
-            "fill and box",
-            "pin in",
-            "opinion response",
-            "level one",
-            "level 1",
-            "the 10-1",
-            "that 10-1",
-            "a 10-1",
-            "5-1-5:",
-            "threatening to jump"
-        ],
-        "alert_chat_id": "@EricTendian"
+        "alerts": {
+            "@EricTendian": [
+                "person shot",
+                "gunshot victim",
+                "shooting victim",
+                "EMS plan",
+                "still in box",
+                "stone box alarm",
+                "fill and box",
+                "pin in",
+                "opinion response",
+                "level one",
+                "level 1",
+                "the 10-1",
+                "that 10-1",
+                "a 10-1",
+                "5-1-5:",
+                "threatening to jump"
+            ]
+        }
     },
     "^8@chi_cpd$": {
         "chat_id": "-1001721776635",
         "append_talkgroup": false,
-        "alert_keywords": [
-            "person shot",
-            "gunshot victim",
-            "shooting victim",
-            "EMS plan",
-            "still in box",
-            "stone box alarm",
-            "fill and box",
-            "pin in",
-            "opinion response",
-            "level one",
-            "level 1",
-            "the 10-1",
-            "that 10-1",
-            "a 10-1",
-            "5-1-5:",
-            "threatening to jump"
-        ],
-        "alert_chat_id": "@EricTendian"
+        "alerts": {
+            "@EricTendian": [
+                "person shot",
+                "gunshot victim",
+                "shooting victim",
+                "EMS plan",
+                "still in box",
+                "stone box alarm",
+                "fill and box",
+                "pin in",
+                "opinion response",
+                "level one",
+                "level 1",
+                "the 10-1",
+                "that 10-1",
+                "a 10-1",
+                "5-1-5:",
+                "threatening to jump"
+            ]
+        }
     },
     "^9@chi_cpd$": {
         "chat_id": "-1001827004103",
         "append_talkgroup": false,
-        "alert_keywords": [
-            "person shot",
-            "gunshot victim",
-            "shooting victim",
-            "EMS plan",
-            "still in box",
-            "stone box alarm",
-            "fill and box",
-            "pin in",
-            "opinion response",
-            "level one",
-            "level 1",
-            "the 10-1",
-            "that 10-1",
-            "a 10-1",
-            "5-1-5:",
-            "threatening to jump"
-        ],
-        "alert_chat_id": "@EricTendian"
+        "alerts": {
+            "@EricTendian": [
+                "person shot",
+                "gunshot victim",
+                "shooting victim",
+                "EMS plan",
+                "still in box",
+                "stone box alarm",
+                "fill and box",
+                "pin in",
+                "opinion response",
+                "level one",
+                "level 1",
+                "the 10-1",
+                "that 10-1",
+                "a 10-1",
+                "5-1-5:",
+                "threatening to jump"
+            ]
+        }
     },
     "^11@chi_cpd$": {
         "chat_id": "-1001893999789",
         "append_talkgroup": false,
-        "alert_keywords": [
-            "person shot",
-            "gunshot victim",
-            "shooting victim",
-            "EMS plan",
-            "still in box",
-            "stone box alarm",
-            "fill and box",
-            "pin in",
-            "opinion response",
-            "level one",
-            "level 1",
-            "the 10-1",
-            "that 10-1",
-            "a 10-1",
-            "5-1-5:",
-            "threatening to jump"
-        ],
-        "alert_chat_id": "@EricTendian"
+        "alerts": {
+            "@EricTendian": [
+                "person shot",
+                "gunshot victim",
+                "shooting victim",
+                "EMS plan",
+                "still in box",
+                "stone box alarm",
+                "fill and box",
+                "pin in",
+                "opinion response",
+                "level one",
+                "level 1",
+                "the 10-1",
+                "that 10-1",
+                "a 10-1",
+                "5-1-5:",
+                "threatening to jump"
+            ]
+        }
     },
     "^14@chi_cpd$": {
         "chat_id": "-1001796224921",
         "append_talkgroup": false,
-        "alert_keywords": [
-            "person shot",
-            "gunshot victim",
-            "shooting victim",
-            "EMS plan",
-            "still in box",
-            "stone box alarm",
-            "fill and box",
-            "pin in",
-            "opinion response",
-            "level one",
-            "level 1",
-            "the 10-1",
-            "that 10-1",
-            "a 10-1",
-            "5-1-5:",
-            "threatening to jump"
-        ],
-        "alert_chat_id": "@EricTendian"
+        "alerts": {
+            "@EricTendian": [
+                "person shot",
+                "gunshot victim",
+                "shooting victim",
+                "EMS plan",
+                "still in box",
+                "stone box alarm",
+                "fill and box",
+                "pin in",
+                "opinion response",
+                "level one",
+                "level 1",
+                "the 10-1",
+                "that 10-1",
+                "a 10-1",
+                "5-1-5:",
+                "threatening to jump"
+            ]
+        }
     },
     "^15@chi_cpd$": {
         "chat_id": "-1001762146703",
         "append_talkgroup": false,
-        "alert_keywords": [
-            "person shot",
-            "gunshot victim",
-            "shooting victim",
-            "EMS plan",
-            "still in box",
-            "stone box alarm",
-            "fill and box",
-            "pin in",
-            "opinion response",
-            "level one",
-            "level 1",
-            "the 10-1",
-            "that 10-1",
-            "a 10-1",
-            "5-1-5:",
-            "threatening to jump"
-        ],
-        "alert_chat_id": "@EricTendian"
+        "alerts": {
+            "@EricTendian": [
+                "person shot",
+                "gunshot victim",
+                "shooting victim",
+                "EMS plan",
+                "still in box",
+                "stone box alarm",
+                "fill and box",
+                "pin in",
+                "opinion response",
+                "level one",
+                "level 1",
+                "the 10-1",
+                "that 10-1",
+                "a 10-1",
+                "5-1-5:",
+                "threatening to jump"
+            ]
+        }
     }
 }
