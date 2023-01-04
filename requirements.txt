@@ -5,3 +5,4 @@ requests
 celery
 flower
 gevent
+python-telegram-bot

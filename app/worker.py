@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import asyncio
+from datetime import datetime
 import json
 import logging
 import os
@@ -13,6 +15,7 @@ from threading import Lock
 import requests
 import whisper
 from celery import Celery
+from telegram import Bot, Chat, Message
 
 broker_url = os.getenv("CELERY_BROKER_URL")
 result_backend = os.getenv("CELERY_RESULT_BACKEND")
@@ -28,38 +31,6 @@ def load_model() -> whisper.Whisper:
         model_name = os.getenv("WHISPER_MODEL", "")
         model = whisper.load_model(model_name)
     return model
-
-
-def raise_for_status(response):
-    """Raises :class:`HTTPError`, if one occurred."""
-
-    http_error_msg = ""
-    if isinstance(response.reason, bytes):
-        # We attempt to decode utf-8 first because some servers
-        # choose to localize their reason strings. If the string
-        # isn't utf-8, we fall back to iso-8859-1 for all other
-        # encodings. (See PR #3538)
-        try:
-            reason = response.reason.decode("utf-8")
-        except UnicodeDecodeError:
-            reason = response.reason.decode("iso-8859-1")
-    else:
-        reason = response.reason
-
-    if 400 <= response.status_code < 500:
-        http_error_msg = (
-            f"{response.status_code} Client Error: {reason} for url: {response.url}"
-        )
-
-    elif 500 <= response.status_code < 600:
-        http_error_msg = (
-            f"{response.status_code} Server Error: {reason} for url: {response.url}"
-        )
-
-    if http_error_msg:
-        if isinstance(response.text, str):
-            http_error_msg += u' Response Body: %s' % response.text
-        raise requests.HTTPError(http_error_msg, response=response)
 
 
 def parse_radio_id(
@@ -242,12 +213,12 @@ def get_telegram_channel(
     return None
 
 
-def post_transcription(
+async def post_transcription(
     voice_file: str,
     metadata: dict,
     transcript: str,
     debug: bool = False,
-) -> dict:
+) -> Message:
     try:
         r = requests.get(
             url=f"{os.getenv('API_BASE_URL')}/config/telegram-channels.json"
@@ -266,45 +237,40 @@ def post_transcription(
     if channel["append_talkgroup"]:
         transcript = transcript + f"\n<b>{metadata['talkgroup_tag']}</b>"
 
-    data = {
-        "chat_id": channel["chat_id"],
-        "parse_mode": "HTML",
-        "caption": transcript,
-    }
-
     if debug:
-        return data
+        return Message(
+            message_id=0,
+            chat=Chat(id=int(channel["chat_id"]), type=Chat.CHANNEL),
+            date=datetime.now(),
+            caption=transcript
+        )
 
-    response = requests.post(
-        url=f"https://api.telegram.org/bot{os.getenv('TELEGRAM_BOT_TOKEN')}/sendVoice",
-        data=data,
-        files={"voice": open(voice_file, "rb")},
-        timeout=(5, 15),
-    )
-    raise_for_status(response)
+    async with Bot(os.getenv("TELEGRAM_BOT_TOKEN", "")) as bot:
+        with open(voice_file, "rb") as file:
+            voice = file.read()
+        message = await bot.send_voice(
+            chat_id=int(channel["chat_id"]),
+            voice=voice,
+            caption=transcript,
+            parse_mode="HTML"
+        )
+        logging.debug(message)
 
-    message = response.json()["result"]
-    logging.debug(message)
-
-    for alert_chat_id, alert_keywords in channel["alerts"].items():
-        matched_keywords = [keyword for keyword in alert_keywords if keyword.lower() in message["caption"].lower()]
-        if len(matched_keywords):
-            logging.debug(f"Found keywords {str(matched_keywords)} in message {message['message_id']}, forwarding to {alert_chat_id}")
-            forward_response = requests.post(
-                url=f"https://api.telegram.org/bot{os.getenv('TELEGRAM_BOT_TOKEN')}/forwardMessage",
-                data={
-                    "chat_id": alert_chat_id,
-                    "from_chat_id": message["chat"]["id"],
-                    "message_id": message["message_id"]
-                },
-                timeout=(5, 15),
-            )
-            raise_for_status(forward_response)
+        for alert_chat_id, alert_keywords in channel["alerts"].items():
+            matched_keywords = [keyword for keyword in alert_keywords if keyword.lower() in message.caption.lower()]
+            if len(matched_keywords):
+                logging.debug(f"Found keywords {str(matched_keywords)} in message {message.message_id}, forwarding to {alert_chat_id}")
+                forwarded_message = await bot.forward_message(
+                    chat_id=int(alert_chat_id),
+                    from_chat_id=message.chat.id,
+                    message_id=message.message_id
+                )
+                logging.debug(forwarded_message)
 
     return message
 
 
-def transcribe(metadata: dict, audio_file: str, debug: bool) -> dict:
+def transcribe(metadata: dict, audio_file: str, debug: bool) -> str:
     voice_file = None
     try:
         # Ensure we have a valid audio file and frontload conversion
@@ -319,11 +285,12 @@ def transcribe(metadata: dict, audio_file: str, debug: bool) -> dict:
 
         logging.debug(transcript)
 
-        result = post_transcription(
+        result = asyncio.run(post_transcription(
             voice_file=voice_file, metadata=metadata, transcript=transcript, debug=debug
-        )
+        ))
+        result = str(result)
     except RuntimeError as e:
-        result = {"error": str(e)}
+        result = str(e)
     finally:
         if voice_file:
             os.unlink(voice_file)
@@ -336,7 +303,7 @@ def transcribe(metadata: dict, audio_file: str, debug: bool) -> dict:
 
 
 @celery.task(name="transcribe")
-def transcribe_task(metadata: dict, audio_file_b64: str, debug: bool = False) -> dict:
+def transcribe_task(metadata: dict, audio_file_b64: str, debug: bool = False) -> str:
     audio_file = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
     audio_file.write(b64decode(audio_file_b64))
     audio_file.close()
