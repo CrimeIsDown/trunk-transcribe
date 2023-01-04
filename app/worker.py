@@ -249,9 +249,25 @@ def post_transcription(
         files={"voice": open(voice_file, "rb")},
         timeout=(5, 15),
     )
+    response.raise_for_status()
 
-    logging.debug(response.json())
-    return response.json()
+    message = response.json()
+    logging.debug(message)
+
+    matched_keywords = [keyword for keyword in channel["alert_keywords"] if keyword in message.caption.lower()]
+    if len(matched_keywords):
+        forward_response = requests.post(
+            url=f"https://api.telegram.org/bot{os.getenv('TELEGRAM_BOT_TOKEN')}/forwardMessage",
+            data={
+                "chat_id": channel["alert_chat_id"],
+                "from_chat_id": message["chat"]["id"],
+                "message_id": message["message_id"]
+            },
+            timeout=(5, 15),
+        )
+        forward_response.raise_for_status()
+
+    return message
 
 
 def transcribe(metadata: dict, audio_file: str, debug: bool) -> dict:
