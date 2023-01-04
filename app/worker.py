@@ -255,7 +255,7 @@ def post_transcription(
     logging.debug(message)
 
     for alert_chat_id, alert_keywords in channel["alerts"].items():
-        matched_keywords = [keyword for keyword in alert_keywords if keyword in message["caption"].lower()]
+        matched_keywords = [keyword for keyword in alert_keywords if keyword.lower() in message["caption"].lower()]
         if len(matched_keywords):
             logging.debug(f"Found keywords {str(matched_keywords)} in message {message['message_id']}, forwarding to {alert_chat_id}")
             forward_response = requests.post(
