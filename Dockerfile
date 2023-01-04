@@ -33,4 +33,7 @@ COPY config config
 COPY docker-entrypoint.sh /usr/local/bin/
 ENTRYPOINT ["docker-entrypoint.sh"]
 
+ARG GIT_COMMIT
+ENV GIT_COMMIT=${GIT_COMMIT}
+
 CMD ["worker"]
