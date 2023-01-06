@@ -15,6 +15,7 @@ import typesense
 import whisper
 from celery import Celery
 from telegram import Bot, Chat, Message
+from telegram.error import TelegramError
 
 from .config import *
 
@@ -279,7 +280,7 @@ async def post_transcription(
     return message
 
 
-def index(metadata: dict, transcript: str):
+def index(metadata: dict, transcript: str, message_url: str = ""):
     client = get_search_client()
 
     collection_name = "calls"
@@ -300,6 +301,7 @@ def index(metadata: dict, transcript: str):
             {"name": "short_name", "type": "string", "facet": True},
             {"name": "srcList", "type": "string[]", "facet": True},
             {"name": "transcript", "type": "string"},
+            {"name": "message_url", "type": "string"},
         ],
         "default_sorting_field": "stop_time",
     }
@@ -312,7 +314,7 @@ def index(metadata: dict, transcript: str):
     srcList = [
         src["tag"]
         if len(src["tag"])
-        else parse_radio_id(str(src), metadata["short_name"])[0]
+        else parse_radio_id(str(src["src"]), metadata["short_name"])[0]
         for src in metadata["srcList"]
     ]
 
@@ -323,13 +325,14 @@ def index(metadata: dict, transcript: str):
         "call_length": metadata["call_length"],
         "talkgroup": metadata["talkgroup"],
         "talkgroup_tag": metadata["talkgroup_tag"],
-        "talkgroup_description": metadata["talkgroup_description"],
+        "talkgroup_description": metadata["talkgroup_description"].split("|")[0],
         "talkgroup_group_tag": metadata["talkgroup_group_tag"],
         "talkgroup_group": metadata["talkgroup_group"],
         "audio_type": metadata["audio_type"],
         "short_name": metadata["short_name"],
         "srcList": srcList,
         "transcript": transcript,
+        "message_url": message_url,
     }
 
     client.collections[collection_name].documents.create(doc)  # type: ignore
@@ -350,20 +353,25 @@ def transcribe(metadata: dict, audio_file: str, debug: bool) -> str:
 
         logging.debug(transcript)
 
-        try:
-            index(metadata=metadata, transcript=transcript)
-        except Exception as e:
-            logging.error(e)
-            pass
+        message_url = ""
 
-        result = asyncio.run(
-            post_transcription(
-                voice_file=voice_file,
-                metadata=metadata,
-                transcript=transcript,
-                debug=debug,
+        try:
+            result = asyncio.run(
+                post_transcription(
+                    voice_file=voice_file,
+                    metadata=metadata,
+                    transcript=transcript,
+                    debug=debug,
+                )
             )
-        )
+            message_url = f"https://t.me/c/{str(result.chat_id).replace('-100', '')}/{result.message_id}"
+        finally:
+            try:
+                index(metadata=metadata, transcript=transcript, message_url=message_url)
+            except Exception as e:
+                logging.error(e)
+                pass
+
         result = str(result)
     except RuntimeError as e:
         result = str(e)
