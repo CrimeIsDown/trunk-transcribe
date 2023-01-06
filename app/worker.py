@@ -1,21 +1,22 @@
 #!/usr/bin/env python3
 
 import asyncio
-from datetime import datetime
-import json
 import logging
 import os
 import re
 import subprocess
 import tempfile
 from base64 import b64decode
+from datetime import datetime
 from glob import glob
 from threading import Lock
 
-import requests
+import typesense
 import whisper
 from celery import Celery
 from telegram import Bot, Chat, Message
+
+from .config import *
 
 broker_url = os.getenv("CELERY_BROKER_URL")
 result_backend = os.getenv("CELERY_RESULT_BACKEND")
@@ -23,6 +24,8 @@ celery = Celery("worker", broker=broker_url, backend=result_backend)
 
 model = None
 model_lock = Lock()
+
+search_client = None
 
 
 def load_model() -> whisper.Whisper:
@@ -33,9 +36,33 @@ def load_model() -> whisper.Whisper:
     return model
 
 
-def parse_radio_id(
-    input: str, system: str, radio_id_replacements: dict
-) -> tuple[str, str]:
+def get_search_client() -> typesense.Client:
+    global search_client
+    if not search_client:
+        host = os.getenv("TYPESENSE_HOST", "localhost")
+        port = os.getenv("TYPESENSE_PORT", "8108")
+        protocol = os.getenv("TYPESENSE_PROTO", "http")
+        api_key = os.getenv("TYPESENSE_API_KEY")
+
+        search_client = typesense.Client(
+            {
+                "nodes": [
+                    {
+                        "host": host,  # For Typesense Cloud use xxx.a1.typesense.net
+                        "port": port,  # For Typesense Cloud use 443
+                        "protocol": protocol,  # For Typesense Cloud use https
+                    }
+                ],
+                "api_key": api_key,
+                "connection_timeout_seconds": 2,
+            }
+        )
+    return search_client
+
+
+def parse_radio_id(input: str, system: str) -> tuple[str, str]:
+    radio_id_replacements = get_radio_id_replacements(get_ttl_hash(cache_seconds=60))
+
     if system in radio_id_replacements.keys():
         replacements = radio_id_replacements[system]
         for replacement, patterns in replacements.items():
@@ -60,16 +87,6 @@ def whisper_transcribe(audio_file: str, initial_prompt: str = "") -> dict:
 
 
 def transcribe_digital(audio_file: str, metadata: dict) -> str:
-    try:
-        r = requests.get(
-            url=f"{os.getenv('API_BASE_URL')}/config/radio-ids.json"
-        )
-        r.raise_for_status()
-        radio_id_replacements = r.json()
-    except:
-        with open("config/radio-ids.json") as file:
-            radio_id_replacements = json.loads(file.read())
-
     result = ""
 
     prev_transcript = ""
@@ -101,9 +118,7 @@ def transcribe_digital(audio_file: str, metadata: dict) -> str:
             prev_transcript += " " + metadata["talkgroup_description"].split("|")[1]
         except:
             pass
-        parsed_src, parsed_src_prompt = parse_radio_id(
-            str(src), metadata["short_name"], radio_id_replacements
-        )
+        parsed_src, parsed_src_prompt = parse_radio_id(str(src), metadata["short_name"])
         if len(parsed_src_prompt):
             prev_transcript += f" {parsed_src_prompt}"
 
@@ -203,14 +218,15 @@ def convert_to_ogg(audio_file: str) -> str:
     return ogg_file.name
 
 
-def get_telegram_channel(
-    metadata: dict, telegram_channel_mappings: dict
-) -> dict | None:
+def get_telegram_channel(metadata: dict) -> dict:
+    telegram_channel_mappings = get_telegram_channel_mappings(
+        get_ttl_hash(cache_seconds=60)
+    )
     for regex, mapping in telegram_channel_mappings.items():
         if re.compile(regex).match(f"{metadata['talkgroup']}@{metadata['short_name']}"):
             return mapping
 
-    return None
+    raise Exception("Transcribing not setup for talkgroup")
 
 
 async def post_transcription(
@@ -219,20 +235,7 @@ async def post_transcription(
     transcript: str,
     debug: bool = False,
 ) -> Message:
-    try:
-        r = requests.get(
-            url=f"{os.getenv('API_BASE_URL')}/config/telegram-channels.json"
-        )
-        r.raise_for_status()
-        telegram_channel_mappings = r.json()
-    except:
-        with open("config/telegram-channels.json") as file:
-            telegram_channel_mappings = json.loads(file.read())
-
-    channel = (
-        get_telegram_channel(metadata, telegram_channel_mappings)
-        or telegram_channel_mappings["default"]
-    )
+    channel = get_telegram_channel(metadata)
 
     if channel["append_talkgroup"]:
         transcript = transcript + f"\n<b>{metadata['talkgroup_tag']}</b>"
@@ -242,7 +245,7 @@ async def post_transcription(
             message_id=0,
             chat=Chat(id=int(channel["chat_id"]), type=Chat.CHANNEL),
             date=datetime.now(),
-            caption=transcript
+            caption=transcript,
         )
 
     async with Bot(os.getenv("TELEGRAM_BOT_TOKEN", "")) as bot:
@@ -252,22 +255,84 @@ async def post_transcription(
             chat_id=int(channel["chat_id"]),
             voice=voice,
             caption=transcript,
-            parse_mode="HTML"
+            parse_mode="HTML",
         )
         logging.debug(message)
 
         for alert_chat_id, alert_keywords in channel["alerts"].items():
-            matched_keywords = [keyword for keyword in alert_keywords if keyword.lower() in message.caption.lower()]
+            matched_keywords = [
+                keyword
+                for keyword in alert_keywords
+                if keyword.lower() in message.caption.lower()
+            ]
             if len(matched_keywords):
-                logging.debug(f"Found keywords {str(matched_keywords)} in message {message.message_id}, forwarding to {alert_chat_id}")
+                logging.debug(
+                    f"Found keywords {str(matched_keywords)} in message {message.message_id}, forwarding to {alert_chat_id}"
+                )
                 forwarded_message = await bot.forward_message(
                     chat_id=int(alert_chat_id),
                     from_chat_id=message.chat.id,
-                    message_id=message.message_id
+                    message_id=message.message_id,
                 )
                 logging.debug(forwarded_message)
 
     return message
+
+
+def index(metadata: dict, transcript: str):
+    client = get_search_client()
+
+    collection_name = "calls"
+
+    calls_schema = {
+        "name": collection_name,
+        "fields": [
+            {"name": "freq", "type": "int32"},
+            {"name": "start_time", "type": "int64"},
+            {"name": "stop_time", "type": "int64"},
+            {"name": "call_length", "type": "int32"},
+            {"name": "talkgroup", "type": "int32", "facet": True},
+            {"name": "talkgroup_tag", "type": "string", "facet": True},
+            {"name": "talkgroup_description", "type": "string", "facet": True},
+            {"name": "talkgroup_group_tag", "type": "string", "facet": True},
+            {"name": "talkgroup_group", "type": "string", "facet": True},
+            {"name": "audio_type", "type": "string", "facet": True},
+            {"name": "short_name", "type": "string", "facet": True},
+            {"name": "srcList", "type": "string[]", "facet": True},
+            {"name": "transcript", "type": "string"},
+        ],
+        "default_sorting_field": "stop_time",
+    }
+
+    if "calls" not in [
+        collection["name"] for collection in client.collections.retrieve()
+    ]:
+        client.collections.create(calls_schema)
+
+    srcList = [
+        src["tag"]
+        if len(src["tag"])
+        else parse_radio_id(str(src), metadata["short_name"])[0]
+        for src in metadata["srcList"]
+    ]
+
+    doc = {
+        "freq": metadata["freq"],
+        "start_time": metadata["start_time"],
+        "stop_time": metadata["stop_time"],
+        "call_length": metadata["call_length"],
+        "talkgroup": metadata["talkgroup"],
+        "talkgroup_tag": metadata["talkgroup_tag"],
+        "talkgroup_description": metadata["talkgroup_description"],
+        "talkgroup_group_tag": metadata["talkgroup_group_tag"],
+        "talkgroup_group": metadata["talkgroup_group"],
+        "audio_type": metadata["audio_type"],
+        "short_name": metadata["short_name"],
+        "srcList": srcList,
+        "transcript": transcript,
+    }
+
+    client.collections[collection_name].documents.create(doc)  # type: ignore
 
 
 def transcribe(metadata: dict, audio_file: str, debug: bool) -> str:
@@ -285,9 +350,20 @@ def transcribe(metadata: dict, audio_file: str, debug: bool) -> str:
 
         logging.debug(transcript)
 
-        result = asyncio.run(post_transcription(
-            voice_file=voice_file, metadata=metadata, transcript=transcript, debug=debug
-        ))
+        try:
+            index(metadata=metadata, transcript=transcript)
+        except Exception as e:
+            logging.error(e)
+            pass
+
+        result = asyncio.run(
+            post_transcription(
+                voice_file=voice_file,
+                metadata=metadata,
+                transcript=transcript,
+                debug=debug,
+            )
+        )
         result = str(result)
     except RuntimeError as e:
         result = str(e)

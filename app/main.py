@@ -13,10 +13,6 @@ from .worker import get_telegram_channel, transcribe_task
 app = FastAPI()
 
 
-with open("config/telegram-channels.json") as file:
-    telegram_channel_mappings = json.loads(file.read())
-
-
 @app.post("/tasks")
 def queue_for_transcription(
     call_audio: UploadFile,
@@ -25,7 +21,7 @@ def queue_for_transcription(
 ):
     metadata = json.loads(call_json.file.read())
 
-    if not get_telegram_channel(metadata, telegram_channel_mappings):
+    if not get_telegram_channel(metadata):
         raise HTTPException(
             status_code=400, detail="Transcribing not setup for talkgroup"
         )
@@ -59,4 +55,4 @@ def get_config(filename):
         raise HTTPException(status_code=404, detail="Config file not found")
 
     with open(f"config/{filename}") as config:
-        return JSONResponse(json.loads(config.read()))
+        return JSONResponse(json.load(config))

@@ -6,3 +6,4 @@ celery
 flower
 gevent
 python-telegram-bot
+typesense

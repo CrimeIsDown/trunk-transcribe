@@ -47,5 +47,14 @@ services:
     env_file: .env
     restart: always
 
+  typesense:
+    image: typesense/typesense:0.23.1
+    ports:
+      - 8108:8108
+    env_file: .env
+    volumes:
+      - typesense-data:/data
+
 volumes:
   flowerdb:
+  typesense-data:
