@@ -61,22 +61,6 @@
         "append_talkgroup": false,
         "alerts": {
             "1056863528": [
-                "person shot",
-                "gunshot victim",
-                "shooting victim",
-                "EMS plan",
-                "still in box",
-                "stone box alarm",
-                "fill and box",
-                "pin in",
-                "opinion response",
-                "level one",
-                "level 1",
-                "the 10-1",
-                "that 10-1",
-                "a 10-1",
-                "5-1-5:",
-                "threatening to jump"
             ]
         }
     },
@@ -85,22 +69,6 @@
         "append_talkgroup": false,
         "alerts": {
             "1056863528": [
-                "person shot",
-                "gunshot victim",
-                "shooting victim",
-                "EMS plan",
-                "still in box",
-                "stone box alarm",
-                "fill and box",
-                "pin in",
-                "opinion response",
-                "level one",
-                "level 1",
-                "the 10-1",
-                "that 10-1",
-                "a 10-1",
-                "5-1-5:",
-                "threatening to jump"
             ]
         }
     },
@@ -109,22 +77,6 @@
         "append_talkgroup": false,
         "alerts": {
             "1056863528": [
-                "person shot",
-                "gunshot victim",
-                "shooting victim",
-                "EMS plan",
-                "still in box",
-                "stone box alarm",
-                "fill and box",
-                "pin in",
-                "opinion response",
-                "level one",
-                "level 1",
-                "the 10-1",
-                "that 10-1",
-                "a 10-1",
-                "5-1-5:",
-                "threatening to jump"
             ]
         }
     },
@@ -160,19 +112,11 @@
                 "person shot",
                 "gunshot victim",
                 "shooting victim",
-                "EMS plan",
-                "still in box",
-                "stone box alarm",
-                "fill and box",
-                "pin in",
-                "opinion response",
-                "level one",
-                "level 1",
                 "the 10-1",
                 "that 10-1",
                 "a 10-1",
-                "5-1-5:",
-                "threatening to jump"
+                "threatening to jump",
+                "SWAT incident"
             ]
         }
     },
@@ -184,19 +128,11 @@
                 "person shot",
                 "gunshot victim",
                 "shooting victim",
-                "EMS plan",
-                "still in box",
-                "stone box alarm",
-                "fill and box",
-                "pin in",
-                "opinion response",
-                "level one",
-                "level 1",
                 "the 10-1",
                 "that 10-1",
                 "a 10-1",
-                "5-1-5:",
-                "threatening to jump"
+                "threatening to jump",
+                "SWAT incident"
             ]
         }
     }
