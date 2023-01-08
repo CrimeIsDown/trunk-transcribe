@@ -23,7 +23,7 @@ do
     INSTANCE_ID="$(echo $instance | jq -r '.ID')"
     BID="$(echo $instance | jq -r '."$/hr" * 1.5')"
 
-    IMAGE="crimeisdown/trunk-transcribe:main-medium.en"
+    IMAGE="crimeisdown/trunk-transcribe:main-medium.en-cu117"
     REQUEST=$(mktemp)
 
     set -x
