@@ -25,7 +25,7 @@ def parse_radio_id(input: str, system: str) -> tuple[str, str]:
 
 
 def transcribe_call(audio_file: str, metadata: dict) -> str:
-    result = ""
+    result = []
 
     prev_transcript = ""
     for i in range(0, len(metadata["srcList"])):
@@ -74,8 +74,15 @@ def transcribe_call(audio_file: str, metadata: dict) -> str:
         else:
             transcript = transcript.strip()
 
-        result += f"<i>{src}:</i> {transcript}\n"
+        result.append((src, transcript))
 
         prev_transcript = transcript
 
-    return result
+    if len(result) < 1:
+        raise RuntimeError("Transcript empty/null")
+
+    # If it is just unintelligible, don't bother
+    if len(result) == 1 and result[0][1] == "(unintelligible)":
+        raise RuntimeError("No speech found")
+
+    return "\n".join([f"<i>{src}:</i> {transcript}" for src, transcript in result])
