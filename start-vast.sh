@@ -1,6 +1,8 @@
 #!/bin/bash
 set -eo pipefail
 
+cd "$(dirname "${BASH_SOURCE[0]}")"
+
 source .env.vast
 
 START=${1:-1}
@@ -15,12 +17,12 @@ EXISTING_INSTANCES="$(vast show instances --raw | jq -r '.[].machine_id' | paste
 
 if [[ "$START" == "--min-instances" ]]; then
     DESIRED_COUNT=$END
-    CURRENT_COUNT=$(echo $EXISTING_INSTANCES | tr \| ' ' | wc -w)
+    CURRENT_COUNT=$(curl --fail-with-body -Ss 'http://crimeisdown:5555/api/workers?refresh=true&status=true' | jq -r 'to_entries | map(select(.value == true)) | length')
 
     START=1
-    END=$(($DESIRED_COUNT - $CURRENT_COUNT))
+    END=$(($DESIRED_COUNT - $CURRENT_COUNT + 1))
 
-    if [ $END -lt 1 ]; then
+    if [ $END -lt 2 ]; then
         echo "Enough instances running, exiting"
         exit
     fi
