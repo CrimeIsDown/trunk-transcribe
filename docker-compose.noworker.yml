@@ -1,0 +1,7 @@
+version: '3.8'
+
+services:
+
+  worker:
+    deploy:
+      replicas: 0

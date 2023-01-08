@@ -45,6 +45,8 @@ services:
 
   broker:
     image: rabbitmq:3-management
+    volumes:
+      - broker-data:/var/lib/rabbitmq
     ports:
       - 5672:5672
       - 15672:15672
@@ -67,4 +69,5 @@ services:
 
 volumes:
   flowerdb:
+  broker-data:
   typesense-data:
