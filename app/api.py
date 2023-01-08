@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
 
 import json
-from base64 import b64encode
 import os
+from base64 import b64encode
 
 from celery.result import AsyncResult
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 
-from .worker import get_telegram_channel, transcribe_task
+from app.telegram import get_telegram_channel
+from app.worker import transcribe_task, celery as celery_app
+
+load_dotenv()
 
 app = FastAPI()
 
@@ -40,7 +44,7 @@ def queue_for_transcription(
 
 @app.get("/tasks/{task_id}")
 def get_status(task_id):
-    task_result = AsyncResult(task_id)
+    task_result = AsyncResult(task_id, app=celery_app)
     result = {
         "task_id": task_id,
         "task_status": task_result.status,

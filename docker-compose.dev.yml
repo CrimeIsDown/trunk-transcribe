@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+
+  web:
+    image: trunk-transcribe:${WHISPER_MODEL}-${DESIRED_CUDA}
+    build:
+      context: .
+      args:
+        WHISPER_MODEL: ${WHISPER_MODEL}
+        DESIRED_CUDA: ${DESIRED_CUDA:-cu117}
+
+  worker:
+    image: trunk-transcribe:${WHISPER_MODEL}-${DESIRED_CUDA}
+    build:
+      context: .
+      args:
+        WHISPER_MODEL: ${WHISPER_MODEL}
+        DESIRED_CUDA: ${DESIRED_CUDA:-cu117}
+
+  dashboard:
+    image: trunk-transcribe:${WHISPER_MODEL}-${DESIRED_CUDA}
+    build:
+      context: .
+      args:
+        WHISPER_MODEL: ${WHISPER_MODEL}
+        DESIRED_CUDA: ${DESIRED_CUDA:-cu117}

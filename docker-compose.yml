@@ -3,8 +3,7 @@ version: '3.8'
 services:
 
   web:
-    image: crimeisdown/trunk-transcribe:main-medium.en
-    build: .
+    image: crimeisdown/trunk-transcribe:main-${WHISPER_MODEL}
     ports:
       - 8000:8000
     command: web
@@ -16,8 +15,7 @@ services:
     restart: always
 
   worker:
-    image: crimeisdown/trunk-transcribe:main-medium.en
-    build: .
+    image: crimeisdown/trunk-transcribe:main-${WHISPER_MODEL}
     command: worker
     volumes:
       - ./app:/src/app
@@ -27,8 +25,7 @@ services:
     restart: always
 
   dashboard:
-    image: crimeisdown/trunk-transcribe:main-medium.en
-    build: .
+    image: crimeisdown/trunk-transcribe:main-${WHISPER_MODEL}
     command: flower
     volumes:
       - ./flowerconfig.py:/src/flowerconfig.py
@@ -36,7 +33,14 @@ services:
       - flowerdb:/src/data
     ports:
       - 5555:5555
-    env_file: .env
+    environment:
+      - CELERY_BROKER_URL
+      - CELERY_RESULT_BACKEND
+      - FLOWER_PURGE_OFFLINE_WORKERS=1
+      - FLOWER_PERSISTENT=1
+      - FLOWER_DB=/src/data/flower
+      - FLOWER_STATE_SAVE_INTERVAL=30000
+      - FLOWER_BROKER_API
     restart: always
 
   broker:
@@ -44,14 +48,20 @@ services:
     ports:
       - 5672:5672
       - 15672:15672
-    env_file: .env
+    environment:
+      - RABBITMQ_DEFAULT_USER
+      - RABBITMQ_DEFAULT_PASS
     restart: always
 
   typesense:
     image: typesense/typesense:0.23.1
     ports:
       - 8108:8108
-    env_file: .env
+    environment:
+      - TYPESENSE_DATA_DIR=/data
+      - TYPESENSE_API_KEY
+      - TYPESENSE_ENABLE_CORS
+      - TYPESENSE_CORS_DOMAINS
     volumes:
       - typesense-data:/data
 

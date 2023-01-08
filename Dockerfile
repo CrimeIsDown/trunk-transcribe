@@ -1,6 +1,4 @@
 FROM ubuntu:22.04
-# ARG CUDA_VERSION=11.7
-# FROM nvidia/cuda:${CUDA_VERSION}.0-base-ubuntu22.04
 
 # Use the closest mirror instead of default mirror
 RUN sed -i 's#http://archive.ubuntu.com/ubuntu/#http://mirror.steadfastnet.com/ubuntu/#g' /etc/apt/sources.list
@@ -16,6 +14,8 @@ RUN apt-get update && \
     && \
     rm -rf /var/lib/apt/lists/*
 
+ARG DESIRED_CUDA
+ARG TARGETPLATFORM
 COPY install-whisper.sh /usr/local/bin/install-whisper.sh
 RUN install-whisper.sh
 

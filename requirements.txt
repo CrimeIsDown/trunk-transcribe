@@ -1,9 +1,12 @@
-fastapi
-uvicorn[standard]
-python-multipart
-requests
+boto3
+boto3-stubs
 celery
+fastapi
 flower
 gevent
+python-dotenv
+python-multipart
 python-telegram-bot
+requests
 typesense
+uvicorn[standard]

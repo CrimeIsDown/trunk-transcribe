@@ -14,8 +14,16 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        model: [tiny.en, small.en, medium.en]
-        platform: [linux/amd64]
+        model: ["base.en", "small.en", "medium.en"]
+        platform: ["linux/amd64"]
+        desired_cuda: ["cu117"]
+        include:
+          - model: tiny.en
+            platform: linux/amd64
+            desired_cuda: cpu
+          - model: tiny.en
+            platform: linux/arm64
+            desired_cuda: cpu
     steps:
     - name: Checkout
       uses: actions/checkout@v3
@@ -33,10 +41,11 @@ jobs:
       with:
         context: .
         push: true
-        tags: "${{ secrets.REPO_NAME }}:${{ github.ref_name }}-${{ matrix.model }}"
+        tags: "${{ secrets.REPO_NAME }}:${{ github.ref_name }}-${{ matrix.model }}-${{ matrix.desired_cuda }}"
         platforms: ${{ matrix.platform }}
         build-args: |
           WHISPER_MODEL=${{ matrix.model }}
+          DESIRED_CUDA=${{ matrix.desired_cuda }}
           GIT_COMMIT=${{ github.sha }}
-        cache-from: type=registry,ref=${{ secrets.REPO_NAME }}:${{ github.ref_name }}-${{ matrix.model }}
+        cache-from: type=registry,ref=${{ secrets.REPO_NAME }}:${{ github.ref_name }}-${{ matrix.model }}-${{ matrix.desired_cuda }}
         cache-to: type=inline

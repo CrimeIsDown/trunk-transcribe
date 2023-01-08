@@ -1,9 +1,17 @@
 #!/bin/bash
 
-CUDA_VERSION=${CUDA_VERSION:-11.7.0}
+set -eou pipefail
 
-PYTORCH_URL="https://download.pytorch.org/whl/cu$(echo $CUDA_VERSION | tr -d '.0')"
+WHISPER_PACKAGE=${WHISPER_PACKAGE:-git+https://github.com/openai/whisper.git}
 
-pip3 install \
-    --extra-index-url $PYTORCH_URL \
-    git+https://github.com/openai/whisper.git
+DESIRED_CUDA=${DESIRED_CUDA:-cu117}
+PYTORCH_URL="https://download.pytorch.org/whl/$DESIRED_CUDA"
+
+if [ "$TARGETPLATFORM" = "linux/amd64" ]; then
+    pip3 install --extra-index-url $PYTORCH_URL $WHISPER_PACKAGE
+elif [ "$TARGETPLATFORM" = "linux/arm64" ]; then
+    pip3 install $WHISPER_PACKAGE
+else
+    echo "Unsupported platform: $TARGETPLATFORM" >&2
+    exit 1
+fi

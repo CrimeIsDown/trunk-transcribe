@@ -1,0 +1,17 @@
+{
+"freq": 477787500,
+"start_time": 1673118015,
+"stop_time": 1673118023,
+"emergency": 0,
+"encrypted": 0,
+"call_length": 5,
+"talkgroup": 1,
+"talkgroup_tag": "CFD Fire N",
+"talkgroup_description": "Fire: Main (North)|Main",
+"talkgroup_group_tag": "Fire Dispatch",
+"talkgroup_group": "Chicago Fire Department",
+"audio_type": "digital",
+"short_name": "chi_cfd",
+"freqList": [ {"freq": 477787500, "time": 1673118015, "pos": 0.00, "len": 4.68, "error_count": "20", "spike_count": "6"}, {"freq": 477787500, "time": 1673118022, "pos": 4.68, "len": 0.72, "error_count": "8", "spike_count": "6"} ],
+"srcList": [ {"src": 1410967, "time": 1673118015, "pos": 0.00, "emergency": 0, "signal_system": "", "tag": ""}, {"src": 911005, "time": 1673118022, "pos": 4.68, "emergency": 0, "signal_system": "", "tag": ""} ]
+}

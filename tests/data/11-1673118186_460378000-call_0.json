@@ -1,0 +1,17 @@
+{
+"freq": 460378000,
+"start_time": 1673118186,
+"stop_time": 1673118193,
+"emergency": 0,
+"encrypted": 0,
+"call_length": 7,
+"talkgroup": 11,
+"talkgroup_tag": "ChiPD Zone11",
+"talkgroup_description": "Police: Dispatch Zone 11 - Districts 20 24",
+"talkgroup_group_tag": "Law Dispatch",
+"talkgroup_group": "Chicago Police Department (CPD)",
+"audio_type": "analog",
+"short_name": "chi_cpd",
+"freqList": [ {"freq": 460378000, "time": 1673118186, "pos": 0.00, "len": 6.91, "error_count": "0", "spike_count": "0"} ],
+"srcList": [ {"src": 23990, "time": 1673118186, "pos": 0.00, "emergency": 0, "signal_system": "", "tag": ""} ]
+}

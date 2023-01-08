@@ -1,7 +1,7 @@
 #!/bin/bash
-set -e
+set -eo pipefail
 
-source .env
+source .env.vast
 
 INSTANCES=$(mktemp)
 QUERY="rentable=true reliability>0.98 num_gpus=1 dlperf_usd>200 dph<=0.1 cuda_vers>=11.7"
@@ -17,7 +17,7 @@ jq -c -Rn '
                         map(.key = $head[.key]) |
                         [ .[] ] |
                 from_entries' | \
-head -n $1 | \
+head -n ${1:-1} | \
 while read -r instance
 do
     INSTANCE_ID="$(echo $instance | jq -r '.ID')"
@@ -37,7 +37,14 @@ do
         "TELEGRAM_BOT_TOKEN": "$TELEGRAM_BOT_TOKEN",
         "CELERY_BROKER_URL": "$CELERY_BROKER_URL",
         "CELERY_RESULT_BACKEND": "$CELERY_RESULT_BACKEND",
-        "API_BASE_URL": "$API_BASE_URL"
+        "API_BASE_URL": "$API_BASE_URL",
+        "TYPESENSE_HOST": "$TYPESENSE_HOST",
+        "TYPESENSE_API_KEY": "$TYPESENSE_API_KEY",
+        "S3_ENDPOINT": "$S3_ENDPOINT",
+        "S3_PUBLIC_URL": "$S3_PUBLIC_URL",
+        "AWS_ACCESS_KEY_ID": "$AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY": "$AWS_SECRET_ACCESS_KEY",
+        "S3_BUCKET": "$S3_BUCKET"
     },
     "price": $BID,
     "disk": 0.5,
