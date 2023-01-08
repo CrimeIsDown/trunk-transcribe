@@ -3,7 +3,7 @@ version: '3.8'
 services:
 
   web:
-    image: crimeisdown/trunk-transcribe:main-${WHISPER_MODEL}
+    image: crimeisdown/trunk-transcribe:main-tiny.en-cpu
     ports:
       - 8000:8000
     command: web
@@ -15,7 +15,7 @@ services:
     restart: always
 
   worker:
-    image: crimeisdown/trunk-transcribe:main-${WHISPER_MODEL}
+    image: crimeisdown/trunk-transcribe:main-${WHISPER_MODEL:-medium.en}-${DESIRED_CUDA:-cu117}
     command: worker
     volumes:
       - ./app:/src/app
@@ -25,7 +25,7 @@ services:
     restart: always
 
   dashboard:
-    image: crimeisdown/trunk-transcribe:main-${WHISPER_MODEL}
+    image: crimeisdown/trunk-transcribe:main-tiny.en-cpu
     command: flower
     volumes:
       - ./flowerconfig.py:/src/flowerconfig.py
