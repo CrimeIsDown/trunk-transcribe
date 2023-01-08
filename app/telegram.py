@@ -16,7 +16,7 @@ def get_telegram_channel(metadata: dict) -> dict:
         if re.compile(regex).match(f"{metadata['talkgroup']}@{metadata['short_name']}"):
             return mapping
 
-    raise Exception("Transcribing not setup for talkgroup")
+    raise RuntimeError("Transcribing not setup for talkgroup")
 
 
 async def send_message(

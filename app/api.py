@@ -25,7 +25,9 @@ def queue_for_transcription(
 ):
     metadata = json.loads(call_json.file.read())
 
-    if not get_telegram_channel(metadata):
+    try:
+        get_telegram_channel(metadata)
+    except RuntimeError:
         raise HTTPException(
             status_code=400, detail="Transcribing not setup for talkgroup"
         )
