@@ -3,9 +3,40 @@ set -eo pipefail
 
 source .env.vast
 
+START=${1:-1}
+END=$2
+
+if [[ -z "$END" ]]; then
+    END=$START
+    START=1
+fi
+
+EXISTING_INSTANCES="$(vast show instances --raw | jq -r '.[].machine_id' | paste -sd\| -)"
+
+if [[ "$START" == "--min-instances" ]]; then
+    DESIRED_COUNT=$END
+    CURRENT_COUNT=$(echo $EXISTING_INSTANCES | tr \| ' ' | wc -w)
+
+    START=1
+    END=$(($DESIRED_COUNT - $CURRENT_COUNT))
+
+    if [ $END -lt 1 ]; then
+        echo "Enough instances running, exiting"
+        exit
+    fi
+fi
+
+if [[ -z "$EXISTING_INSTANCES" ]]; then
+    EXISTING_INSTANCES="no-instances"
+fi
+
+echo -e "Planning to start these instances:\n"
+
 INSTANCES=$(mktemp)
-QUERY="rentable=true reliability>0.98 num_gpus=1 dlperf_usd>200 dph<=0.1 cuda_vers>=11.7"
-vast search offers -n -i -o 'dph' "$QUERY" | tee $INSTANCES
+QUERY="rentable=true rented=false reliability>0.98 num_gpus=1 dlperf_usd>200 dph<=0.1 cuda_vers>=11.7"
+vast search offers -n -i -o 'dph' "$QUERY" | \
+grep -Ev "\b$EXISTING_INSTANCES\b" | \
+sed -n "1,1p;$((${START} + 1)),$((${END} + 1))p;$((${END} + 2))q" | tee $INSTANCES
 sleep 5
 
 cat $INSTANCES | \
@@ -17,7 +48,7 @@ jq -c -Rn '
                         map(.key = $head[.key]) |
                         [ .[] ] |
                 from_entries' | \
-head -n ${1:-1} | \
+sed -n "${START},${END}p;$((${END} + 1))q" | \
 while read -r instance
 do
     INSTANCE_ID="$(echo $instance | jq -r '.ID')"
@@ -34,6 +65,7 @@ do
     "image": "$IMAGE",
     "args": ["worker"],
     "env": {
+        "CELERY_HOSTNAME": "celery-$(git rev-parse --short HEAD)@vast-$INSTANCE_ID",
         "TELEGRAM_BOT_TOKEN": "$TELEGRAM_BOT_TOKEN",
         "CELERY_BROKER_URL": "$CELERY_BROKER_URL",
         "CELERY_RESULT_BACKEND": "$CELERY_RESULT_BACKEND",
