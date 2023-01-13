@@ -67,7 +67,19 @@ services:
     volumes:
       - typesense-data:/data
 
+  meilisearch:
+    image: 'getmeili/meilisearch:latest'
+    ports:
+      - '${FORWARD_MEILISEARCH_PORT:-7700}:7700'
+    volumes:
+      - meilisearch-data:/meili_data
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--spider",  "http://localhost:7700/health"]
+      retries: 3
+      timeout: 5s
+
 volumes:
   flowerdb:
   broker-data:
   typesense-data:
+  meilisearch-data:

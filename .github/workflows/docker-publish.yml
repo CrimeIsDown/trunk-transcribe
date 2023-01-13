@@ -21,9 +21,6 @@ jobs:
           - model: tiny.en
             platform: linux/amd64
             desired_cuda: cpu
-          - model: tiny.en
-            platform: linux/arm64
-            desired_cuda: cpu
     steps:
     - name: Checkout
       uses: actions/checkout@v3
