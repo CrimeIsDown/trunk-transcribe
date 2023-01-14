@@ -8,5 +8,6 @@ meilisearch
 python-dotenv
 python-multipart
 python-telegram-bot
+pytz
 requests
 uvicorn[standard]

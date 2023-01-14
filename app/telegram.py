@@ -1,7 +1,9 @@
 import os
 import re
 import logging
-from datetime import datetime
+import pytz
+from time import time
+from datetime import datetime, timezone
 from app.config import get_telegram_channel_mappings, get_ttl_hash
 from telegram import Bot, Chat, Message
 
@@ -31,6 +33,14 @@ async def send_message(
 
     if channel["append_talkgroup"]:
         transcript = transcript + f"\n<b>{metadata['talkgroup_tag']}</b>"
+
+    if time() - metadata["stop_time"] > 120:
+        timestamp = (
+            datetime.fromtimestamp(metadata["start_time"], tz=timezone.utc)
+            .astimezone(pytz.timezone(os.getenv("TZ", "America/Chicago")))
+            .strftime("%-m/%-d/%Y %-I:%M:%S %p %Z")
+        )
+        transcript = transcript + f"\n<i>{timestamp} (delayed)</i>"
 
     async with Bot(os.getenv("TELEGRAM_BOT_TOKEN", "")) as bot:
         with open(voice_file, "rb") as file:

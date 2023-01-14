@@ -10,7 +10,12 @@ deps:
 fmt:
 	black app tests
 
-test:
+restart: start
+	docker compose restart web worker
+
+test: restart
+	@echo "Waiting for services to come online..."
+	@sleep 10
 	python -m unittest
 
-.PHONY: build deps fmt test
+.PHONY: build deps fmt restart test
