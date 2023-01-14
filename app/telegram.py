@@ -43,7 +43,7 @@ async def send_message(
             .astimezone(pytz.timezone(os.getenv("TZ", "America/Chicago")))
             .strftime(windows_format if platform == "win32" else linux_format)
         )
-        transcript = transcript + f"\n<i>{timestamp} (delayed)</i>"
+        transcript = transcript + f"\n\n<i>{timestamp} (delayed)</i>"
 
     async with Bot(os.getenv("TELEGRAM_BOT_TOKEN", "")) as bot:
         with open(voice_file, "rb") as file:
