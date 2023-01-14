@@ -2,81 +2,39 @@ import datetime
 import json
 import logging
 import os
-import typesense
-from app.conversion import convert_to_mp3
+from typing import Any
 
+from meilisearch import Client
+from meilisearch.errors import MeiliSearchApiError
+from meilisearch.index import Index
+from meilisearch.models.task import TaskInfo
+
+from app.conversion import convert_to_mp3
 from app.digital import parse_radio_id
 from app.storage import upload_file
 
-search_client = None
+
+index = None
 
 
-def get_search_client() -> typesense.Client:
-    global search_client
-    if not search_client:
-        host = os.getenv("TYPESENSE_HOST", "localhost")
-        port = os.getenv("TYPESENSE_PORT", "8108")
-        protocol = os.getenv("TYPESENSE_PROTO", "http")
-        api_key = os.getenv("TYPESENSE_API_KEY")
+def get_index() -> Index:
+    global index
+    if not index:
+        url = os.getenv("MEILI_URL", "http://127.0.0.1:7700")
+        api_key = os.getenv("MEILI_MASTER_KEY")
+        client = Client(url=url, api_key=api_key)
 
-        search_client = typesense.Client(
-            {
-                "nodes": [
-                    {
-                        "host": host,  # For Typesense Cloud use xxx.a1.typesense.net
-                        "port": port,  # For Typesense Cloud use 443
-                        "protocol": protocol,  # For Typesense Cloud use https
-                    }
-                ],
-                "api_key": api_key,
-                "connection_timeout_seconds": 2,
-            }
-        )
-    return search_client
+        index_name = os.getenv("MEILI_INDEX", "calls")
+        index = client.index(index_name)
+        try:
+            index.fetch_info()
+        except MeiliSearchApiError:
+            index = create_index(client, index_name)
+
+    return index
 
 
-def index(metadata: dict, audio_file: str, transcript: str):
-    client = get_search_client()
-
-    collection_name = "calls"
-
-    calls_schema = {
-        "name": collection_name,
-        "fields": [
-            {"name": "freq", "type": "int32"},
-            {"name": "start_time", "type": "int64", "facet": True},
-            {"name": "stop_time", "type": "int64"},
-            {"name": "call_length", "type": "int32"},
-            {"name": "talkgroup", "type": "int32", "facet": True},
-            {"name": "talkgroup_tag", "type": "string", "facet": True},
-            {"name": "talkgroup_description", "type": "string", "facet": True},
-            {"name": "talkgroup_group_tag", "type": "string", "facet": True},
-            {"name": "talkgroup_group", "type": "string", "facet": True},
-            {"name": "audio_type", "type": "string", "facet": True},
-            {"name": "short_name", "type": "string", "facet": True},
-            {"name": "srcList", "type": "string[]", "facet": True},
-            {"name": "transcript", "type": "string"},
-            {
-                "name": "raw_metadata",
-                "type": "string",
-                "index": False,
-                "optional": True,
-            },
-            {
-                "name": "raw_audio_url",
-                "type": "string",
-                "index": False,
-                "optional": True,
-            },
-        ],
-        "default_sorting_field": "stop_time",
-    }
-
-    if "calls" not in [
-        collection["name"] for collection in client.collections.retrieve()
-    ]:
-        client.collections.create(calls_schema)
-
+def index_call(metadata: dict, audio_file: str, transcript: str) -> TaskInfo:
     srcList = [
         src["tag"]
         if len(src["tag"])
@@ -111,4 +69,32 @@ def index(metadata: dict, audio_file: str, transcript: str):
 
     logging.debug(f"Sending document to be indexed: {str(doc)}")
 
-    client.collections[collection_name].documents.create(doc)  # type: ignore
+    return get_index().add_documents([doc])
+
+
+def create_index(client: Client, index_name: str) -> Index:
+    client.create_index(index_name)
+    index = client.index(index_name)
+
+    index.update_settings({
+        "searchableAttributes": [
+            "transcript",
+            "srcList",
+        ],
+        "filterableAttributes": [
+            "start_time",
+            "talkgroup",
+            "talkgroup_tag",
+            "talkgroup_description",
+            "talkgroup_group_tag",
+            "talkgroup_group",
+            "audio_type",
+            "short_name",
+            "srcList",
+        ],
+        "sortableAttributes": [
+            "start_time",
+        ],
+    })
+
+    return index

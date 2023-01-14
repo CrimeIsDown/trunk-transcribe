@@ -4,9 +4,9 @@ celery
 fastapi
 flower
 gevent
+meilisearch
 python-dotenv
 python-multipart
 python-telegram-bot
 requests
-typesense
 uvicorn[standard]

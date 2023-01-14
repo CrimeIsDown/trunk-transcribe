@@ -9,7 +9,7 @@ from base64 import b64decode
 from celery import Celery
 from dotenv import load_dotenv
 
-from app.search import index
+from app.search import index_call
 from app.telegram import send_message
 
 load_dotenv()
@@ -46,7 +46,7 @@ def transcribe(metadata: dict, audio_file: str, debug: bool) -> str:
         logging.error(e)
         pass
 
-    index(metadata=metadata, audio_file=audio_file, transcript=transcript)
+    index_call(metadata=metadata, audio_file=audio_file, transcript=transcript)
 
     return transcript
 

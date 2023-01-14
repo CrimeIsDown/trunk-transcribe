@@ -55,22 +55,12 @@ services:
       - RABBITMQ_DEFAULT_PASS
     restart: always
 
-  typesense:
-    image: typesense/typesense:0.23.1
-    ports:
-      - 8108:8108
-    environment:
-      - TYPESENSE_DATA_DIR=/data
-      - TYPESENSE_API_KEY
-      - TYPESENSE_ENABLE_CORS
-      - TYPESENSE_CORS_DOMAINS
-    volumes:
-      - typesense-data:/data
-
   meilisearch:
     image: 'getmeili/meilisearch:latest'
     ports:
-      - '${FORWARD_MEILISEARCH_PORT:-7700}:7700'
+      - 7700:7700
+    environment:
+      - MEILI_MASTER_KEY
     volumes:
       - meilisearch-data:/meili_data
     healthcheck:
@@ -81,5 +71,4 @@ services:
 volumes:
   flowerdb:
   broker-data:
-  typesense-data:
   meilisearch-data:
