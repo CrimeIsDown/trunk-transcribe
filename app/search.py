@@ -76,25 +76,27 @@ def create_index(client: Client, index_name: str) -> Index:
     client.create_index(index_name)
     index = client.index(index_name)
 
-    index.update_settings({
-        "searchableAttributes": [
-            "transcript",
-            "srcList",
-        ],
-        "filterableAttributes": [
-            "start_time",
-            "talkgroup",
-            "talkgroup_tag",
-            "talkgroup_description",
-            "talkgroup_group_tag",
-            "talkgroup_group",
-            "audio_type",
-            "short_name",
-            "srcList",
-        ],
-        "sortableAttributes": [
-            "start_time",
-        ],
-    })
+    index.update_settings(
+        {
+            "searchableAttributes": [
+                "transcript",
+                "srcList",
+            ],
+            "filterableAttributes": [
+                "start_time",
+                "talkgroup",
+                "talkgroup_tag",
+                "talkgroup_description",
+                "talkgroup_group_tag",
+                "talkgroup_group",
+                "audio_type",
+                "short_name",
+                "srcList",
+            ],
+            "sortableAttributes": [
+                "start_time",
+            ],
+        }
+    )
 
     return index

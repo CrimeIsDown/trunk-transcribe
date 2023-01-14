@@ -4,13 +4,17 @@ import json
 from time import time
 import requests
 
+api_key = os.getenv("API_KEY", "")
+
 
 @lru_cache()
 def get_telegram_channel_mappings(ttl_hash=None) -> dict:
     del ttl_hash
     try:
         r = requests.get(
-            url=f"{os.getenv('API_BASE_URL')}/config/telegram-channels.json", timeout=5
+            url=f"{os.getenv('API_BASE_URL')}/config/telegram-channels.json",
+            timeout=5,
+            headers={"Authorization": f"Bearer {api_key}"},
         )
         r.raise_for_status()
         return r.json()
@@ -24,7 +28,9 @@ def get_radio_id_replacements(ttl_hash=None) -> dict:
     del ttl_hash
     try:
         r = requests.get(
-            url=f"{os.getenv('API_BASE_URL')}/config/radio-ids.json", timeout=5
+            url=f"{os.getenv('API_BASE_URL')}/config/radio-ids.json",
+            timeout=5,
+            headers={"Authorization": f"Bearer {api_key}"},
         )
         r.raise_for_status()
         return r.json()

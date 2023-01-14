@@ -6,7 +6,7 @@ from base64 import b64encode
 
 from celery.result import AsyncResult
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, UploadFile
+from fastapi import FastAPI, HTTPException, UploadFile, Request, Header
 from fastapi.responses import JSONResponse
 
 from app.telegram import get_telegram_channel
@@ -15,6 +15,15 @@ from app.worker import transcribe_task, celery as celery_app
 load_dotenv()
 
 app = FastAPI()
+
+
+@app.middleware("http")
+def authenticate(request: Request, call_next):
+    api_key = os.getenv("API_KEY", "")
+
+    if api_key and request.headers.get("Authorization", "") != f"Bearer {api_key}":
+        raise HTTPException(status_code=401)
+    return call_next(request)
 
 
 @app.post("/tasks")

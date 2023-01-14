@@ -12,6 +12,9 @@ class TestEndToEnd(unittest.TestCase):
     def transcribe(self, call_audio_path: str, call_json_path: str) -> dict:
         API_BASE_URL = "http://127.0.0.1:8000"
 
+        api_key = os.getenv("API_KEY", "")
+        headers = {"Authorization": f"Bearer {api_key}"}
+
         with open(call_audio_path, "rb") as call_audio, open(
             call_json_path, "r"
         ) as call_json:
@@ -20,13 +23,16 @@ class TestEndToEnd(unittest.TestCase):
                 params={"debug": True},
                 files={"call_audio": call_audio, "call_json": call_json},
                 timeout=5,
+                headers=headers,
             )
         r.raise_for_status()
         task_id = r.json()["task_id"]
 
         sleep(5)
 
-        r = requests.get(url=f"{API_BASE_URL}/tasks/{task_id}", timeout=5)
+        r = requests.get(
+            url=f"{API_BASE_URL}/tasks/{task_id}", timeout=5, headers=headers
+        )
         r.raise_for_status()
         result = r.json()
         # Make sure we got the correct task while also throwing out something that would mess up our comparison alter
@@ -35,7 +41,7 @@ class TestEndToEnd(unittest.TestCase):
 
     def test_transcribes_digital(self):
         expected = {
-            "task_result": "<i>E96:</i> some fake text\n",
+            "task_result": "<i>E96:</i> some fake text",
             "task_status": "SUCCESS",
         }
 
