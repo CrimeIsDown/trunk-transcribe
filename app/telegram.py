@@ -32,6 +32,12 @@ async def send_message(
 
     voice_file = convert_to_ogg(audio_file=audio_file)
 
+    # Telegram has a 1024 char max for the caption, so truncate long ones
+    # (we use less than 1024 to account for HTML and what we will add next)
+    transcript_max_len = 950
+    if len(transcript) > transcript_max_len:
+        transcript = f"{transcript[:transcript_max_len]}... (truncated)"
+
     if channel["append_talkgroup"]:
         transcript = transcript + f"\n<b>{metadata['talkgroup_tag']}</b>"
 
