@@ -2,7 +2,7 @@ import datetime
 import json
 import logging
 import os
-from typing import Any
+from hashlib import sha256
 
 from meilisearch import Client
 from meilisearch.errors import MeiliSearchApiError
@@ -47,7 +47,9 @@ def index_call(metadata: dict, audio_file: str, transcript: str) -> TaskInfo:
         start_time.strftime("%Y/%m/%d/%H/%Y%m%d_%H%M%S")
         + f"_{metadata['short_name']}_{metadata['talkgroup']}.mp3"
     )
+    raw_metadata = json.dumps(metadata)
     raw_audio_url = upload_file(convert_to_mp3(audio_file), uploaded_audio_path)
+    id = sha256(raw_metadata.encode("utf-8")).hexdigest()
 
     doc = {
         "freq": metadata["freq"],
@@ -63,8 +65,9 @@ def index_call(metadata: dict, audio_file: str, transcript: str) -> TaskInfo:
         "short_name": metadata["short_name"],
         "srcList": srcList,
         "transcript": transcript,
-        "raw_metadata": json.dumps(metadata),
+        "raw_metadata": raw_metadata,
         "raw_audio_url": raw_audio_url,
+        "id": id,
     }
 
     logging.debug(f"Sending document to be indexed: {str(doc)}")
