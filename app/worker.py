@@ -42,11 +42,8 @@ def transcribe(metadata: dict, audio_file: str, debug: bool) -> str:
                 dry_run=debug,
             )
         )
-    except Exception as e:
-        logging.error(e)
-        pass
-
-    index_call(metadata=metadata, audio_file=audio_file, transcript=transcript)
+    finally:
+        index_call(metadata=metadata, audio_file=audio_file, transcript=transcript)
 
     return transcript
 
