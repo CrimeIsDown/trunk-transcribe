@@ -2,6 +2,7 @@ import os
 import re
 import logging
 import pytz
+from sys import platform
 from time import time
 from datetime import datetime, timezone
 from app.config import get_telegram_channel_mappings, get_ttl_hash
@@ -35,10 +36,12 @@ async def send_message(
         transcript = transcript + f"\n<b>{metadata['talkgroup_tag']}</b>"
 
     if time() - metadata["stop_time"] > 120:
+        linux_format = "%-m/%-d/%Y %-I:%M:%S %p %Z"
+        windows_format = linux_format.replace("-", "#")
         timestamp = (
             datetime.fromtimestamp(metadata["start_time"], tz=timezone.utc)
             .astimezone(pytz.timezone(os.getenv("TZ", "America/Chicago")))
-            .strftime("%-m/%-d/%Y %-I:%M:%S %p %Z")
+            .strftime(windows_format if platform == "win32" else linux_format)
         )
         transcript = transcript + f"\n<i>{timestamp} (delayed)</i>"
 
