@@ -17,13 +17,16 @@ from app.storage import upload_file
 index = None
 
 
+def get_client() -> Client:
+    url = os.getenv("MEILI_URL", "http://127.0.0.1:7700")
+    api_key = os.getenv("MEILI_MASTER_KEY")
+    return Client(url=url, api_key=api_key)
+
+
 def get_index() -> Index:
     global index
     if not index:
-        url = os.getenv("MEILI_URL", "http://127.0.0.1:7700")
-        api_key = os.getenv("MEILI_MASTER_KEY")
-        client = Client(url=url, api_key=api_key)
-
+        client = get_client()
         index_name = os.getenv("MEILI_INDEX", "calls")
         index = client.index(index_name)
         try:
@@ -98,6 +101,14 @@ def create_index(client: Client, index_name: str) -> Index:
             ],
             "sortableAttributes": [
                 "start_time",
+            ],
+            "rankingRules": [
+                "sort",
+                "words",
+                "typo",
+                "proximity",
+                "attribute",
+                "exactness",
             ],
         }
     )

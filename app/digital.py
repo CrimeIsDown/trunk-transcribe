@@ -24,20 +24,29 @@ def parse_radio_id(input: str, system: str) -> tuple[str, str]:
     return (input, "")
 
 
+def dedupe_srclist(srclist: list[dict]) -> list[dict]:
+    prev_src = None
+    new_srclist = []
+    for src in srclist:
+        if prev_src != src["src"]:
+            new_srclist.append(src)
+            prev_src = src["src"]
+    return new_srclist
+
+
 def transcribe_call(audio_file: str, metadata: dict) -> str:
     result = []
 
     prev_transcript = ""
-    for i in range(0, len(metadata["srcList"])):
-        src = metadata["srcList"][i]["src"]
+    srcList = dedupe_srclist(metadata["srcList"])
+    for i in range(0, len(srcList)):
+        src = srcList[i]["src"]
 
         src_file = os.path.splitext(audio_file)[0] + "-" + str(src) + ".wav"
-        start = metadata["srcList"][i]["pos"]
+        start = srcList[i]["pos"]
         trim_args = ["sox", audio_file, src_file, "trim", f"={start}"]
         try:
-            while src == metadata["srcList"][i + 1]["src"]:
-                i += 1
-            end = metadata["srcList"][i + 1]["pos"]
+            end = srcList[i + 1]["pos"]
             trim_args.append(f"={end}")
         except IndexError:
             pass
@@ -60,11 +69,7 @@ def transcribe_call(audio_file: str, metadata: dict) -> str:
         if len(parsed_src_prompt):
             prev_transcript += f" {parsed_src_prompt}"
 
-        src = (
-            metadata["srcList"][i]["tag"]
-            if len(metadata["srcList"][i]["tag"])
-            else parsed_src
-        )
+        src = srcList[i]["tag"] if len(srcList[i]["tag"]) else parsed_src
 
         response = transcribe(src_file, prev_transcript)
 
