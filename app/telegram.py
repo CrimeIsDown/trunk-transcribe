@@ -28,6 +28,10 @@ async def send_message(
     transcript: str,
     dry_run: bool = False,
 ):
+    # If delayed over 20 minutes, don't bother sending to Telegram
+    if time() - metadata["stop_time"] > 1200:
+        return
+
     channel = get_telegram_channel(metadata)
 
     voice_file = convert_to_ogg(audio_file=audio_file)
@@ -41,6 +45,7 @@ async def send_message(
     if channel["append_talkgroup"]:
         transcript = transcript + f"\n<b>{metadata['talkgroup_tag']}</b>"
 
+    # If delayed by over 2 mins add delay warning
     if time() - metadata["stop_time"] > 120:
         linux_format = "%-m/%-d/%Y %-I:%M:%S %p %Z"
         windows_format = linux_format.replace("-", "#")
