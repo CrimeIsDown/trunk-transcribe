@@ -3,6 +3,30 @@ import tempfile
 from os.path import dirname
 
 
+def convert_to_wav(audio_file: str) -> str:
+    dir = dirname(audio_file)
+    wav_file = tempfile.NamedTemporaryFile(delete=False, dir=dir, suffix=".wav")
+    wav_file.close()
+    p = subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-i",
+            audio_file,
+            "-c:a",
+            "pcm_s16le",
+            "-ar",
+            "16000",
+            wav_file.name,
+        ]
+    )
+    p.check_returncode()
+    return wav_file.name
+
+
 def convert_to_mp3(audio_file: str) -> str:
     dir = dirname(audio_file)
     mp3_file = tempfile.NamedTemporaryFile(delete=False, dir=dir, suffix=".mp3")

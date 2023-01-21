@@ -8,7 +8,7 @@ deps:
 	pip install -r requirements.txt -r requirements-dev.txt
 
 fmt:
-	black app tests
+	black app tests *.py
 
 restart: start
 	docker compose restart web worker

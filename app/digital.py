@@ -20,7 +20,8 @@ def transcribe_call(audio_file: str, metadata: dict) -> str:
     srcList = dedupe_srclist(metadata["srcList"])
     for i in range(0, len(srcList)):
         src = srcList[i]
-        src_file = os.path.splitext(audio_file)[0] + "-" + str(src["src"]) + ".wav"
+        src_id = str(src["src"])
+        src_file = os.path.splitext(audio_file)[0] + "-" + src_id + ".wav"
         start = src["pos"]
         trim_args = ["sox", audio_file, src_file, "trim", f"={start}"]
         try:
@@ -50,9 +51,9 @@ def transcribe_call(audio_file: str, metadata: dict) -> str:
         else:
             transcript = transcript.strip()
 
-        speaker_name = src["tag"] if len(src["tag"]) else str(src["src"])
+        src_tag = src["tag"] if len(src["tag"]) else src_id
 
-        result.append((speaker_name, transcript))
+        result.append((src_id, src_tag, transcript))
 
         prev_transcript = transcript
 
@@ -63,4 +64,9 @@ def transcribe_call(audio_file: str, metadata: dict) -> str:
     if len(result) == 1 and result[0][1] == "(unintelligible)":
         raise RuntimeError("No speech found")
 
-    return "\n".join([f"<i>{src}:</i> {transcript}" for src, transcript in result])
+    return "\n".join(
+        [
+            f'<i data-src="{src_id}">{src_tag}:</i> {transcript}'
+            for src_id, src_tag, transcript in result
+        ]
+    )
