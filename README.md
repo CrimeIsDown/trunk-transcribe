@@ -1,5 +1,5 @@
 # trunk-transcribe
-Transcription of calls from trunk-recorder, based on OpenAI Whisper
+Transcription of calls from trunk-recorder using OpenAI Whisper
 
 WORK IN PROGRESS
 
