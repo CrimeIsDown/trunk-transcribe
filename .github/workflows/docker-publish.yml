@@ -5,6 +5,15 @@ on:
       - main
     tags:
       - '*'
+    paths:
+      - 'app/**'
+      - 'config/**'
+      - 'Dockerfile'
+      - 'docker-entrypoint.sh'
+      - 'install-whisper.sh'
+      - 'requirements.txt'
+      - 'requirements-dev.txt'
+      - '.github/workflows/docker-publish.yml'
 
 env:
   DOCKER_USER: ${{secrets.DOCKER_USER}}
