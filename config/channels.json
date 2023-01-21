@@ -1,8 +1,4 @@
 {
-    "default": {
-        "chat_id": "-1005810719458",
-        "append_talkgroup": true
-    },
     "^9051@sc21": {
         "chat_id": "-1001858957886",
         "append_talkgroup": false,
@@ -55,6 +51,11 @@
                 "threatening to jump"
             ]
         }
+    },
+    "^(1|2|4|6|7|10|12|13)@chi_cpd$": {
+        "chat_id": null,
+        "append_talkgroup": false,
+        "alerts": {}
     },
     "^3@chi_cpd$": {
         "chat_id": "-1001833821942",

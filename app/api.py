@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, UploadFile, Request
 from fastapi.responses import JSONResponse
 
-from app.telegram import get_telegram_channel
+from app.telegram import get_channel_config
 from app.worker import transcribe_task, celery as celery_app
 
 load_dotenv()
@@ -35,7 +35,7 @@ def queue_for_transcription(
     metadata = json.loads(call_json.file.read())
 
     try:
-        get_telegram_channel(metadata)
+        get_channel_config(metadata)
     except RuntimeError:
         raise HTTPException(
             status_code=400, detail="Transcribing not setup for talkgroup"

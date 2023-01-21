@@ -26,15 +26,19 @@ class TestEndToEnd(unittest.TestCase):
                 headers=headers,
             )
         r.raise_for_status()
-        task_id = r.json()["task_id"]
-
-        sleep(5)
-
-        r = requests.get(
-            url=f"{API_BASE_URL}/tasks/{task_id}", timeout=5, headers=headers
-        )
-        r.raise_for_status()
         result = r.json()
+        pending_status = "PENDING"
+        task_status = result.get("task_status", pending_status)
+        task_id = result["task_id"]
+
+        while task_status == pending_status:
+            sleep(1)
+            r = requests.get(
+                url=f"{API_BASE_URL}/tasks/{task_id}", timeout=5, headers=headers
+            )
+            r.raise_for_status()
+            result = r.json()
+            task_status = result["task_status"]
         # Make sure we got the correct task while also throwing out something that would mess up our comparison alter
         self.assertEqual(task_id, result.pop("task_id"))
         return result

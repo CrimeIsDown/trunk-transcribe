@@ -10,7 +10,6 @@ from meilisearch.index import Index
 from meilisearch.models.task import TaskInfo
 
 from app.conversion import convert_to_mp3
-from app.digital import parse_radio_id
 from app.storage import upload_file
 
 
@@ -39,9 +38,7 @@ def get_index() -> Index:
 
 def index_call(metadata: dict, audio_file: str, transcript: str) -> TaskInfo:
     srcList = [
-        src["tag"]
-        if len(src["tag"])
-        else parse_radio_id(str(src["src"]), metadata["short_name"])[0]
+        src["tag"] if len(src["tag"]) else str(src["src"])
         for src in metadata["srcList"]
     ]
 

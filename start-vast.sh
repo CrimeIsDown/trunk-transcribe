@@ -1,5 +1,5 @@
 #!/bin/bash
-set -eo pipefail
+set -e
 
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
@@ -35,16 +35,12 @@ if [[ "$START" == "--min-instances" ]]; then
     fi
 fi
 
-if [[ -z "$EXISTING_INSTANCES" ]]; then
-    EXISTING_INSTANCES="no-instances"
-fi
-
 echo -e "Planning to start these instances:\n"
 
 INSTANCES=$(mktemp)
 QUERY="rentable=true rented=false reliability>0.98 num_gpus=1 gpu_ram>8 dlperf_usd>200 dph<=0.1 cuda_vers>=11.7"
 vast search offers -n -i -o 'dph' "$QUERY" | \
-grep -Ev "\b$EXISTING_INSTANCES\b" | \
+if [[ -n "$EXISTING_INSTANCES" ]]; then grep -Ev "\b$EXISTING_INSTANCES\b"; else cat; fi | \
 sed -n "1,1p;$((${START} + 1)),$((${END} + 1))p;$((${END} + 2))q" | tee $INSTANCES
 
 if [ -t 1 ]; then

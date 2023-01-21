@@ -1,27 +1,6 @@
 import os
 import subprocess
-import re
-from app.config import get_radio_id_replacements, get_ttl_hash
 from app.whisper import transcribe
-
-
-def parse_radio_id(input: str, system: str) -> tuple[str, str]:
-    radio_id_replacements = get_radio_id_replacements(get_ttl_hash(cache_seconds=60))
-
-    if system in radio_id_replacements.keys():
-        replacements = radio_id_replacements[system]
-        for replacement, patterns in replacements.items():
-            for pattern in patterns:
-                match = re.compile(pattern).match(input)
-                if match:
-                    groups = match.groups()
-                    if len(groups):
-                        replacement = replacement.format(
-                            int(match.groups()[0]), int(match.groups()[0])
-                        )
-                    return tuple(replacement.split(","))
-
-    return (input, "")
 
 
 def dedupe_srclist(srclist: list[dict]) -> list[dict]:
@@ -40,10 +19,9 @@ def transcribe_call(audio_file: str, metadata: dict) -> str:
     prev_transcript = ""
     srcList = dedupe_srclist(metadata["srcList"])
     for i in range(0, len(srcList)):
-        src = srcList[i]["src"]
-
-        src_file = os.path.splitext(audio_file)[0] + "-" + str(src) + ".wav"
-        start = srcList[i]["pos"]
+        src = srcList[i]
+        src_file = os.path.splitext(audio_file)[0] + "-" + str(src["src"]) + ".wav"
+        start = src["pos"]
         trim_args = ["sox", audio_file, src_file, "trim", f"={start}"]
         try:
             end = srcList[i + 1]["pos"]
@@ -61,15 +39,8 @@ def transcribe_call(audio_file: str, metadata: dict) -> str:
         if float(length_call.stdout) < 1:
             continue
 
-        try:
-            prev_transcript += " " + metadata["talkgroup_description"].split("|")[1]
-        except:
-            pass
-        parsed_src, parsed_src_prompt = parse_radio_id(str(src), metadata["short_name"])
-        if len(parsed_src_prompt):
-            prev_transcript += f" {parsed_src_prompt}"
-
-        src = srcList[i]["tag"] if len(srcList[i]["tag"]) else parsed_src
+        if len(src.get("transcript_prompt", "")):
+            prev_transcript += " " + src["transcript_prompt"]
 
         response = transcribe(src_file, prev_transcript)
 
@@ -79,7 +50,9 @@ def transcribe_call(audio_file: str, metadata: dict) -> str:
         else:
             transcript = transcript.strip()
 
-        result.append((src, transcript))
+        speaker_name = src["tag"] if len(src["tag"]) else str(src["src"])
+
+        result.append((speaker_name, transcript))
 
         prev_transcript = transcript
 

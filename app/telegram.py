@@ -5,19 +5,17 @@ import pytz
 from sys import platform
 from time import time
 from datetime import datetime, timezone
-from app.config import get_telegram_channel_mappings, get_ttl_hash
+from app.config import get_channels_config, get_ttl_hash
 from telegram import Bot, Chat, Message
 
 from app.conversion import convert_to_ogg
 
 
-def get_telegram_channel(metadata: dict) -> dict:
-    telegram_channel_mappings = get_telegram_channel_mappings(
-        get_ttl_hash(cache_seconds=60)
-    )
-    for regex, mapping in telegram_channel_mappings.items():
+def get_channel_config(metadata: dict) -> dict:
+    channels = get_channels_config(get_ttl_hash(cache_seconds=60))
+    for regex, config in channels.items():
         if re.compile(regex).match(f"{metadata['talkgroup']}@{metadata['short_name']}"):
-            return mapping
+            return config
 
     raise RuntimeError("Transcribing not setup for talkgroup")
 
@@ -32,7 +30,11 @@ async def send_message(
     if time() - metadata["stop_time"] > 1200:
         return
 
-    channel = get_telegram_channel(metadata)
+    channel = get_channel_config(metadata)
+
+    # If we don't have a chat ID defined, skip this part
+    if not channel["chat_id"]:
+        return
 
     voice_file = convert_to_ogg(audio_file=audio_file)
 
