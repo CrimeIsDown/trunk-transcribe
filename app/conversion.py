@@ -3,10 +3,10 @@ import tempfile
 from os.path import dirname
 
 
-def convert_to_wav(audio_file: str) -> str:
+def __convert_file(audio_file: str, format: str, ffmpeg_args: list[str]) -> str:
     dir = dirname(audio_file)
-    wav_file = tempfile.NamedTemporaryFile(delete=False, dir=dir, suffix=".wav")
-    wav_file.close()
+    file = tempfile.NamedTemporaryFile(delete=False, dir=dir, suffix=f".{format}")
+    file.close()
     p = subprocess.run(
         [
             "ffmpeg",
@@ -16,60 +16,50 @@ def convert_to_wav(audio_file: str) -> str:
             "error",
             "-i",
             audio_file,
+        ]
+        + ffmpeg_args
+        + [
+            file.name,
+        ]
+    )
+    p.check_returncode()
+    return file.name
+
+
+def convert_to_wav(audio_file: str) -> str:
+    return __convert_file(
+        audio_file,
+        "wav",
+        [
             "-c:a",
             "pcm_s16le",
             "-ar",
             "16000",
-            wav_file.name,
-        ]
+        ],
     )
-    p.check_returncode()
-    return wav_file.name
 
 
 def convert_to_mp3(audio_file: str) -> str:
-    dir = dirname(audio_file)
-    mp3_file = tempfile.NamedTemporaryFile(delete=False, dir=dir, suffix=".mp3")
-    mp3_file.close()
-    p = subprocess.run(
+    return __convert_file(
+        audio_file,
+        "mp3",
         [
-            "ffmpeg",
-            "-y",
-            "-hide_banner",
-            "-loglevel",
-            "error",
-            "-i",
-            audio_file,
             "-c:a",
             "libmp3lame",
             "-b:a",
             "32k",
-            mp3_file.name,
-        ]
+        ],
     )
-    p.check_returncode()
-    return mp3_file.name
 
 
 def convert_to_ogg(audio_file: str) -> str:
-    dir = dirname(audio_file)
-    ogg_file = tempfile.NamedTemporaryFile(delete=False, dir=dir, suffix=".ogg")
-    ogg_file.close()
-    p = subprocess.run(
+    return __convert_file(
+        audio_file,
+        "ogg",
         [
-            "ffmpeg",
-            "-y",
-            "-hide_banner",
-            "-loglevel",
-            "error",
-            "-i",
-            audio_file,
             "-c:a",
             "libopus",
             "-b:a",
             "128k",
-            ogg_file.name,
-        ]
+        ],
     )
-    p.check_returncode()
-    return ogg_file.name

@@ -1,51 +1,54 @@
 import os
 import subprocess
 from glob import glob
+
+from app.metadata import Metadata
 from app.whisper import transcribe
 
 
-def transcribe_call(audio_file: str, metadata: dict) -> str:
+def pad_silence(audio_file: str):
+    basename = os.path.splitext(audio_file)[0]
+    p = subprocess.run(
+        [
+            "sox",
+            audio_file,
+            f"{basename}-.wav",
+            "silence",
+            "1",
+            "0.1",
+            "0%",
+            "1",
+            "0.1",
+            "0%",
+            "pad",
+            "0",
+            "2",
+            ":",
+            "newfile",
+            ":",
+            "restart",
+        ]
+    )
+    p.check_returncode()
+
+    whisper_file = f"{basename}-whisper.wav"
+    sox_args = sorted(glob(f"{basename}-*.wav"))
+    sox_args.insert(0, "sox")
+    sox_args.append(whisper_file)
+    p = subprocess.run(sox_args)
+    p.check_returncode()
+
+    return whisper_file
+
+
+def transcribe_call(audio_file: str, metadata: Metadata) -> str:
     # We don't use metadata currently so remove it from memory
     del metadata
     prev_transcript = ""
 
-    basename = os.path.splitext(audio_file)[0]
-    whisper_file = f"{basename}-whisper.wav"
+    audio_file = pad_silence(audio_file)
 
-    split = True
-
-    if split:
-        p = subprocess.run(
-            [
-                "sox",
-                audio_file,
-                f"{basename}-.wav",
-                "silence",
-                "1",
-                "0.1",
-                "0%",
-                "1",
-                "0.1",
-                "0%",
-                "pad",
-                "0",
-                "2",
-                ":",
-                "newfile",
-                ":",
-                "restart",
-            ]
-        )
-        p.check_returncode()
-        sox_args = sorted(glob(f"{basename}-*.wav"))
-        sox_args.insert(0, "sox")
-        sox_args.append(whisper_file)
-        p = subprocess.run(sox_args)
-        p.check_returncode()
-    else:
-        whisper_file = audio_file
-
-    response = transcribe(audio_file=whisper_file, initial_prompt=prev_transcript)
+    response = transcribe(audio_file=audio_file, initial_prompt=prev_transcript)
 
     transcript = [segment["text"].strip() for segment in response["segments"]]
     if len(transcript) < 1:

@@ -5,10 +5,12 @@ import logging
 import csv
 from functools import lru_cache
 import re
+from typing import TypedDict
 
-from meilisearch.models.document import Document
+from meilisearch.models.document import Document as MeiliDocument
+from app.metadata import Metadata
 
-from app.search import get_index, build_document, ID, RAW_METADATA, RAW_AUDIO_URL
+from app.search import Document, get_index, build_document
 from app.worker import retranscribe_task
 
 
@@ -26,8 +28,13 @@ for system, file in UNIT_TAGS_FILES.items():
     UNIT_TAGS[system] = tags
 
 
+class SrcListItemUpdate(TypedDict):
+    tag: str
+    transcript_prompt: str
+
+
 @lru_cache
-def find_src_tag(system: str, src: int) -> dict | None:
+def find_src_tag(system: str, src: int) -> SrcListItemUpdate:
     source = str(src)
     for row in UNIT_TAGS.get(system, []):
         pattern = re.compile(row[0])
@@ -41,40 +48,47 @@ def find_src_tag(system: str, src: int) -> dict | None:
     return {"tag": "", "transcript_prompt": ""}
 
 
-def fix_srclist(metadata: dict, transcript: str):
+def fix_srclist(metadata: Metadata, transcript: str):
     for src in metadata["srcList"]:
-        src.update(find_src_tag(metadata["short_name"], src["src"]))
-    return metadata
+        new_tag = find_src_tag(metadata["short_name"], src["src"])
+        src["tag"] = new_tag["tag"]
+        src["transcript_prompt"] = new_tag["transcript_prompt"]
+        transcript = re.sub(
+            f'<i data-src="{src["src"]}">(.*?):</i>',
+            f'<i data-src="{src["src"]}">{src["tag"]}:</i>',
+            transcript,
+        )
+    return metadata, transcript
 
 
-def fix_document(document: Document) -> dict:
-    metadata = json.loads(document.raw_metadata)
+def fix_document(document: MeiliDocument) -> Document:
+    metadata: Metadata = json.loads(document.raw_metadata)
     metadata["talkgroup_description"] = metadata["talkgroup_description"].split("|")[0]
-    metadata = fix_srclist(metadata, document.transcript)
+    metadata, transcript = fix_srclist(metadata, document.transcript)
     return build_document(
         metadata,
-        getattr(document, RAW_AUDIO_URL),
-        document.transcript,
-        id=getattr(document, ID),
+        document.raw_audio_url,
+        transcript,
+        id=document.id,
     )
 
 
-def reindex(documents: list[Document]):
+def reindex(documents: list[MeiliDocument]):
     fixed_docs = list(map(fix_document, documents))
     logging.debug(
         "Going to send the following documents to be indexed:\n"
         + json.dumps(fixed_docs, sort_keys=True, indent=4)
     )
-    get_index().add_documents(fixed_docs)
+    get_index().add_documents(fixed_docs)  # type: ignore
 
 
-def retranscribe(documents: list[Document]):
+def retranscribe(documents: list[MeiliDocument]):
     fixed_docs = list(map(fix_document, documents))
     for doc in fixed_docs:
         retranscribe_task.delay(
-            metadata=json.loads(doc[RAW_METADATA]),
-            audio_url=doc[RAW_AUDIO_URL],
-            id=doc[ID],
+            metadata=json.loads(doc["raw_metadata"]),
+            audio_url=doc["raw_audio_url"],
+            id=doc["id"],
         )
 
 

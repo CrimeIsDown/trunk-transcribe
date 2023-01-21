@@ -2,13 +2,20 @@ from functools import lru_cache
 import os
 import json
 from time import time
+from typing import TypedDict
 import requests
 
 api_key = os.getenv("API_KEY", "")
 
 
+class ChannelConfig(TypedDict):
+    chat_id: str
+    append_talkgroup: bool
+    alerts: dict[str, list[str]]
+
+
 @lru_cache()
-def get_channels_config(ttl_hash=None) -> dict:
+def get_channels_config(ttl_hash=None) -> dict[str, ChannelConfig]:
     del ttl_hash
     try:
         r = requests.get(

@@ -8,11 +8,17 @@ from meilisearch.errors import MeiliSearchApiError
 from meilisearch.index import Index
 from meilisearch.models.task import TaskInfo
 
+from app.metadata import Metadata, SearchableMetadata
+
 index = None
 
-ID = "id"
-RAW_METADATA = "raw_metadata"
-RAW_AUDIO_URL = "raw_audio_url"
+
+class Document(SearchableMetadata):
+    srcList: list[str]
+    transcript: str
+    raw_metadata: str
+    raw_audio_url: str
+    id: str
 
 
 def get_client() -> Client:
@@ -36,8 +42,8 @@ def get_index() -> Index:
 
 
 def build_document(
-    metadata: dict, raw_audio_url: str, transcript: str, id: str | None = None
-) -> dict:
+    metadata: Metadata, raw_audio_url: str, transcript: str, id: str | None = None
+) -> Document:
     srcList = set()
     for src in metadata["srcList"]:
         if len(src["tag"]):
@@ -62,20 +68,20 @@ def build_document(
         "short_name": metadata["short_name"],
         "srcList": list(srcList),
         "transcript": transcript,
-        RAW_METADATA: raw_metadata,
-        RAW_AUDIO_URL: raw_audio_url,
-        ID: id,
+        "raw_metadata": raw_metadata,
+        "raw_audio_url": raw_audio_url,
+        "id": id,
     }
 
 
 def index_call(
-    metadata: dict, raw_audio_url: str, transcript: str, id: str | None = None
+    metadata: Metadata, raw_audio_url: str, transcript: str, id: str | None = None
 ) -> TaskInfo:
     doc = build_document(metadata, raw_audio_url, transcript, id)
 
     logging.debug(f"Sending document to be indexed: {str(doc)}")
 
-    return get_index().add_documents([doc])
+    return get_index().add_documents([doc])  # type: ignore
 
 
 def create_index(client: Client, index_name: str) -> Index:
@@ -86,7 +92,7 @@ def create_index(client: Client, index_name: str) -> Index:
         {
             "searchableAttributes": [
                 "transcript",
-                "srcList",
+                "units",
             ],
             "filterableAttributes": [
                 "start_time",
@@ -97,7 +103,7 @@ def create_index(client: Client, index_name: str) -> Index:
                 "talkgroup_group",
                 "audio_type",
                 "short_name",
-                "srcList",
+                "units",
             ],
             "sortableAttributes": [
                 "start_time",

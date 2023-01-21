@@ -6,6 +6,7 @@ import boto3
 from botocore.config import Config
 
 from app.conversion import convert_to_mp3
+from app.metadata import Metadata
 
 
 @lru_cache()
@@ -30,7 +31,7 @@ def upload_file(filename: str, remote_path: str | None = None) -> str:
     return f"{os.getenv('S3_PUBLIC_URL', '')}/{remote_path}"
 
 
-def upload_raw_audio(metadata: dict, audio_file: str) -> str:
+def upload_raw_audio(metadata: Metadata, audio_file: str) -> str:
     start_time = datetime.fromtimestamp(metadata["start_time"])
     uploaded_audio_path = (
         start_time.strftime("%Y/%m/%d/%H/%Y%m%d_%H%M%S")

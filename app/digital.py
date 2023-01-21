@@ -1,9 +1,10 @@
 import os
 import subprocess
 from app.whisper import transcribe
+from app.metadata import Metadata, SrcListItem
 
 
-def dedupe_srclist(srclist: list[dict]) -> list[dict]:
+def dedupe_srclist(srclist: list[SrcListItem]) -> list[SrcListItem]:
     prev_src = None
     new_srclist = []
     for src in srclist:
@@ -13,7 +14,8 @@ def dedupe_srclist(srclist: list[dict]) -> list[dict]:
     return new_srclist
 
 
-def transcribe_call(audio_file: str, metadata: dict) -> str:
+# TODO: Break this up into a smaller function
+def transcribe_call(audio_file: str, metadata: Metadata) -> str:
     result = []
 
     prev_transcript = ""

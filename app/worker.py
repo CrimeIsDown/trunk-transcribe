@@ -11,7 +11,8 @@ from celery import Celery
 from dotenv import load_dotenv
 
 from app.conversion import convert_to_wav
-from app.search import ID, RAW_AUDIO_URL, index_call
+from app.metadata import Metadata
+from app.search import index_call
 from app.storage import upload_raw_audio
 from app.telegram import send_message
 
@@ -23,7 +24,11 @@ celery = Celery("worker", broker=broker_url, backend=result_backend)
 
 
 def transcribe(
-    metadata: dict, audio_file: str, debug: bool = False, document: dict | None = None
+    metadata: Metadata,
+    audio_file: str,
+    debug: bool = False,
+    id: str | None = None,
+    raw_audio_url: str | None = None,
 ) -> str:
     if metadata["audio_type"] == "digital":
         from app.digital import transcribe_call
@@ -38,11 +43,9 @@ def transcribe(
         return str(e)
     logging.debug(transcript)
 
-    # Check if we are re-transcribing an existing file
-    if document:
-        index_call(metadata, document[RAW_AUDIO_URL], transcript, document[ID])
-    else:
-        try:
+    try:
+        # Do not send Telegram messages for calls we already have transcribed previously
+        if not id:
             asyncio.run(
                 send_message(
                     audio_file,
@@ -51,15 +54,18 @@ def transcribe(
                     dry_run=debug,
                 )
             )
-        finally:
+    finally:
+        if not raw_audio_url:
             raw_audio_url = upload_raw_audio(metadata, audio_file)
-            index_call(metadata, raw_audio_url, transcript)
+        index_call(metadata, raw_audio_url, transcript, id)
 
     return transcript
 
 
 @celery.task(name="transcribe")
-def transcribe_task(metadata: dict, audio_file_b64: str, debug: bool = False) -> str:
+def transcribe_task(
+    metadata: Metadata, audio_file_b64: str, debug: bool = False
+) -> str:
     with tempfile.TemporaryDirectory() as tempdir:
         audio_file = tempfile.NamedTemporaryFile(
             delete=False, dir=tempdir, suffix=".wav"
@@ -71,7 +77,7 @@ def transcribe_task(metadata: dict, audio_file_b64: str, debug: bool = False) ->
 
 
 @celery.task(name="retranscribe")
-def retranscribe_task(metadata: dict, audio_url: str, id: str) -> str:
+def retranscribe_task(metadata: Metadata, audio_url: str, id: str) -> str:
     with tempfile.TemporaryDirectory() as tempdir:
         with requests.get(audio_url, stream=True) as r:
             r.raise_for_status()
@@ -85,7 +91,5 @@ def retranscribe_task(metadata: dict, audio_url: str, id: str) -> str:
         audio_file = convert_to_wav(mp3_file.name)
 
         return transcribe(
-            metadata=metadata,
-            audio_file=audio_file,
-            document={RAW_AUDIO_URL: audio_url, ID: id},
+            metadata=metadata, audio_file=audio_file, id=id, raw_audio_url=audio_url
         )
