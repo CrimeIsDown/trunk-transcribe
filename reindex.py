@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 
 load_dotenv(".env.vast")
 
+import argparse
 import csv
 import json
 import logging
@@ -16,19 +17,6 @@ from meilisearch.models.document import Document as MeiliDocument
 from app.metadata import Metadata
 from app.search import Document, build_document, get_index
 from app.worker import retranscribe_task
-
-UNIT_TAGS_FILES = {
-    "chi_cfd": "/home/eric/ChicagoScanner/conventional-recorder/config/cfd-radio-ids.csv"
-}
-UNIT_TAGS = {}
-
-for system, file in UNIT_TAGS_FILES.items():
-    tags = []
-    with open(file, newline="") as csvfile:
-        reader = csv.reader(csvfile, escapechar="\\")
-        for row in reader:
-            tags.append(row)
-    UNIT_TAGS[system] = tags
 
 
 class SrcListItemUpdate(TypedDict):
@@ -102,12 +90,26 @@ def retranscribe(documents: list[MeiliDocument]):
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
+    parser = argparse.ArgumentParser(description='Reindex calls.')
+    parser.add_argument("--unit_tags", type=str, nargs=2, metavar=("short_name", "unitTagsFile"), action="append", help="System short_name and the path to the corresponding unitTagsFile CSV")
+    parser.add_argument("--retranscribe", action="store_true", help="Re-transcribe the matching calls instead of just rebuilding the metadata and reindexing")
+    args = parser.parse_args()
+
+    UNIT_TAGS = {}
+    for system, file in args.unit_tags:
+        tags = []
+        with open(file, newline="") as csvfile:
+            reader = csv.reader(csvfile, escapechar="\\")
+            for row in reader:
+                tags.append(row)
+        UNIT_TAGS[system] = tags
+
     total = get_index().get_documents({"limit": 1}).total
     logging.info(f"Found {total} total documents")
-    limit = 100
+    limit = 1000
     offset = -limit
 
-    total_reindexed = 0
+    total_processed = 0
 
     while offset < total:
         offset += limit
@@ -116,13 +118,17 @@ if __name__ == "__main__":
 
         documents = []
         for document in docs.results:
-            if document.audio_type == "digital" and document.short_name == "chi_cfd":
+            # TODO: Find a faster way to filter documents
+            if document.short_name in UNIT_TAGS and "data-src" not in document.transcript:
                 documents.append(document)
 
         if len(documents):
-            retranscribe(documents)
-        total_reindexed += len(documents)
-        completion = (offset / total) * 100
+            if args.retranscribe:
+                retranscribe(documents)
+            else:
+                reindex(documents)
+        total_processed += len(documents)
+        completion = min((offset / total) * 100, 100)
         logging.info(
-            f"Reindexed {total_reindexed} documents, {completion:.2f}% complete"
+            f"Processed {total_processed} matching documents, {completion:.2f}% complete ({offset}/{total})"
         )

@@ -38,7 +38,7 @@ fi
 echo -e "Planning to start these instances:\n"
 
 INSTANCES=$(mktemp)
-QUERY="rentable=true rented=false reliability>0.98 num_gpus=1 gpu_ram>8 dlperf_usd>200 dph<=0.1 cuda_vers>=11.7 inet_up>=90 inet_down>=90"
+QUERY="rentable=true rented=false reliability>0.98 num_gpus=1 gpu_ram>=12 dlperf_usd>200 dph<=0.1 cuda_vers>=11.7 inet_up>=90 inet_down>=90"
 vast search offers -n -i -o 'dph' "$QUERY" | \
 if [[ -n "$EXISTING_INSTANCES" ]]; then grep -Ev "\b$EXISTING_INSTANCES\b"; else cat; fi | \
 sed -n "1,1p;$((${START} + 1)),$((${END} + 1))p;$((${END} + 2))q" | tee $INSTANCES
@@ -75,9 +75,11 @@ do
 EOF
 
     while read line; do
-        KEY="$(echo "$line" | cut -d= -f1)"
-        VALUE="$(echo "$line" | cut -d= -f2-)"
-        echo "        \"$KEY\": \"$VALUE\"," >> $REQUEST
+        if [ -n "$line" ]; then
+            KEY="$(echo "$line" | cut -d= -f1)"
+            VALUE="$(echo "$line" | cut -d= -f2-)"
+            echo "        \"$KEY\": \"$VALUE\"," >> $REQUEST
+        fi
     done < .env.vast
     # Remove the trailing comma
     head -c -2 $REQUEST > $REQUEST.new
