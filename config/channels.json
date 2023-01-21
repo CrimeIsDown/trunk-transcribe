@@ -52,34 +52,10 @@
             ]
         }
     },
-    "^(1|2|4|6|7|10|12|13)@chi_cpd$": {
+    "^(1|2|3|4|6|7|8|9|10|12|13)@chi_cpd$": {
         "chat_id": null,
         "append_talkgroup": false,
         "alerts": {}
-    },
-    "^3@chi_cpd$": {
-        "chat_id": "-1001833821942",
-        "append_talkgroup": false,
-        "alerts": {
-            "1056863528": [
-            ]
-        }
-    },
-    "^8@chi_cpd$": {
-        "chat_id": "-1001721776635",
-        "append_talkgroup": false,
-        "alerts": {
-            "1056863528": [
-            ]
-        }
-    },
-    "^9@chi_cpd$": {
-        "chat_id": "-1001827004103",
-        "append_talkgroup": false,
-        "alerts": {
-            "1056863528": [
-            ]
-        }
     },
     "^11@chi_cpd$": {
         "chat_id": "-1001893999789",
