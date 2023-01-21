@@ -1,18 +1,21 @@
 #!/usr/bin/env python3
 
+from dotenv import load_dotenv
+
+load_dotenv(".env.vast")
+
+import csv
 import json
 import logging
-import csv
-from functools import lru_cache
 import re
+from functools import lru_cache
 from typing import TypedDict
 
 from meilisearch.models.document import Document as MeiliDocument
+
 from app.metadata import Metadata
-
-from app.search import Document, get_index, build_document
+from app.search import Document, build_document, get_index
 from app.worker import retranscribe_task
-
 
 UNIT_TAGS_FILES = {
     "chi_cfd": "/home/eric/ChicagoScanner/conventional-recorder/config/cfd-radio-ids.csv"
@@ -48,7 +51,7 @@ def find_src_tag(system: str, src: int) -> SrcListItemUpdate:
     return {"tag": "", "transcript_prompt": ""}
 
 
-def fix_srclist(metadata: Metadata, transcript: str):
+def fix_srclist(metadata: Metadata, transcript: str) -> tuple[Metadata, str]:
     for src in metadata["srcList"]:
         new_tag = find_src_tag(metadata["short_name"], src["src"])
         src["tag"] = new_tag["tag"]
@@ -84,6 +87,10 @@ def reindex(documents: list[MeiliDocument]):
 
 def retranscribe(documents: list[MeiliDocument]):
     fixed_docs = list(map(fix_document, documents))
+    logging.debug(
+        "Going to send the following documents to be re-transcribed:\n"
+        + json.dumps(fixed_docs, sort_keys=True, indent=4)
+    )
     for doc in fixed_docs:
         retranscribe_task.delay(
             metadata=json.loads(doc["raw_metadata"]),

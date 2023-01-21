@@ -13,10 +13,11 @@ elif [ "$1" = 'worker' ]; then
         fi
     fi
     exec celery --app=app.worker.celery worker \
-        -P gevent \
-        -c 1 \
+        -P ${CELERY_POOL:-prefork} \
+        -c ${CELERY_CONCURRENCY:-2} \
         -l ${CELERY_LOGLEVEL:-info} \
-        -n $CELERY_HOSTNAME
+        -n $CELERY_HOSTNAME \
+        -Q ${CELERY_QUEUES:-transcribe}
 elif [ "$1" = 'flower' ]; then
     exec celery --app=app.worker.celery flower --port=5555
 fi

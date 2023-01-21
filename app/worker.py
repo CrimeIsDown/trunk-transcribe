@@ -20,7 +20,15 @@ load_dotenv()
 
 broker_url = os.getenv("CELERY_BROKER_URL")
 result_backend = os.getenv("CELERY_RESULT_BACKEND")
-celery = Celery("worker", broker=broker_url, backend=result_backend)
+celery = Celery(
+    "worker",
+    broker=broker_url,
+    backend=result_backend,
+    task_routes={
+        "retranscribe": {"queue": "retranscribe"},
+        "transcribe": {"queue": "transcribe"},
+    },
+)
 
 
 def transcribe(
