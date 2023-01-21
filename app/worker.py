@@ -10,6 +10,7 @@ from celery import Celery
 from dotenv import load_dotenv
 
 from app.search import index_call
+from app.storage import upload_raw_audio
 from app.telegram import send_message
 
 load_dotenv()
@@ -28,7 +29,7 @@ def transcribe(metadata: dict, audio_file: str, debug: bool) -> str:
         raise Exception(f"Audio type {metadata['audio_type']} not supported")
 
     try:
-        transcript = transcribe_call(audio_file=audio_file, metadata=metadata)
+        transcript = transcribe_call(audio_file, metadata)
     except RuntimeError as e:
         return str(e)
     logging.debug(transcript)
@@ -36,14 +37,15 @@ def transcribe(metadata: dict, audio_file: str, debug: bool) -> str:
     try:
         asyncio.run(
             send_message(
-                audio_file=audio_file,
-                metadata=metadata,
-                transcript=transcript,
+                audio_file,
+                metadata,
+                transcript,
                 dry_run=debug,
             )
         )
     finally:
-        index_call(metadata=metadata, audio_file=audio_file, transcript=transcript)
+        raw_audio_url = upload_raw_audio(metadata, audio_file)
+        index_call(metadata, raw_audio_url, transcript)
 
     return transcript
 
