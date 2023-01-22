@@ -23,12 +23,16 @@ ARG WHISPER_MODEL=tiny.en
 ENV WHISPER_MODEL=${WHISPER_MODEL}
 RUN python3 -c "import whisper; import os; whisper.load_model(os.getenv('WHISPER_MODEL'))"
 
+RUN pip3 install poetry>=1.3.2
+
 WORKDIR /src
-COPY requirements.txt .
-RUN pip3 install -r requirements.txt
+COPY pyproject.toml poetry.lock ./
+RUN poetry config virtualenvs.create false && \
+    poetry install --without dev --no-root --no-interaction --no-ansi
 
 COPY app app
 COPY config config
+COPY *.py ./
 
 COPY docker-entrypoint.sh /usr/local/bin/
 ENTRYPOINT ["docker-entrypoint.sh"]

@@ -52,11 +52,6 @@
             ]
         }
     },
-    "^(1|2|3|4|6|7|8|9|10|12|13)@chi_cpd$": {
-        "chat_id": null,
-        "append_talkgroup": false,
-        "alerts": {}
-    },
     "^11@chi_cpd$": {
         "chat_id": "-1001893999789",
         "append_talkgroup": false,

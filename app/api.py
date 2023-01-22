@@ -9,7 +9,6 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, UploadFile, Request
 from fastapi.responses import JSONResponse
 
-from app.telegram import get_channel_config
 from app.worker import transcribe_task, celery as celery_app
 
 load_dotenv()
@@ -34,17 +33,8 @@ def queue_for_transcription(
 ):
     metadata = json.loads(call_json.file.read())
 
-    try:
-        get_channel_config(metadata)
-    except RuntimeError:
-        raise HTTPException(
-            status_code=400, detail="Transcribing not setup for talkgroup"
-        )
-
     if metadata["call_length"] < float(os.getenv("MIN_CALL_LENGTH", "2")):
-        raise HTTPException(
-            status_code=400, detail="Call $filename too short to transcribe"
-        )
+        raise HTTPException(status_code=400, detail="Call too short to transcribe")
 
     audio_file_b64 = b64encode(call_audio.file.read()).decode("utf-8")
     task = transcribe_task.delay(

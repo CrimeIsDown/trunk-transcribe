@@ -13,13 +13,13 @@ from app.conversion import convert_to_ogg
 from app.metadata import Metadata
 
 
-def get_channel_config(metadata: Metadata) -> ChannelConfig:
+def get_channel_config(metadata: Metadata) -> ChannelConfig | None:
     channels = get_channels_config(get_ttl_hash(cache_seconds=60))
     for regex, config in channels.items():
         if re.compile(regex).match(f"{metadata['talkgroup']}@{metadata['short_name']}"):
             return config
 
-    raise RuntimeError("Transcribing not setup for talkgroup")
+    return None
 
 
 def prep_transcript(metadata: Metadata, transcript: str, channel: ChannelConfig):
@@ -75,8 +75,8 @@ async def send_message(
 
     channel = get_channel_config(metadata)
 
-    # If we don't have a chat ID defined, skip this part
-    if not channel["chat_id"]:
+    # If we don't have a config for this channel, we don't want to upload it to Telegram
+    if not channel:
         return
 
     voice_file = convert_to_ogg(audio_file=audio_file)

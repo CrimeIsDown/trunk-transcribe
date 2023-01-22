@@ -14,7 +14,7 @@ from app.conversion import convert_to_wav
 from app.metadata import Metadata
 from app.search import index_call
 from app.storage import upload_raw_audio
-from app.telegram import send_message
+from app.notification import send_message
 
 load_dotenv()
 

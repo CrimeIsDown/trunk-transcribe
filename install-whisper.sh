@@ -6,6 +6,7 @@ WHISPER_PACKAGE=${WHISPER_PACKAGE:-git+https://github.com/openai/whisper.git}
 
 DESIRED_CUDA=${DESIRED_CUDA:-cu117}
 PYTORCH_URL="https://download.pytorch.org/whl/$DESIRED_CUDA"
+TARGETPLATFORM=${TARGETPLATFORM:-linux/amd64}
 
 if [ "$TARGETPLATFORM" = "linux/amd64" ]; then
     pip3 install --extra-index-url $PYTORCH_URL $WHISPER_PACKAGE

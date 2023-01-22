@@ -90,9 +90,20 @@ def retranscribe(documents: list[MeiliDocument]):
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
-    parser = argparse.ArgumentParser(description='Reindex calls.')
-    parser.add_argument("--unit_tags", type=str, nargs=2, metavar=("short_name", "unitTagsFile"), action="append", help="System short_name and the path to the corresponding unitTagsFile CSV")
-    parser.add_argument("--retranscribe", action="store_true", help="Re-transcribe the matching calls instead of just rebuilding the metadata and reindexing")
+    parser = argparse.ArgumentParser(description="Reindex calls.")
+    parser.add_argument(
+        "--unit_tags",
+        type=str,
+        nargs=2,
+        metavar=("short_name", "unitTagsFile"),
+        action="append",
+        help="System short_name and the path to the corresponding unitTagsFile CSV",
+    )
+    parser.add_argument(
+        "--retranscribe",
+        action="store_true",
+        help="Re-transcribe the matching calls instead of just rebuilding the metadata and reindexing",
+    )
     args = parser.parse_args()
 
     UNIT_TAGS = {}
@@ -119,7 +130,10 @@ if __name__ == "__main__":
         documents = []
         for document in docs.results:
             # TODO: Find a faster way to filter documents
-            if document.short_name in UNIT_TAGS and "data-src" not in document.transcript:
+            if (
+                document.short_name in UNIT_TAGS
+                and "data-src" not in document.transcript
+            ):
                 documents.append(document)
 
         if len(documents):
