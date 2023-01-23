@@ -14,7 +14,7 @@ from app.conversion import convert_to_wav
 from app.metadata import Metadata
 from app.search import index_call
 from app.storage import upload_raw_audio
-from app.notification import send_message
+from app.notification import send_notifications
 
 load_dotenv()
 
@@ -34,7 +34,6 @@ celery = Celery(
 def transcribe(
     metadata: Metadata,
     audio_file: str,
-    debug: bool = False,
     id: str | None = None,
     raw_audio_url: str | None = None,
 ) -> str:
@@ -51,29 +50,19 @@ def transcribe(
         return str(e)
     logging.debug(transcript)
 
-    try:
-        # Do not send Telegram messages for calls we already have transcribed previously
-        if not id:
-            asyncio.run(
-                send_message(
-                    audio_file,
-                    metadata,
-                    transcript,
-                    dry_run=debug,
-                )
-            )
-    finally:
-        if not raw_audio_url:
-            raw_audio_url = upload_raw_audio(metadata, audio_file)
-        index_call(metadata, raw_audio_url, transcript, id)
+    if not raw_audio_url:
+        raw_audio_url = upload_raw_audio(metadata, audio_file)
+    index_call(metadata, raw_audio_url, transcript, id)
+
+    # Do not send Telegram messages for calls we already have transcribed previously
+    if not id:
+        send_notifications(audio_file, metadata, transcript, raw_audio_url)
 
     return transcript
 
 
 @celery.task(name="transcribe")
-def transcribe_task(
-    metadata: Metadata, audio_file_b64: str, debug: bool = False
-) -> str:
+def transcribe_task(metadata: Metadata, audio_file_b64: str) -> str:
     with tempfile.TemporaryDirectory() as tempdir:
         audio_file = tempfile.NamedTemporaryFile(
             delete=False, dir=tempdir, suffix=".wav"
@@ -81,7 +70,7 @@ def transcribe_task(
         audio_file.write(b64decode(audio_file_b64))
         audio_file.close()
 
-        return transcribe(metadata=metadata, audio_file=audio_file.name, debug=debug)
+        return transcribe(metadata=metadata, audio_file=audio_file.name)
 
 
 @celery.task(name="retranscribe")

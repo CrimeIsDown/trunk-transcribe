@@ -1,4 +1,5 @@
 from functools import lru_cache
+import logging
 import os
 import json
 from time import time
@@ -15,19 +16,24 @@ class ChannelConfig(TypedDict):
 
 
 @lru_cache()
-def get_channels_config(ttl_hash=None) -> dict[str, ChannelConfig]:
+def get_notifications_config(ttl_hash=None) -> dict[str, ChannelConfig]:
     del ttl_hash
+    path = "config/notifications.json"
     try:
         r = requests.get(
-            url=f"{os.getenv('API_BASE_URL')}/config/channels.json",
+            url=f"{os.getenv('API_BASE_URL')}/{path}",
             timeout=5,
             headers={"Authorization": f"Bearer {api_key}"},
         )
         r.raise_for_status()
         return r.json()
-    except:
-        with open("config/channels.json") as file:
-            return json.load(file)
+    except Exception as e:
+        # If we have a local copy of the config, fallback to that
+        if os.path.isfile(path):
+            with open(path) as file:
+                return json.load(file)
+        else:
+            raise e
 
 
 def get_ttl_hash(cache_seconds=3600):

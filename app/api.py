@@ -26,20 +26,14 @@ async def authenticate(request: Request, call_next):
 
 
 @app.post("/tasks")
-def queue_for_transcription(
-    call_audio: UploadFile,
-    call_json: UploadFile,
-    debug: bool | None = False,
-):
+def queue_for_transcription(call_audio: UploadFile, call_json: UploadFile):
     metadata = json.loads(call_json.file.read())
 
     if metadata["call_length"] < float(os.getenv("MIN_CALL_LENGTH", "2")):
         raise HTTPException(status_code=400, detail="Call too short to transcribe")
 
     audio_file_b64 = b64encode(call_audio.file.read()).decode("utf-8")
-    task = transcribe_task.delay(
-        metadata=metadata, audio_file_b64=audio_file_b64, debug=debug
-    )
+    task = transcribe_task.delay(metadata=metadata, audio_file_b64=audio_file_b64)
     return JSONResponse({"task_id": task.id}, status_code=201)
 
 

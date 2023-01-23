@@ -5,16 +5,18 @@ from datetime import datetime, timezone
 from sys import platform
 from time import time
 
+from apprise.plugins.NotifyTelegram import NotifyTelegram as NotifyTelegramBase
+from apprise import Apprise
 import pytz
-from telegram import Bot, Chat, Message
 
-from app.config import ChannelConfig, get_channels_config, get_ttl_hash
+from app.config import ChannelConfig, get_notifications_config, get_ttl_hash
 from app.conversion import convert_to_ogg
 from app.metadata import Metadata
+from app.notification_plugins.NotifyTelegram import NotifyTelegram
 
 
-def get_channel_config(metadata: Metadata) -> ChannelConfig | None:
-    channels = get_channels_config(get_ttl_hash(cache_seconds=60))
+def get_config(metadata: Metadata) -> ChannelConfig | None:
+    channels = get_notifications_config(get_ttl_hash(cache_seconds=60))
     for regex, config in channels.items():
         if re.compile(regex).match(f"{metadata['talkgroup']}@{metadata['short_name']}"):
             return config
@@ -46,70 +48,56 @@ def prep_transcript(metadata: Metadata, transcript: str, channel: ChannelConfig)
     return transcript
 
 
-def build_alert(alert_chat_id: str, alert_keywords: list[str], message: Message):
-    matched_keywords = [
-        keyword
-        for keyword in alert_keywords
-        if keyword.lower() in message.caption.lower()
-    ]
-    if len(matched_keywords):
-        logging.debug(
-            f"Found keywords {str(matched_keywords)} in message {message.message_id}, forwarding to {alert_chat_id}"
-        )
-        return {
-            "chat_id": int(alert_chat_id),
-            "from_chat_id": message.chat.id,
-            "message_id": message.message_id,
-        }
-
-
-async def send_message(
-    audio_file: str,
-    metadata: Metadata,
-    transcript: str,
-    dry_run: bool = False,
+def send_notifications(
+    audio_file: str, metadata: Metadata, transcript: str, raw_audio_url: str
 ):
     # If delayed over 20 minutes, don't bother sending to Telegram
-    if time() - metadata["stop_time"] > 1200:
+    # if time() - metadata["stop_time"] > 1200:
+    #     return
+
+    channel = get_config(metadata)
+
+    # If we don't have a config for this channel, we don't want to send any notifications for it
+    if not channel:
         return
 
-    channel = get_channel_config(metadata)
-
-    # If we don't have a config for this channel, we don't want to upload it to Telegram
-    if not channel:
+    bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
+    if not bot_token:
         return
 
     voice_file = convert_to_ogg(audio_file=audio_file)
 
     transcript = prep_transcript(metadata, transcript, channel)
 
-    async with Bot(os.getenv("TELEGRAM_BOT_TOKEN", "")) as bot:
-        with open(voice_file, "rb") as file:
-            voice = file.read()
-        kwargs = {
-            "chat_id": int(channel["chat_id"]),
-            "voice": voice,
-            "caption": transcript,
-            "parse_mode": "HTML",
-        }
-        if dry_run:
-            kwargs.pop("voice")
-            logging.debug(f"Would have sent voice message {str(kwargs)}")
-            message = Message(
-                message_id=-1,
-                chat=Chat(id=int(channel["chat_id"]), type=Chat.CHANNEL),
-                date=datetime.now(),
-                caption=transcript,
-            )
-        else:
-            message = await bot.send_voice(**kwargs)
-            logging.debug(message)
+    # Monkey patch NotifyTelegram so we can send voice messages with captions
+    NotifyTelegramBase.send = NotifyTelegram.send  # type: ignore
+    NotifyTelegramBase.send_media = NotifyTelegram.send_media  # type: ignore
 
-        for alert_chat_id, alert_keywords in channel["alerts"].items():
-            alert = build_alert(alert_chat_id, alert_keywords, message)
-            if alert:
-                if dry_run:
-                    logging.debug(f"Would have forwarded message {str(alert)}")
-                else:
-                    forwarded_message = await bot.forward_message(**alert)
-                    logging.debug(forwarded_message)
+    notifier = Apprise()
+
+    notifier.add(f"tgram://{bot_token}/{channel['chat_id']}")
+
+    notifier.notify(body=transcript, attach=voice_file)  # type: ignore
+
+    for alert_chat_id, alert_keywords in channel["alerts"].items():
+        matched_keywords = [
+            keyword
+            for keyword in alert_keywords
+            if keyword.lower() in transcript.lower()
+        ]
+        if len(matched_keywords):
+            notifier = Apprise()
+            notifier.add(f"tgram://{bot_token}/{alert_chat_id}")
+
+            body = (
+                "<u>"
+                + ", ".join(matched_keywords)
+                + " detected in transcript</u>\n"
+                + transcript
+            )
+            # If we haven't already appended the talkgroup, do it for the alert
+            if not channel["append_talkgroup"]:
+                body = body + f"\n<b>{metadata['talkgroup_tag']}</b>"
+            body = body + f'\n<a href="{raw_audio_url}">Listen to transmission</a>'
+
+            notifier.notify(body=body)

@@ -20,7 +20,6 @@ class TestEndToEnd(unittest.TestCase):
         ) as call_json:
             r = requests.post(
                 url=f"{API_BASE_URL}/tasks",
-                params={"debug": True},
                 files={"call_audio": call_audio, "call_json": call_json},
                 timeout=5,
                 headers=headers,
