@@ -6,9 +6,6 @@ from time import time
 from typing import TypedDict
 import requests
 
-api_key = os.getenv("API_KEY", "")
-
-
 class ChannelConfig(TypedDict):
     chat_id: str
     append_talkgroup: bool
@@ -19,11 +16,16 @@ class ChannelConfig(TypedDict):
 def get_notifications_config(ttl_hash=None) -> dict[str, ChannelConfig]:
     del ttl_hash
     path = "config/notifications.json"
+    api_key = os.getenv('API_KEY')
+    if api_key:
+        headers = {"Authorization": f"Bearer {api_key}"}
+    else:
+        headers = None
     try:
         r = requests.get(
             url=f"{os.getenv('API_BASE_URL')}/{path}",
             timeout=5,
-            headers={"Authorization": f"Bearer {api_key}"},
+            headers=headers,
         )
         r.raise_for_status()
         return r.json()

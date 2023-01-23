@@ -52,8 +52,8 @@ def send_notifications(
     audio_file: str, metadata: Metadata, transcript: str, raw_audio_url: str
 ):
     # If delayed over 20 minutes, don't bother sending to Telegram
-    # if time() - metadata["stop_time"] > 1200:
-    #     return
+    if time() - metadata["stop_time"] > 1200:
+        return
 
     channel = get_config(metadata)
 
