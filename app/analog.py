@@ -1,8 +1,10 @@
 import os
 import subprocess
 from glob import glob
+from threading import Lock
 
-from app.metadata import Metadata
+from whisper import Whisper
+
 from app.whisper import transcribe
 
 
@@ -41,14 +43,17 @@ def pad_silence(audio_file: str):
     return whisper_file
 
 
-def transcribe_call(audio_file: str, metadata: Metadata) -> str:
-    # We don't use metadata currently so remove it from memory
-    del metadata
+def transcribe_call(model: Whisper, model_lock: Lock, audio_file: str) -> str:
     prev_transcript = ""
 
     audio_file = pad_silence(audio_file)
 
-    response = transcribe(audio_file=audio_file, initial_prompt=prev_transcript)
+    response = transcribe(
+        model=model,
+        model_lock=model_lock,
+        audio_file=audio_file,
+        initial_prompt=prev_transcript,
+    )
 
     transcript = [segment["text"].strip() for segment in response["segments"]]
     if len(transcript) < 1:

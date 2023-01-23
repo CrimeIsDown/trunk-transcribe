@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import asyncio
 import logging
 import os
 import tempfile
@@ -8,13 +7,16 @@ from base64 import b64decode
 
 import requests
 from celery import Celery
+from celery.exceptions import Reject
 from dotenv import load_dotenv
 
+from app.analog import transcribe_call as transcribe_analog
 from app.conversion import convert_to_wav
+from app.digital import transcribe_call as transcribe_digital
 from app.metadata import Metadata
+from app.notification import send_notifications
 from app.search import index_call
 from app.storage import upload_raw_audio
-from app.notification import send_notifications
 
 load_dotenv()
 
@@ -28,24 +30,25 @@ celery = Celery(
         "retranscribe": {"queue": "retranscribe"},
         "transcribe": {"queue": "transcribe"},
     },
+    task_cls="app.whisper:WhisperTask",
 )
 
 
 def transcribe(
+    model,
+    model_lock,
     metadata: Metadata,
     audio_file: str,
     id: str | None = None,
     raw_audio_url: str | None = None,
 ) -> str:
-    if metadata["audio_type"] == "digital":
-        from app.digital import transcribe_call
-    elif metadata["audio_type"] == "analog":
-        from app.analog import transcribe_call
-    else:
-        raise Exception(f"Audio type {metadata['audio_type']} not supported")
-
     try:
-        transcript = transcribe_call(audio_file, metadata)
+        if metadata["audio_type"] == "digital":
+            transcript = transcribe_digital(model, model_lock, audio_file, metadata)
+        elif metadata["audio_type"] == "analog":
+            transcript = transcribe_analog(model, model_lock, audio_file)
+        else:
+            raise Reject(f"Audio type {metadata['audio_type']} not supported")
     except RuntimeError as e:
         return str(e)
     logging.debug(transcript)
@@ -70,7 +73,12 @@ def transcribe_task(metadata: Metadata, audio_file_b64: str) -> str:
         audio_file.write(b64decode(audio_file_b64))
         audio_file.close()
 
-        return transcribe(metadata=metadata, audio_file=audio_file.name)
+        return transcribe(
+            transcribe_task.model,
+            transcribe_task.model_lock,
+            metadata,
+            audio_file=audio_file.name,
+        )
 
 
 @celery.task(name="retranscribe")
@@ -88,5 +96,10 @@ def retranscribe_task(metadata: Metadata, audio_url: str, id: str) -> str:
         audio_file = convert_to_wav(mp3_file.name)
 
         return transcribe(
-            metadata=metadata, audio_file=audio_file, id=id, raw_audio_url=audio_url
+            retranscribe_task.model,
+            retranscribe_task.model_lock,
+            metadata,
+            audio_file,
+            id,
+            raw_audio_url=audio_url,
         )

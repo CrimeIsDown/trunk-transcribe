@@ -1,7 +1,11 @@
 import os
 import subprocess
-from app.whisper import transcribe
+from threading import Lock
+
+from whisper import Whisper
+
 from app.metadata import Metadata, SrcListItem
+from app.whisper import transcribe
 
 
 def dedupe_srclist(srclist: list[SrcListItem]) -> list[SrcListItem]:
@@ -15,7 +19,9 @@ def dedupe_srclist(srclist: list[SrcListItem]) -> list[SrcListItem]:
 
 
 # TODO: Break this up into a smaller function
-def transcribe_call(audio_file: str, metadata: Metadata) -> str:
+def transcribe_call(
+    model: Whisper, model_lock: Lock, audio_file: str, metadata: Metadata
+) -> str:
     result = []
 
     prev_transcript = ""
@@ -45,7 +51,12 @@ def transcribe_call(audio_file: str, metadata: Metadata) -> str:
         if len(src.get("transcript_prompt", "")):
             prev_transcript += " " + src["transcript_prompt"]
 
-        response = transcribe(src_file, prev_transcript)
+        response = transcribe(
+            model=model,
+            model_lock=model_lock,
+            audio_file=src_file,
+            initial_prompt=prev_transcript,
+        )
 
         transcript = response["text"]
         if not transcript or len(transcript.strip()) < 2:

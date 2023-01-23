@@ -132,5 +132,3 @@ dmypy.json
 
 # Custom
 docker-compose.override.yml
-config/notifications.json
-config/whisper.json

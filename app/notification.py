@@ -5,9 +5,9 @@ from datetime import datetime, timezone
 from sys import platform
 from time import time
 
-from apprise.plugins.NotifyTelegram import NotifyTelegram as NotifyTelegramBase
-from apprise import Apprise
 import pytz
+from apprise import Apprise
+from apprise.plugins.NotifyTelegram import NotifyTelegram as NotifyTelegramBase
 
 from app.config import ChannelConfig, get_notifications_config, get_ttl_hash
 from app.conversion import convert_to_ogg
@@ -51,8 +51,10 @@ def prep_transcript(metadata: Metadata, transcript: str, channel: ChannelConfig)
 def send_notifications(
     audio_file: str, metadata: Metadata, transcript: str, raw_audio_url: str
 ):
-    # If delayed over 20 minutes, don't bother sending to Telegram
-    if time() - metadata["stop_time"] > 1200:
+    # If delayed over our MAX_CALL_AGE, don't bother sending to Telegram
+    max_age = float(os.getenv("MAX_CALL_AGE", 1200))
+    if max_age > 0 and time() - metadata["stop_time"] > max_age:
+        logging.debug("Not sending notifications since call is too old")
         return
 
     channel = get_config(metadata)

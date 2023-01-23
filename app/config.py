@@ -1,10 +1,11 @@
-from functools import lru_cache
-import logging
-import os
 import json
+import os
+from functools import lru_cache
 from time import time
 from typing import TypedDict
+
 import requests
+
 
 class ChannelConfig(TypedDict):
     chat_id: str
@@ -16,7 +17,7 @@ class ChannelConfig(TypedDict):
 def get_notifications_config(ttl_hash=None) -> dict[str, ChannelConfig]:
     del ttl_hash
     path = "config/notifications.json"
-    api_key = os.getenv('API_KEY')
+    api_key = os.getenv("API_KEY")
     if api_key:
         headers = {"Authorization": f"Bearer {api_key}"}
     else:
@@ -36,6 +37,16 @@ def get_notifications_config(ttl_hash=None) -> dict[str, ChannelConfig]:
                 return json.load(file)
         else:
             raise e
+
+
+@lru_cache()
+def get_whisper_config(ttl_hash=None) -> dict:
+    whisper_kwargs = {}
+    config = "config/whisper.json"
+    if os.path.isfile(config):
+        with open(config) as file:
+            whisper_kwargs = json.load(file)
+    return whisper_kwargs
 
 
 def get_ttl_hash(cache_seconds=3600):

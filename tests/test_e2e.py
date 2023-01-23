@@ -44,7 +44,7 @@ class TestEndToEnd(unittest.TestCase):
 
     def test_transcribes_digital(self):
         expected = {
-            "task_result": '<i data-src="1410967">E96:</i> some fake text',
+            "task_result": '<i data-src="1410967">E96:</i> Engine comedy 96 on the truck 3 3 3 nor central.',
             "task_status": "SUCCESS",
         }
 
@@ -57,7 +57,7 @@ class TestEndToEnd(unittest.TestCase):
 
     def test_transcribes_analog(self):
         expected = {
-            "task_result": "some fake text",
+            "task_result": "2011, let's just watch it.\n20 please.\n20.",
             "task_status": "SUCCESS",
         }
 
