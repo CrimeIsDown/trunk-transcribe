@@ -1,7 +1,7 @@
 {
     "^9051@sc21": {
         "channels": [
-            "tgram://$TELEGRAM_BOT_TOKEN/-1001858957886"
+            "tgram://$TELEGRAM_BOT_TOKEN/redacted_chat_id"
         ],
         "append_talkgroup": false,
         "alerts": []
@@ -12,7 +12,7 @@
         "alerts": [
             {
                 "channels": [
-                    "tgram://$TELEGRAM_BOT_TOKEN/1056863528"
+                    "tgram://$TELEGRAM_BOT_TOKEN/redacted_chat_id"
                 ],
                 "keywords": [
                     "person shot",
@@ -37,41 +37,41 @@
     },
     "^[13]@chi_cfd$": {
         "channels": [
-            "tgram://$TELEGRAM_BOT_TOKEN/-1001646104346"
+            "tgram://$TELEGRAM_BOT_TOKEN/redacted_chat_id"
         ],
         "append_talkgroup": true,
         "alerts": []
     },
     "^[24]@chi_cfd$": {
         "channels": [
-            "tgram://$TELEGRAM_BOT_TOKEN/-1001614980216"
+            "tgram://$TELEGRAM_BOT_TOKEN/redacted_chat_id"
         ],
         "append_talkgroup": true,
         "alerts": []
     },
     "^11@chi_cpd$": {
         "channels": [
-            "tgram://$TELEGRAM_BOT_TOKEN/-1001893999789"
+            "tgram://$TELEGRAM_BOT_TOKEN/redacted_chat_id"
         ],
         "append_talkgroup": false,
         "alerts": []
     },
     "^14@chi_cpd$": {
         "channels": [
-            "tgram://$TELEGRAM_BOT_TOKEN/-1001796224921"
+            "tgram://$TELEGRAM_BOT_TOKEN/redacted_chat_id"
         ],
         "append_talkgroup": false,
         "alerts": []
     },
     "^15@chi_cpd$": {
         "channels": [
-            "tgram://$TELEGRAM_BOT_TOKEN/-1001762146703"
+            "tgram://$TELEGRAM_BOT_TOKEN/redacted_chat_id"
         ],
         "append_talkgroup": false,
         "alerts": [
             {
                 "channels": [
-                    "tgram://$TELEGRAM_BOT_TOKEN/1056863528"
+                    "tgram://$TELEGRAM_BOT_TOKEN/redacted_chat_id"
                 ],
                 "keywords": [
                     "0110",
@@ -86,7 +86,7 @@
         "alerts": [
             {
                 "channels": [
-                    "tgram://$TELEGRAM_BOT_TOKEN/1056863528"
+                    "tgram://$TELEGRAM_BOT_TOKEN/redacted_chat_id"
                 ],
                 "keywords": [
                     "person shot",

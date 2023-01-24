@@ -5,7 +5,8 @@ start:
 	docker compose up -d
 
 deps:
-	pip install -r requirements.txt -r requirements-dev.txt
+	./install-whisper.sh
+	poetry install --with dev
 
 fmt:
 	black app tests *.py --exclude app/notification_plugins/NotifyTelegram.py
