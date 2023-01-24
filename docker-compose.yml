@@ -2,11 +2,11 @@ version: '3.8'
 
 services:
 
-  web:
+  api:
     image: crimeisdown/trunk-transcribe:main-tiny.en-cpu
     ports:
       - 8000:8000
-    command: web
+    command: api
     volumes:
       - ./app:/src/app
       - ./config:/src/config

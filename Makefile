@@ -11,9 +11,11 @@ fmt:
 	black app tests *.py --exclude app/notification_plugins/NotifyTelegram.py
 
 restart: start
-	docker compose restart web worker
+	docker compose restart api worker
 
 test:
 	python -m unittest
+
+restart-and-test: restart test
 
 .PHONY: build deps fmt restart test

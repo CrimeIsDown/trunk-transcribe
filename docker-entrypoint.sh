@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeo pipefail
 
-if [ "$1" = 'web' ]; then
+if [ "$1" = 'api' ]; then
     exec uvicorn app.api:app --host 0.0.0.0
 elif [ "$1" = 'worker' ]; then
     if [ -z "$CELERY_HOSTNAME" ]; then

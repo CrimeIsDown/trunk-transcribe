@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
 
-  web:
+  api:
     image: trunk-transcribe:${WHISPER_MODEL}-${DESIRED_CUDA}
     build:
       context: .
