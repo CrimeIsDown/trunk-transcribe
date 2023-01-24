@@ -51,16 +51,7 @@ The worker can be run on Windows if needed.
 
 The worker can be run on the cloud GPU service [vast.ai](https://vast.ai/). To get started, sign up for a vast.ai account. Next, create a copy of your `.env` called `.env.vast`. Update any settings such that a machine on the public internet could access the API and queue backend (*please ensure all services are protected by strong passwords*). Then, install the [Vast CLI](https://console.vast.ai/cli/) and login.
 
-Run `./start-vast.sh` to start workers.
-
-```bash
-# Starting 1 worker
-./start-vast.sh
-# Starting N workers
-./start-vast.sh N
-# Ensure at least N workers are running
-./start-vast.sh --min-instances N
-```
+Run `./autoscale-vast.py` to start workers and autoscale them as needed. Run `./autoscale-vast.py -h` to see available arguments.
 
 ### Viewing worker health
 

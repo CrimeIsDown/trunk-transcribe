@@ -4,6 +4,9 @@ build:
 start:
 	docker compose up -d
 
+stop:
+	docker compose stop
+
 deps:
 	./install-whisper.sh
 	poetry install --with dev
