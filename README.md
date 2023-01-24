@@ -49,7 +49,7 @@ The worker can be run on Windows if needed.
 
 ### Running workers on Vast.ai
 
-The worker can be run on the cloud GPU service [vast.ai](https://vast.ai/). To get started, sign up for a vast.ai account. Next, create a copy of your `.env` called `.env.vast`. Update any settings such that a machine on the public internet could access the API and queue backend. Then, install the [Vast CLI](https://console.vast.ai/cli/) and login.
+The worker can be run on the cloud GPU service [vast.ai](https://vast.ai/). To get started, sign up for a vast.ai account. Next, create a copy of your `.env` called `.env.vast`. Update any settings such that a machine on the public internet could access the API and queue backend (*please ensure all services are protected by strong passwords*). Then, install the [Vast CLI](https://console.vast.ai/cli/) and login.
 
 Run `./start-vast.sh` to start workers.
 
@@ -61,6 +61,13 @@ Run `./start-vast.sh` to start workers.
 # Ensure at least N workers are running
 ./start-vast.sh --min-instances N
 ```
+
+### Viewing worker health
+
+Some useful dashboards to check on the workers and queues:
+
+- http://localhost:15672/ - RabbitMQ management (see queue statistics and graphs), login with guest/guest unless you have configured a custom RabbitMQ password
+- http://localhost:5555/ - Flower, a Celery monitoring tool, use it to see details on current tasks and which tasks have failed, as well as current workers
 
 ## Configuration Files
 
