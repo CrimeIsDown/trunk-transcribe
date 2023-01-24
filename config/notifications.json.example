@@ -1,111 +1,105 @@
 {
     "^9051@sc21": {
-        "chat_id": "-1001858957886",
+        "channels": [
+            "tgram://$TELEGRAM_BOT_TOKEN/-1001858957886"
+        ],
         "append_talkgroup": false,
-        "alerts": {}
+        "alerts": []
+    },
+    "@chi_cfd$": {
+        "channels": [],
+        "append_talkgroup": true,
+        "alerts": [
+            {
+                "channels": [
+                    "tgram://$TELEGRAM_BOT_TOKEN/1056863528"
+                ],
+                "keywords": [
+                    "person shot",
+                    "gunshot victim",
+                    "shooting victim",
+                    "EMS plan",
+                    "still in box",
+                    "stone box alarm",
+                    "fill and box",
+                    "pin in",
+                    "opinion response",
+                    "level one",
+                    "level 1",
+                    "the 10-1",
+                    "that 10-1",
+                    "a 10-1",
+                    "5-1-5:",
+                    "threatening to jump"
+                ]
+            }
+        ]
     },
     "^[13]@chi_cfd$": {
-        "chat_id": "-1001646104346",
+        "channels": [
+            "tgram://$TELEGRAM_BOT_TOKEN/-1001646104346"
+        ],
         "append_talkgroup": true,
-        "alerts": {
-            "1056863528": [
-                "person shot",
-                "gunshot victim",
-                "shooting victim",
-                "EMS plan",
-                "still in box",
-                "stone box alarm",
-                "fill and box",
-                "pin in",
-                "opinion response",
-                "level one",
-                "level 1",
-                "the 10-1",
-                "that 10-1",
-                "a 10-1",
-                "5-1-5:",
-                "threatening to jump"
-            ]
-        }
+        "alerts": []
     },
     "^[24]@chi_cfd$": {
-        "chat_id": "-1001614980216",
+        "channels": [
+            "tgram://$TELEGRAM_BOT_TOKEN/-1001614980216"
+        ],
         "append_talkgroup": true,
-        "alerts": {
-            "1056863528": [
-                "person shot",
-                "gunshot victim",
-                "shooting victim",
-                "EMS plan",
-                "still in box",
-                "stone box alarm",
-                "fill and box",
-                "pin in",
-                "opinion response",
-                "level one",
-                "level 1",
-                "the 10-1",
-                "that 10-1",
-                "a 10-1",
-                "5-1-5:",
-                "threatening to jump"
-            ]
-        }
+        "alerts": []
     },
     "^11@chi_cpd$": {
-        "chat_id": "-1001893999789",
+        "channels": [
+            "tgram://$TELEGRAM_BOT_TOKEN/-1001893999789"
+        ],
         "append_talkgroup": false,
-        "alerts": {
-            "1056863528": [
-                "person shot",
-                "gunshot victim",
-                "shooting victim",
-                "EMS plan",
-                "still in box",
-                "stone box alarm",
-                "fill and box",
-                "pin in",
-                "opinion response",
-                "level one",
-                "level 1",
-                "the 10-1",
-                "that 10-1",
-                "a 10-1",
-                "5-1-5:",
-                "threatening to jump"
-            ]
-        }
+        "alerts": []
     },
     "^14@chi_cpd$": {
-        "chat_id": "-1001796224921",
+        "channels": [
+            "tgram://$TELEGRAM_BOT_TOKEN/-1001796224921"
+        ],
         "append_talkgroup": false,
-        "alerts": {
-            "1056863528": [
-                "person shot",
-                "gunshot victim",
-                "shooting victim",
-                "the 10-1",
-                "that 10-1",
-                "a 10-1",
-                "threatening to jump",
-                "SWAT incident"
-            ]
-        }
+        "alerts": []
     },
     "^15@chi_cpd$": {
-        "chat_id": "-1001762146703",
+        "channels": [
+            "tgram://$TELEGRAM_BOT_TOKEN/-1001762146703"
+        ],
         "append_talkgroup": false,
-        "alerts": {
-            "1056863528": [
-                "person shot",
-                "gunshot victim",
-                "shooting victim",
-                "the 10-1",
-                "that 10-1",
-                "a 10-1",
-                "threatening to jump",
-                "SWAT incident"
-            ]
-        }
+        "alerts": [
+            {
+                "channels": [
+                    "tgram://$TELEGRAM_BOT_TOKEN/1056863528"
+                ],
+                "keywords": [
+                    "0110",
+                    "Crime Lab"
+                ]
+            }
+        ]
+    },
+    "^(11|14)@chi_cpd$": {
+        "channels": [],
+        "append_talkgroup": false,
+        "alerts": [
+            {
+                "channels": [
+                    "tgram://$TELEGRAM_BOT_TOKEN/1056863528"
+                ],
+                "keywords": [
+                    "person shot",
+                    "gunshot victim",
+                    "shooting victim",
+                    "the 10-1",
+                    "that 10-1",
+                    "a 10-1",
+                    "threatening to jump",
+                    "SWAT incident",
+                    "bank robbery"
+                ]
+            }
+        ]
     }
 }

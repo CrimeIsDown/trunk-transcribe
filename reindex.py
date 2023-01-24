@@ -127,14 +127,13 @@ if __name__ == "__main__":
         docs = get_index().get_documents({"offset": offset, "limit": limit})
         total = docs.total
 
-        documents = []
-        for document in docs.results:
-            # TODO: Find a faster way to filter documents
-            if (
-                document.short_name in UNIT_TAGS
-                and "data-src" not in document.transcript
-            ):
-                documents.append(document)
+        # TODO: Find a faster way to filter documents
+        documents = [
+            document
+            for document in docs.results
+            if document.short_name in UNIT_TAGS
+            and "data-src" not in document.transcript
+        ]
 
         if len(documents):
             if args.retranscribe:

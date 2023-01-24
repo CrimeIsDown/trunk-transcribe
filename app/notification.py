@@ -9,19 +9,15 @@ import pytz
 from apprise import Apprise
 from apprise.plugins.NotifyTelegram import NotifyTelegram as NotifyTelegramBase
 
-from app.config import ChannelConfig, get_notifications_config, get_ttl_hash
+from app.config import (
+    AlertConfig,
+    NotificationConfig,
+    get_notifications_config,
+    get_ttl_hash,
+)
 from app.conversion import convert_to_ogg
 from app.metadata import Metadata
 from app.notification_plugins.NotifyTelegram import NotifyTelegram
-
-
-def get_config(metadata: Metadata) -> ChannelConfig | None:
-    channels = get_notifications_config(get_ttl_hash(cache_seconds=60))
-    for regex, config in channels.items():
-        if re.compile(regex).match(f"{metadata['talkgroup']}@{metadata['short_name']}"):
-            return config
-
-    return None
 
 
 def truncate_transcript(transcript: str) -> str:
@@ -38,8 +34,8 @@ def build_suffix(metadata: Metadata, add_talkgroup: bool = False) -> str:
     if add_talkgroup:
         suffix.append(f"<b>{metadata['talkgroup_tag']}</b>")
 
-    # If delayed by over 2 mins add delay warning
-    if time() - metadata["stop_time"] > 120:
+    # If delayed by over DELAYED_CALL_THRESHOLD add delay warning
+    if time() - metadata["stop_time"] > float(os.getenv("DELAYED_CALL_THRESHOLD", 120)):
         linux_format = "%-m/%-d/%Y %-I:%M:%S %p %Z"
         windows_format = linux_format.replace("-", "#")
         timestamp = (
@@ -52,6 +48,19 @@ def build_suffix(metadata: Metadata, add_talkgroup: bool = False) -> str:
     return "\n".join(suffix)
 
 
+def check_transcript_for_alert_keywords(
+    transcript: str, keywords: list[str]
+) -> tuple[list[str], list[str]]:
+    matched_keywords = []
+    matched_lines = []
+    for line in transcript.splitlines():
+        matches = [keyword for keyword in keywords if keyword.lower() in line.lower()]
+        if len(matches):
+            matched_keywords += matches
+            matched_lines.append(line)
+    return matched_keywords, matched_lines
+
+
 def send_notifications(
     audio_file: str, metadata: Metadata, transcript: str, raw_audio_url: str
 ):
@@ -61,20 +70,38 @@ def send_notifications(
         logging.debug("Not sending notifications since call is too old")
         return
 
-    channel = get_config(metadata)
+    config = get_notifications_config(get_ttl_hash(cache_seconds=60))
 
-    # If we don't have a config for this channel, we don't want to send any notifications for it
-    if not channel:
-        return
+    matches = [
+        c
+        for regex, c in config.items()
+        if re.compile(regex).match(f"{metadata['talkgroup']}@{metadata['short_name']}")
+    ]
 
-    bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
-    if not bot_token:
+    for match in matches:
+        notify_channels(match, audio_file, metadata, transcript)
+        for alert_config in match["alerts"]:
+            send_alert(
+                alert_config,
+                metadata,
+                transcript,
+                raw_audio_url,
+            )
+
+
+def notify_channels(
+    config: NotificationConfig,
+    audio_file: str,
+    metadata: Metadata,
+    transcript: str,
+):
+    # Validate we actually have somewhere to send the notification
+    if not len(config["channels"]):
         return
 
     voice_file = convert_to_ogg(audio_file=audio_file)
 
-    transcript = truncate_transcript(transcript)
-    suffix = build_suffix(metadata, channel["append_talkgroup"])
+    suffix = build_suffix(metadata, config["append_talkgroup"])
 
     # Monkey patch NotifyTelegram so we can send voice messages with captions
     NotifyTelegramBase.send = NotifyTelegram.send  # type: ignore
@@ -82,47 +109,48 @@ def send_notifications(
 
     notifier = Apprise()
 
-    notifier.add(f"tgram://{bot_token}/{channel['chat_id']}")
+    for channel in config["channels"]:
+        if channel.startswith("tgram://"):
+            # Captions are only 1024 chars max so we must truncate the transcript to fit
+            transcript = truncate_transcript(transcript)
+        notifier.add(
+            # TODO: Figure out how to allow other envs to be used in a safe way
+            channel.replace(
+                "$TELEGRAM_BOT_TOKEN",
+                os.getenv("TELEGRAM_BOT_TOKEN", "no-token-defined"),
+            )
+        )
 
     notifier.notify(body="\n".join([transcript, suffix]), attach=voice_file)  # type: ignore
 
-    for alert_chat_id, alert_keywords in channel["alerts"].items():
-        send_alert(
-            alert_chat_id,
-            alert_keywords,
-            metadata,
-            transcript,
-            channel,
-            raw_audio_url,
-            bot_token,
-        )
-
 
 def send_alert(
-    alert_chat_id: str,
-    alert_keywords: list[str],
+    config: AlertConfig,
     metadata: Metadata,
     transcript: str,
-    channel: ChannelConfig,
     raw_audio_url: str,
-    bot_token: str,
 ):
+    # Validate we actually have somewhere to send the notification
+    if not len(config["channels"]):
+        return
+
     # If we haven't already appended the talkgroup, do it for the alert
     suffix = build_suffix(metadata, add_talkgroup=True)
 
-    matched_keywords = []
-    matched_lines = []
-    for line in transcript.splitlines():
-        matches = [
-            keyword for keyword in alert_keywords if keyword.lower() in line.lower()
-        ]
-        if len(matches):
-            matched_keywords += matches
-            matched_lines.append(line)
+    matched_keywords, matched_lines = check_transcript_for_alert_keywords(
+        transcript, config["keywords"]
+    )
 
     if len(matched_keywords):
         notifier = Apprise()
-        notifier.add(f"tgram://{bot_token}/{alert_chat_id}")
+
+        for channel in config["channels"]:
+            notifier.add(
+                channel.replace(
+                    "$TELEGRAM_BOT_TOKEN",
+                    os.getenv("TELEGRAM_BOT_TOKEN", "no-token-defined"),
+                )
+            )
 
         body = "<u>" + ", ".join(matched_keywords) + " detected in transcript</u>\n"
 

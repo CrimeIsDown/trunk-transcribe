@@ -7,15 +7,21 @@ from typing import TypedDict
 import requests
 
 
-class ChannelConfig(TypedDict):
-    chat_id: str
+class AlertConfig(TypedDict):
+    channels: list[str]
+    keywords: list[str]
+
+
+class NotificationConfig(TypedDict):
+    channels: list[str]
     append_talkgroup: bool
-    alerts: dict[str, list[str]]
+    alerts: list[AlertConfig]
 
 
 @lru_cache()
-def get_notifications_config(ttl_hash=None) -> dict[str, ChannelConfig]:
+def get_notifications_config(ttl_hash=None) -> dict[str, NotificationConfig]:
     del ttl_hash
+
     path = "config/notifications.json"
     api_key = os.getenv("API_KEY")
     if api_key:
@@ -41,6 +47,8 @@ def get_notifications_config(ttl_hash=None) -> dict[str, ChannelConfig]:
 
 @lru_cache()
 def get_whisper_config(ttl_hash=None) -> dict:
+    del ttl_hash
+
     whisper_kwargs = {}
     config = "config/whisper.json"
     if os.path.isfile(config):

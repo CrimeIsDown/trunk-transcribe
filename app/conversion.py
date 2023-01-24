@@ -1,5 +1,6 @@
 import subprocess
 import tempfile
+from functools import lru_cache
 from os.path import dirname
 
 
@@ -26,6 +27,7 @@ def __convert_file(audio_file: str, format: str, ffmpeg_args: list[str]) -> str:
     return file.name
 
 
+@lru_cache()
 def convert_to_wav(audio_file: str) -> str:
     return __convert_file(
         audio_file,
@@ -39,6 +41,7 @@ def convert_to_wav(audio_file: str) -> str:
     )
 
 
+@lru_cache()
 def convert_to_mp3(audio_file: str) -> str:
     return __convert_file(
         audio_file,
@@ -52,6 +55,7 @@ def convert_to_mp3(audio_file: str) -> str:
     )
 
 
+@lru_cache()
 def convert_to_ogg(audio_file: str) -> str:
     return __convert_file(
         audio_file,
