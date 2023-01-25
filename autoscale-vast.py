@@ -165,8 +165,8 @@ def autoscale(
     past_utilization_avg = mean(past_utilization)
     if (
         past_utilization_avg < 0.9
-        and queue_status["backing_queue_status"]["ack_egress_rate"]
-        < queue_status["backing_queue_status"]["ack_ingress_rate"]
+        and queue_status["backing_queue_status"]["avg_egress_rate"]
+        < queue_status["backing_queue_status"]["avg_ingress_rate"]
     ):
         message_count = queue_status["messages"]
         desired_instances += round(message_count / throughput)
@@ -183,8 +183,10 @@ def autoscale(
     count = abs(scale)
     if count:
         if scale > 0:
+            logging.info(f"Scaling up by {count} instances")
             create_instances(count, envs, image)
         else:
+            logging.info(f"Scaling down by {count} instances")
             delete_instances(count)
 
     return scale
@@ -236,9 +238,8 @@ if __name__ == "__main__":
     while True:
         start = time.time()
         try:
-            result = autoscale(**vars(args))
-            logging.info(f"Workers change: {result}")
+            autoscale(**vars(args))
         except Exception as e:
-            logging.error(e)
+            logging.exception(e)
         end = time.time()
         time.sleep(interval - (end - start))
