@@ -150,13 +150,13 @@ if __name__ == "__main__":
     total = index.get_documents({"limit": 1}).total
     logging.info(f"Found {total} total documents")
     limit = 2000
-    offset = -limit
+    offset = 0
 
     total_processed = 0
 
     while offset < total:
-        offset += limit
         docs = index.get_documents({"offset": offset, "limit": limit})
+        offset += limit
         total = docs.total
 
         queued_tasks = []
