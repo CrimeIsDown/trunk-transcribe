@@ -14,6 +14,8 @@ index = None
 
 
 class Document(SearchableMetadata):
+    units: list[str]
+    radios: list[str]
     srcList: list[str]
     transcript: str
     raw_metadata: str
@@ -27,16 +29,20 @@ def get_client() -> Client:
     return Client(url=url, api_key=api_key)
 
 
+def get_index_name() -> str:
+    return os.getenv("MEILI_INDEX", "calls")
+
+
 def get_index() -> Index:
     global index
     if not index:
         client = get_client()
-        index_name = os.getenv("MEILI_INDEX", "calls")
+        index_name = get_index_name()
         index = client.index(index_name)
         try:
             index.fetch_info()
         except MeiliSearchApiError:
-            index = create_index(client, index_name)
+            index = create_or_update_index(client, index_name)
 
     return index
 
@@ -45,10 +51,15 @@ def build_document(
     metadata: Metadata, raw_audio_url: str, transcript: str, id: str | None = None
 ) -> Document:
     srcList = set()
+    units = set()
+    radios = set()
     for src in metadata["srcList"]:
         if len(src["tag"]):
+            units.add(src["tag"])
             srcList.add(src["tag"])
-        srcList.add(str(src["src"]))
+        else:
+            srcList.add(str(src["src"]))
+        radios.add(str(src["src"]))
 
     raw_metadata = json.dumps(metadata)
     if not id:
@@ -67,6 +78,8 @@ def build_document(
         "audio_type": metadata["audio_type"],
         "short_name": metadata["short_name"],
         "srcList": list(srcList),
+        "units": list(units),
+        "radios": list(radios),
         "transcript": transcript,
         "raw_metadata": raw_metadata,
         "raw_audio_url": raw_audio_url,
@@ -84,8 +97,11 @@ def index_call(
     return get_index().add_documents([doc])  # type: ignore
 
 
-def create_index(client: Client, index_name: str) -> Index:
-    client.create_index(index_name)
+def create_or_update_index(
+    client: Client, index_name: str, create: bool = True
+) -> Index:
+    if create:
+        client.create_index(index_name)
     index = client.index(index_name)
 
     index.update_settings(
@@ -104,6 +120,8 @@ def create_index(client: Client, index_name: str) -> Index:
                 "audio_type",
                 "short_name",
                 "units",
+                "radios",
+                "srcList",
             ],
             "sortableAttributes": [
                 "start_time",
