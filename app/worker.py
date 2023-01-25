@@ -5,6 +5,8 @@ import os
 import tempfile
 from base64 import b64decode
 
+os.environ["TZ"] = "UTC"
+
 import requests
 from celery import Celery
 from celery.exceptions import Reject
