@@ -54,6 +54,8 @@ def build_document(
     units = set()
     radios = set()
     for src in metadata["srcList"]:
+        if src["src"] <= 0:
+            continue
         if len(src["tag"]):
             units.add(src["tag"])
             srcList.add(src["tag"])
