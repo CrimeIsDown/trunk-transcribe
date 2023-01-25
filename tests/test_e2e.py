@@ -1,25 +1,31 @@
 import os
 import unittest
 from time import sleep
-from dotenv import load_dotenv
 
 import requests
+from dotenv import load_dotenv
+
+from app import search
 
 load_dotenv()
 
 
 class TestEndToEnd(unittest.TestCase):
-    def transcribe(self, call_audio_path: str, call_json_path: str) -> dict:
-        API_BASE_URL = "http://127.0.0.1:8000"
+    @classmethod
+    def setUpClass(cls):
+        index = search.get_index(search.get_default_index_name())
+        index.delete()
 
-        api_key = os.getenv("API_KEY", "")
+    def transcribe(self, call_audio_path: str, call_json_path: str) -> dict:
+        api_base_url = os.getenv("API_BASE_URL")
+        api_key = os.getenv("API_KEY")
         headers = {"Authorization": f"Bearer {api_key}"}
 
         with open(call_audio_path, "rb") as call_audio, open(
             call_json_path, "r"
         ) as call_json:
             r = requests.post(
-                url=f"{API_BASE_URL}/tasks",
+                url=f"{api_base_url}/tasks",
                 files={"call_audio": call_audio, "call_json": call_json},
                 timeout=5,
                 headers=headers,
@@ -33,7 +39,7 @@ class TestEndToEnd(unittest.TestCase):
         while task_status == pending_status:
             sleep(1)
             r = requests.get(
-                url=f"{API_BASE_URL}/tasks/{task_id}", timeout=5, headers=headers
+                url=f"{api_base_url}/tasks/{task_id}", timeout=5, headers=headers
             )
             r.raise_for_status()
             result = r.json()
@@ -42,9 +48,14 @@ class TestEndToEnd(unittest.TestCase):
         self.assertEqual(task_id, result.pop("task_id"))
         return result
 
+    def search(self, query: str, options):
+        index = search.get_index(search.get_default_index_name())
+        return index.search(query, opt_params=options)
+
     def test_transcribes_digital(self):
+        transcript = '<i data-src="1410967">E96:</i> Engine comedy 96 on the truck 3 3 3 nor central.'
         expected = {
-            "task_result": '<i data-src="1410967">E96:</i> Engine comedy 96 on the truck 3 3 3 nor central.',
+            "task_result": transcript,
             "task_status": "SUCCESS",
         }
 
@@ -55,9 +66,15 @@ class TestEndToEnd(unittest.TestCase):
 
         self.assertDictEqual(expected, result)
 
+        result = self.search('"Engine comedy 96"', {"filter": ["units = E96"]})
+
+        self.assertEqual(1, len(result["hits"]))
+        self.assertEqual(transcript, result["hits"][0]["transcript"])
+
     def test_transcribes_analog(self):
+        transcript = "2011, let's just watch it.\n20 please.\n20."
         expected = {
-            "task_result": "2011, let's just watch it.\n20 please.\n20.",
+            "task_result": transcript,
             "task_status": "SUCCESS",
         }
 
@@ -67,6 +84,13 @@ class TestEndToEnd(unittest.TestCase):
         )
 
         self.assertDictEqual(expected, result)
+
+        result = self.search(
+            "2011", {"filter": ["short_name = chi_cpd", "audio_type = analog"]}
+        )
+
+        self.assertEqual(1, len(result["hits"]))
+        self.assertEqual(transcript, result["hits"][0]["transcript"])
 
 
 if __name__ == "__main__":

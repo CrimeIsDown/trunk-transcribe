@@ -9,6 +9,8 @@ services:
       args:
         WHISPER_MODEL: ${WHISPER_MODEL}
         DESIRED_CUDA: ${DESIRED_CUDA:-cu117}
+    volumes:
+      - ./tests:/src/tests
 
   worker:
     image: trunk-transcribe:${WHISPER_MODEL}-${DESIRED_CUDA}

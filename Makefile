@@ -1,3 +1,5 @@
+SHELL := /bin/bash
+
 build:
 	docker compose build
 
@@ -18,7 +20,8 @@ restart: start
 	docker compose restart api worker
 
 test:
-	python -m unittest
+	@diff config/whisper.json config/whisper.json.testing
+	docker compose exec api python3 -m unittest
 
 restart-and-test: restart test
 

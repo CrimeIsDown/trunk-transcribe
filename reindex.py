@@ -1,21 +1,25 @@
 #!/usr/bin/env python3
 
-from dotenv import load_dotenv
-
-load_dotenv(".env.vast")
-
 import argparse
 import csv
 import json
 import logging
+import os
 import re
 from functools import lru_cache
+from time import sleep
 from typing import TypedDict
 
+from dotenv import load_dotenv
+from meilisearch.index import Index
 from meilisearch.models.document import Document as MeiliDocument
+from meilisearch.models.task import TaskInfo
 
+# Load the .env file of our choice if specified before the regular .env can load
+load_dotenv(os.getenv("ENV"))
+
+from app import search
 from app.metadata import Metadata
-from app.search import Document, build_document, get_index
 from app.worker import retranscribe_task
 
 
@@ -46,17 +50,19 @@ def fix_srclist(metadata: Metadata, transcript: str) -> tuple[Metadata, str]:
         src["transcript_prompt"] = new_tag["transcript_prompt"]
         transcript = re.sub(
             f'<i data-src="{src["src"]}">(.*?):</i>',
-            f'<i data-src="{src["src"]}">{src["tag"]}:</i>',
+            f'<i data-src="{src["src"]}">{src["tag"] if len(src["tag"]) else src["src"]}:</i>',
             transcript,
         )
     return metadata, transcript
 
 
-def fix_document(document: MeiliDocument) -> Document:
+def fix_document(document: MeiliDocument) -> search.Document:
     metadata: Metadata = json.loads(document.raw_metadata)
-    metadata["talkgroup_description"] = metadata["talkgroup_description"].split("|")[0]
-    metadata, transcript = fix_srclist(metadata, document.transcript)
-    return build_document(
+    if UNIT_TAGS.get(metadata["short_name"]):
+        metadata, transcript = fix_srclist(metadata, document.transcript)
+    else:
+        transcript = document.transcript
+    return search.build_document(
         metadata,
         document.raw_audio_url,
         transcript,
@@ -64,16 +70,16 @@ def fix_document(document: MeiliDocument) -> Document:
     )
 
 
-def reindex(documents: list[MeiliDocument]):
+def reindex(index: Index, documents: list[MeiliDocument]) -> TaskInfo:
     fixed_docs = list(map(fix_document, documents))
     logging.debug(
         "Going to send the following documents to be indexed:\n"
         + json.dumps(fixed_docs, sort_keys=True, indent=4)
     )
-    get_index().add_documents(fixed_docs)  # type: ignore
+    return index.add_documents(fixed_docs)  # type: ignore
 
 
-def retranscribe(documents: list[MeiliDocument]):
+def retranscribe(index: Index, documents: list[MeiliDocument]):
     fixed_docs = list(map(fix_document, documents))
     logging.debug(
         "Going to send the following documents to be re-transcribed:\n"
@@ -84,6 +90,7 @@ def retranscribe(documents: list[MeiliDocument]):
             metadata=json.loads(doc["raw_metadata"]),
             audio_url=doc["raw_audio_url"],
             id=doc["id"],
+            index_name=index.uid,
         )
 
 
@@ -98,11 +105,29 @@ if __name__ == "__main__":
         metavar=("short_name", "unitTagsFile"),
         action="append",
         help="System short_name and the path to the corresponding unitTagsFile CSV",
+        required=True,
+    )
+    parser.add_argument(
+        "--index",
+        type=str,
+        default=search.get_default_index_name(),
+        help="Meilisearch index to use",
+    )
+    parser.add_argument(
+        "--condition",
+        type=str,
+        default="True",
+        help="Python expression defining whether or not to process a document",
     )
     parser.add_argument(
         "--retranscribe",
         action="store_true",
         help="Re-transcribe the matching calls instead of just rebuilding the metadata and reindexing",
+    )
+    parser.add_argument(
+        "--update-settings",
+        action="store_true",
+        help="Update index settings to match those in search.py",
     )
     args = parser.parse_args()
 
@@ -115,31 +140,47 @@ if __name__ == "__main__":
                 tags.append(row)
         UNIT_TAGS[system] = tags
 
-    total = get_index().get_documents({"limit": 1}).total
+    client = search.get_client()
+
+    if args.update_settings:
+        search.create_or_update_index(client, args.index, create=False)
+
+    index = search.get_index(args.index)
+
+    total = index.get_documents({"limit": 1}).total
     logging.info(f"Found {total} total documents")
-    limit = 1000
+    limit = 2000
     offset = -limit
 
     total_processed = 0
 
     while offset < total:
         offset += limit
-        docs = get_index().get_documents({"offset": offset, "limit": limit})
+        docs = index.get_documents({"offset": offset, "limit": limit})
         total = docs.total
 
-        # TODO: Find a faster way to filter documents
-        documents = [
-            document
-            for document in docs.results
-            if document.short_name in UNIT_TAGS
-            and "data-src" not in document.transcript
-        ]
+        queued_tasks = []
+        documents = []
+        for document in docs.results:
+            if eval(args.condition):
+                documents.append(document)
 
         if len(documents):
             if args.retranscribe:
-                retranscribe(documents)
+                logging.info(
+                    f"Queueing {len(documents)} documents to be re-transcribed"
+                )
+                retranscribe(index, documents)
             else:
-                reindex(documents)
+                logging.info(f"Waiting for {len(documents)} documents to be re-indexed")
+                task = reindex(index, documents)
+                while client.get_task(task.task_uid)["status"] not in [
+                    "succeeded",
+                    "failed",
+                    "canceled",
+                ]:
+                    sleep(2)
+
         total_processed += len(documents)
         completion = min((offset / total) * 100, 100)
         logging.info(

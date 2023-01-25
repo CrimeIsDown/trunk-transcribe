@@ -43,6 +43,7 @@ def transcribe(
     audio_file: str,
     id: str | None = None,
     raw_audio_url: str | None = None,
+    index_name: str | None = None,
 ) -> str:
     try:
         if metadata["audio_type"] == "digital":
@@ -57,7 +58,7 @@ def transcribe(
 
     if not raw_audio_url:
         raw_audio_url = upload_raw_audio(metadata, audio_file)
-    index_call(metadata, raw_audio_url, transcript, id)
+    index_call(metadata, raw_audio_url, transcript, id, index_name=index_name)
 
     # Do not send Telegram messages for calls we already have transcribed previously
     if not id:
@@ -84,7 +85,9 @@ def transcribe_task(metadata: Metadata, audio_file_b64: str) -> str:
 
 
 @celery.task(name="retranscribe")
-def retranscribe_task(metadata: Metadata, audio_url: str, id: str) -> str:
+def retranscribe_task(
+    metadata: Metadata, audio_url: str, id: str, index_name: str | None = None
+) -> str:
     with tempfile.TemporaryDirectory() as tempdir:
         with requests.get(audio_url, stream=True) as r:
             r.raise_for_status()
@@ -104,4 +107,5 @@ def retranscribe_task(metadata: Metadata, audio_url: str, id: str) -> str:
             audio_file,
             id,
             raw_audio_url=audio_url,
+            index_name=index_name,
         )

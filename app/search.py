@@ -10,7 +10,7 @@ from meilisearch.models.task import TaskInfo
 
 from app.metadata import Metadata, SearchableMetadata
 
-index = None
+client = None
 
 
 class Document(SearchableMetadata):
@@ -24,25 +24,25 @@ class Document(SearchableMetadata):
 
 
 def get_client() -> Client:
-    url = os.getenv("MEILI_URL", "http://127.0.0.1:7700")
-    api_key = os.getenv("MEILI_MASTER_KEY")
-    return Client(url=url, api_key=api_key)
+    global client
+    if not client:
+        url = os.getenv("MEILI_URL", "http://127.0.0.1:7700")
+        api_key = os.getenv("MEILI_MASTER_KEY")
+        client = Client(url=url, api_key=api_key)
+    return client
 
 
-def get_index_name() -> str:
+def get_default_index_name() -> str:
     return os.getenv("MEILI_INDEX", "calls")
 
 
-def get_index() -> Index:
-    global index
-    if not index:
-        client = get_client()
-        index_name = get_index_name()
-        index = client.index(index_name)
-        try:
-            index.fetch_info()
-        except MeiliSearchApiError:
-            index = create_or_update_index(client, index_name)
+def get_index(index_name: str) -> Index:
+    client = get_client()
+    index = client.index(index_name)
+    try:
+        index.fetch_info()
+    except MeiliSearchApiError:
+        index = create_or_update_index(client, index_name)
 
     return index
 
@@ -90,13 +90,20 @@ def build_document(
 
 
 def index_call(
-    metadata: Metadata, raw_audio_url: str, transcript: str, id: str | None = None
+    metadata: Metadata,
+    raw_audio_url: str,
+    transcript: str,
+    id: str | None = None,
+    index_name: str | None = None,
 ) -> TaskInfo:
     doc = build_document(metadata, raw_audio_url, transcript, id)
 
     logging.debug(f"Sending document to be indexed: {str(doc)}")
 
-    return get_index().add_documents([doc])  # type: ignore
+    if not index_name:
+        index_name = get_default_index_name()
+
+    return get_index(index_name).add_documents([doc])  # type: ignore
 
 
 def create_or_update_index(
