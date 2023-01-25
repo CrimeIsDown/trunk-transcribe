@@ -75,7 +75,7 @@ def send_notifications(
     matches = [
         c
         for regex, c in config.items()
-        if re.compile(regex).match(f"{metadata['talkgroup']}@{metadata['short_name']}")
+        if re.compile(regex).search(f"{metadata['talkgroup']}@{metadata['short_name']}")
     ]
 
     for match in matches:
