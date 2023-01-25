@@ -223,9 +223,9 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    vast_api_key = os.getenv(
-        "VAST_API_KEY", open(os.path.expanduser("~/.vast_api_key")).read().strip()
-    )
+    vast_api_key = os.getenv("VAST_API_KEY")
+    if not vast_api_key:
+        vast_api_key = open(os.path.expanduser("~/.vast_api_key")).read().strip()
 
     interval = 120
 
@@ -235,7 +235,10 @@ if __name__ == "__main__":
 
     while True:
         start = time.time()
-        result = autoscale(**vars(args))
-        logging.info(f"Workers change: {result}")
+        try:
+            result = autoscale(**vars(args))
+            logging.info(f"Workers change: {result}")
+        except Exception as e:
+            logging.error(e)
         end = time.time()
         time.sleep(interval - (end - start))
