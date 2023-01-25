@@ -4,8 +4,9 @@ services:
   autoscaler:
     image: crimeisdown/trunk-transcribe:main-tiny.en-cpu
     command: ./autoscale-vast.py
+    environment:
+      - VAST_API_KEY
     volumes:
       - ./autoscale-vast.py:/src/autoscale-vast.py
       - ./.env.vast:/src/.env.vast
-      - /usr/local/bin/vast:/usr/local/bin/vast
       - ~/.vast_api_key:/root/.vast_api_key
