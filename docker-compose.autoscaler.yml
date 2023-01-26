@@ -3,10 +3,20 @@ version: '3.8'
 services:
   autoscaler:
     image: crimeisdown/trunk-transcribe:main-tiny.en-cpu
-    command: ./autoscale-vast.py
+    command:
+      - ./autoscale-vast.py
+      - --min-instances
+      - ${AUTOSCALE_MIN_INSTANCES:-1}
+      - --max-instances
+      - ${AUTOSCALE_MAX_INSTANCES:-10}
+      - --throughput
+      - ${AUTOSCALE_THROUGHPUT:-20}
+      - --image
+      - crimeisdown/trunk-transcribe:main-${WHISPER_MODEL:-medium.en}-${DESIRED_CUDA:-cu117}
     environment:
       - VAST_API_KEY
     volumes:
-      - ./autoscale-vast.py:/src/autoscale-vast.py
+      - ./bin/autoscale-vast.py:/src/autoscale-vast.py
       - ./.env.vast:/src/.env.vast
       - ~/.vast_api_key:/root/.vast_api_key
+    restart: always

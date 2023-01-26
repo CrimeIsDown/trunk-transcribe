@@ -1,27 +1,29 @@
 SHELL := /bin/bash
 
-build:
-	docker compose build
+DOCKER_COMPOSE = $(shell (docker compose > /dev/null 2>&1 && echo "docker compose") || echo "docker-compose")
 
-start:
-	docker compose up -d
+build:
+	$(DOCKER_COMPOSE) build
+
+start: .env config/notifications.json
+	$(DOCKER_COMPOSE) up -d
 
 stop:
-	docker compose stop
+	$(DOCKER_COMPOSE) stop
 
 deps:
-	./install-whisper.sh
+	bin/install-whisper.sh
 	poetry install --with dev
 
 fmt:
-	black app tests *.py --exclude app/notification_plugins/NotifyTelegram.py
+	black .
 
-restart: start
-	docker compose restart api worker
+restart:
+	$(DOCKER_COMPOSE) restart api worker
 
-test:
+test: start
 	@diff config/whisper.json config/whisper.json.testing
-	docker compose exec api python3 -m unittest
+	$(DOCKER_COMPOSE) exec api python3 -m unittest
 
 restart-and-test: restart test
 

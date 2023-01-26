@@ -1,3 +1,4 @@
+import json
 import os
 import unittest
 from time import sleep
@@ -71,8 +72,13 @@ class TestEndToEnd(unittest.TestCase):
         self.assertEqual(1, len(result["hits"]))
         self.assertEqual(transcript, result["hits"][0]["transcript"])
 
+        self.assertTrue(isinstance(json.loads(result["hits"][0]["raw_metadata"]), dict))
+
+        r = requests.get(result["hits"][0]["raw_audio_url"])
+        self.assertEqual(200, r.status_code)
+
     def test_transcribes_analog(self):
-        transcript = "2011, let's just watch it.\n20 please.\n20."
+        transcript = "2011, lunch is 20 please.\n20."
         expected = {
             "task_result": transcript,
             "task_status": "SUCCESS",
@@ -91,6 +97,11 @@ class TestEndToEnd(unittest.TestCase):
 
         self.assertEqual(1, len(result["hits"]))
         self.assertEqual(transcript, result["hits"][0]["transcript"])
+
+        self.assertTrue(isinstance(json.loads(result["hits"][0]["raw_metadata"]), dict))
+
+        r = requests.get(result["hits"][0]["raw_audio_url"])
+        self.assertEqual(200, r.status_code)
 
 
 if __name__ == "__main__":

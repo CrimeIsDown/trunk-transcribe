@@ -19,7 +19,7 @@ elif [ "$1" = 'worker' ]; then
         -n $CELERY_HOSTNAME \
         -Q ${CELERY_QUEUES:-transcribe}
 elif [ "$1" = 'flower' ]; then
-    exec celery --app=app.worker.celery flower --port=5555
+    exec celery --app=app.worker.celery flower --port=5555 --conf=config/flowerconfig.py
 fi
 
 exec "$@"

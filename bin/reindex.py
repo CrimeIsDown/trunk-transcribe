@@ -114,10 +114,10 @@ if __name__ == "__main__":
         help="Meilisearch index to use",
     )
     parser.add_argument(
-        "--condition",
+        "--filter",
         type=str,
         default="True",
-        help="Python expression defining whether or not to process a document",
+        help="Python expression defining whether or not to process a document, by default will process all documents",
     )
     parser.add_argument(
         "--retranscribe",
@@ -159,11 +159,7 @@ if __name__ == "__main__":
         offset += limit
         total = docs.total
 
-        queued_tasks = []
-        documents = []
-        for document in docs.results:
-            if eval(args.condition):
-                documents.append(document)
+        documents = [document for document in docs.results if eval(args.filter)]
 
         if len(documents):
             if args.retranscribe:

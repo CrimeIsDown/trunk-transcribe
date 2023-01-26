@@ -1,3 +1,5 @@
+from base64 import b64encode
+import logging
 import os
 from datetime import datetime
 from functools import lru_cache
@@ -38,4 +40,18 @@ def upload_raw_audio(metadata: Metadata, audio_file: str) -> str:
         + f"_{metadata['short_name']}_{metadata['talkgroup']}.mp3"
     )
 
-    return upload_file(convert_to_mp3(audio_file), uploaded_audio_path)
+    mp3 = convert_to_mp3(audio_file)
+    if not (
+        os.getenv("S3_ENDPOINT")
+        and os.getenv("AWS_ACCESS_KEY_ID")
+        and os.getenv("AWS_SECRET_ACCESS_KEY")
+        and os.getenv("S3_BUCKET")
+    ):
+        logging.error(
+            "Not all S3 bucket environment variables defined, cannot upload audio. Returning base64 instead."
+        )
+        with open(mp3, "rb") as file:
+            base64 = b64encode(file.read()).decode("utf-8")
+            return f"data:audio/mpeg;base64,{base64}"
+
+    return upload_file(mp3, uploaded_audio_path)

@@ -1,8 +1,5 @@
 FROM ubuntu:22.04
 
-# Use the closest mirror instead of default mirror
-RUN sed -i 's#http://archive.ubuntu.com/ubuntu/#http://mirror.steadfastnet.com/ubuntu/#g' /etc/apt/sources.list
-
 RUN apt-get update && \
     apt-get -y upgrade && \
     apt-get install -y --no-install-recommends \
@@ -14,16 +11,17 @@ RUN apt-get update && \
     && \
     rm -rf /var/lib/apt/lists/*
 
+RUN pip3 install poetry>=1.3.2
+
 ARG DESIRED_CUDA
 ARG TARGETPLATFORM
-COPY install-whisper.sh /usr/local/bin/install-whisper.sh
+COPY bin/install-whisper.sh /usr/local/bin/install-whisper.sh
 RUN install-whisper.sh
 
 ARG WHISPER_MODEL=tiny.en
 ENV WHISPER_MODEL=${WHISPER_MODEL}
+# Pre-download the Whisper model
 RUN python3 -c "import whisper; import os; whisper.load_model(os.getenv('WHISPER_MODEL'))"
-
-RUN pip3 install poetry>=1.3.2
 
 WORKDIR /src
 COPY pyproject.toml poetry.lock ./
@@ -32,12 +30,11 @@ RUN poetry config virtualenvs.create false && \
 
 COPY app app
 COPY config config
-COPY *.py ./
+COPY bin/*.py ./
+COPY bin/*.sh /usr/local/bin/
 
-COPY docker-entrypoint.sh /usr/local/bin/
 ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["worker"]
 
 ARG GIT_COMMIT
 ENV GIT_COMMIT=${GIT_COMMIT}
-
-CMD ["worker"]

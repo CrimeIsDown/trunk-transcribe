@@ -21,10 +21,10 @@ Prerequsites: You should have Docker and Docker Compose installed, as well as th
 1. Copy `.env.example` to `.env` and set values
     1. `TELEGRAM_BOT_TOKEN` can be found by making a new bot on Telegram with @BotFather
 1. Copy the `*.example` files in [`config`](./config/) to `.json` files and update them with your own settings.
-1. Run `make start` to start
+1. Run `make start` to start (by default this will use your local GPU, see below for other options of running the worker)
 1. On the machine running `trunk-recorder`, in the `trunk-recorder` config, set the following for the systems you want to transcribe:
 
-    ```
+    ```json
     "audioArchive": true,
     "callLog": true,
     "uploadScript": "transcribe.sh"
@@ -51,7 +51,19 @@ The worker can be run on Windows if needed.
 
 The worker can be run on the cloud GPU service [vast.ai](https://vast.ai/). To get started, sign up for a vast.ai account. Next, create a copy of your `.env` called `.env.vast`. Update any settings such that a machine on the public internet could access the API and queue backend (*please ensure all services are protected by strong passwords*). Then, install the [Vast CLI](https://console.vast.ai/cli/) and login.
 
-Run `./autoscale-vast.py` to start workers and autoscale them as needed. Run `./autoscale-vast.py -h` to see available arguments.
+Run `bin/autoscale-vast.py` to start workers and autoscale them as needed. Run `bin/autoscale-vast.py -h` to see available arguments.
+
+To keep the autoscaler running, set the following in your `.env`:
+
+```bash
+COMPOSE_FILE=COMPOSE_FILE=docker-compose.yml:docker-compose.noworker.yml:docker-compose.autoscaler.yml
+# your API key from vast.ai, or omit to have it read from ~/.vast_api_key
+VAST_API_KEY=
+# Tune these settings as needed
+AUTOSCALE_MIN_INSTANCES=1
+AUTOSCALE_MAX_INSTANCES=10
+AUTOSCALE_THROUGHPUT=20
+```
 
 ### Viewing worker health
 
@@ -119,8 +131,7 @@ To get a development environment going (or to just run the project without Docke
 pip3 install poetry
 poetry shell
 # In the virtualenv that Poetry makes...
-./install-whisper.sh
-poetry install --with dev
+make deps
 ```
 
 Some helpful `make` commands:

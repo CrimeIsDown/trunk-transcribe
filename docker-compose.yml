@@ -10,7 +10,7 @@ services:
     volumes:
       - ./app:/src/app
       - ./config:/src/config
-      - ./docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
+      - ./bin/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
     env_file: .env
     restart: always
 
@@ -20,23 +20,23 @@ services:
     volumes:
       - ./app:/src/app
       - ./config:/src/config
-      - ./docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
+      - ./bin/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
     env_file: .env
     restart: always
 
-  dashboard:
+  flower:
     image: crimeisdown/trunk-transcribe:main-tiny.en-cpu
     command: flower
     volumes:
-      - ./flowerconfig.py:/src/flowerconfig.py
-      - ./docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
-      - flowerdb:/src/data
+      - ./config/flowerconfig.py:/src/config/flowerconfig.py
+      - ./bin/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
+      - flower-data:/src/data
     ports:
       - 5555:5555
     environment:
       - CELERY_BROKER_URL
       - CELERY_RESULT_BACKEND
-      - CELERY_QUEUES=transcribe,retranscribe,celery
+      - CELERY_QUEUES=transcribe,retranscribe
       - FLOWER_PURGE_OFFLINE_WORKERS=120
       - FLOWER_PERSISTENT=1
       - FLOWER_DB=/src/data/flower
@@ -44,10 +44,10 @@ services:
       - FLOWER_BROKER_API
     restart: always
 
-  broker:
+  rabbitmq:
     image: rabbitmq:3-management
     volumes:
-      - broker-data:/var/lib/rabbitmq
+      - rabbitmq-data:/var/lib/rabbitmq
     ports:
       - 5672:5672
       - 15672:15672
@@ -71,6 +71,6 @@ services:
     restart: always
 
 volumes:
-  flowerdb:
-  broker-data:
+  flower-data:
+  rabbitmq-data:
   meilisearch-data:
