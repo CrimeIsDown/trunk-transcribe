@@ -3,5 +3,6 @@ version: '3.8'
 services:
 
   worker:
+    image: crimeisdown/trunk-transcribe:main-tiny.en-cpu
     deploy:
       replicas: 0
