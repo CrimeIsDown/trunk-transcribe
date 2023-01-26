@@ -5,6 +5,7 @@ import os
 import tempfile
 from base64 import b64decode
 
+# This is needed so all workers are synced to the same timezone
 os.environ["TZ"] = "UTC"
 
 import requests

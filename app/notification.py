@@ -54,7 +54,11 @@ def check_transcript_for_alert_keywords(
     matched_keywords = []
     matched_lines = []
     for line in transcript.splitlines():
-        matches = [keyword for keyword in keywords if keyword.lower() in line.lower()]
+        matches = [
+            keyword
+            for keyword in keywords
+            if re.compile(rf"\b{keyword}\b", re.IGNORECASE).search(line)
+        ]
         if len(matches):
             matched_keywords += matches
             matched_lines.append(line)
