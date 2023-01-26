@@ -58,11 +58,10 @@ def transcribe_call(
             initial_prompt=prev_transcript,
         )
 
-        transcript = response["text"]
-        if not transcript or len(transcript.strip()) < 2:
+        transcript = response["text"].strip() if response["text"] else None
+        # Handle Whisper interpreting silence/non-speech
+        if not transcript or len(transcript) < 2 or transcript == "urn.com urn.schemas-microsoft-com.h":
             transcript = "(unintelligible)"
-        else:
-            transcript = transcript.strip()
 
         src_tag = src["tag"] if len(src["tag"]) else src_id
 

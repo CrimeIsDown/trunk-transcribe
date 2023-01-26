@@ -58,7 +58,7 @@ def transcribe_call(model: Whisper, model_lock: Lock, audio_file: str) -> str:
     transcript = [segment["text"].strip() for segment in response["segments"]]
     if len(transcript) < 1:
         raise RuntimeError("Transcript empty/null")
-    # When the transcript is just "Thank you." it's almost never speech
-    if len(transcript) == 1 and "Thank you." in transcript:
+    # Handle Whisper interpreting silence/non-speech
+    if len(transcript) == 1 and ("Thank you." in transcript or "urn.com urn.schemas-microsoft-com.h" in transcript):
         raise RuntimeError("No speech found")
     return "\n".join(transcript)
