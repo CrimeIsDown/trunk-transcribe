@@ -18,6 +18,7 @@ from app.config import (
 from app.conversion import convert_to_ogg
 from app.metadata import Metadata
 from app.notification_plugins.NotifyTelegram import NotifyTelegram
+from app.transcript import Transcript
 
 
 def truncate_transcript(transcript: str) -> str:
@@ -66,7 +67,7 @@ def check_transcript_for_alert_keywords(
 
 
 def send_notifications(
-    audio_file: str, metadata: Metadata, transcript: str, raw_audio_url: str
+    audio_file: str, metadata: Metadata, transcript: Transcript, raw_audio_url: str
 ):
     # If delayed over our MAX_CALL_AGE, don't bother sending to Telegram
     max_age = float(os.getenv("MAX_CALL_AGE", 1200))
@@ -82,13 +83,15 @@ def send_notifications(
         if re.compile(regex).search(f"{metadata['talkgroup']}@{metadata['short_name']}")
     ]
 
+    transcript_html = transcript.html.replace("<br>", "\n")
+
     for match in matches:
-        notify_channels(match, audio_file, metadata, transcript)
+        notify_channels(match, audio_file, metadata, transcript_html)
         for alert_config in match["alerts"]:
             send_alert(
                 alert_config,
                 metadata,
-                transcript,
+                transcript_html,
                 raw_audio_url,
             )
 

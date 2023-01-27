@@ -54,9 +54,10 @@ class TestEndToEnd(unittest.TestCase):
         return index.search(query, opt_params=options)
 
     def test_transcribes_digital(self):
-        transcript = '<i data-src="1410967">E96:</i> Engine comedy 96 on the truck 3 3 3 nor central.'
+        transcript_html = '<i data-src="1410967">E96:</i> Engine comedy 96 on the truck 3 3 3 nor central.'
+        transcript_txt = "E96: Engine comedy 96 on the truck 3 3 3 nor central."
         expected = {
-            "task_result": transcript,
+            "task_result": transcript_txt,
             "task_status": "SUCCESS",
         }
 
@@ -70,17 +71,21 @@ class TestEndToEnd(unittest.TestCase):
         result = self.search('"Engine comedy 96"', {"filter": ["units = E96"]})
 
         self.assertEqual(1, len(result["hits"]))
-        self.assertEqual(transcript, result["hits"][0]["transcript"])
+        self.assertEqual(transcript_html, result["hits"][0]["transcript"])
 
         self.assertTrue(isinstance(json.loads(result["hits"][0]["raw_metadata"]), dict))
+        self.assertTrue(
+            isinstance(json.loads(result["hits"][0]["raw_transcript"]), list)
+        )
 
         r = requests.get(result["hits"][0]["raw_audio_url"])
         self.assertEqual(200, r.status_code)
 
     def test_transcribes_analog(self):
-        transcript = "2011, lunch is 20 please.\n20."
+        transcript_html = "2011, lunch is 20 please.<br>20."
+        transcript_txt = "2011, lunch is 20 please.\n20."
         expected = {
-            "task_result": transcript,
+            "task_result": transcript_txt,
             "task_status": "SUCCESS",
         }
 
@@ -96,9 +101,12 @@ class TestEndToEnd(unittest.TestCase):
         )
 
         self.assertEqual(1, len(result["hits"]))
-        self.assertEqual(transcript, result["hits"][0]["transcript"])
+        self.assertEqual(transcript_html, result["hits"][0]["transcript"])
 
         self.assertTrue(isinstance(json.loads(result["hits"][0]["raw_metadata"]), dict))
+        self.assertTrue(
+            isinstance(json.loads(result["hits"][0]["raw_transcript"]), list)
+        )
 
         r = requests.get(result["hits"][0]["raw_audio_url"])
         self.assertEqual(200, r.status_code)

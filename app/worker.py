@@ -65,7 +65,7 @@ def transcribe(
     if not id:
         send_notifications(audio_file, metadata, transcript, raw_audio_url)
 
-    return transcript
+    return transcript.txt
 
 
 @celery.task(name="transcribe")

@@ -8,7 +8,7 @@ import os
 import re
 from functools import lru_cache
 from time import sleep
-from typing import TypedDict
+from typing import Tuple, TypedDict
 
 from dotenv import load_dotenv
 from meilisearch.index import Index
@@ -20,6 +20,7 @@ load_dotenv(os.getenv("ENV"))
 
 from app import search
 from app.metadata import Metadata
+from app.transcript import Transcript
 from app.worker import retranscribe_task
 
 
@@ -43,25 +44,26 @@ def find_src_tag(system: str, src: int) -> SrcListItemUpdate:
     return {"tag": "", "transcript_prompt": ""}
 
 
-def fix_srclist(metadata: Metadata, transcript: str) -> tuple[Metadata, str]:
+def fix_srclist(
+    metadata: Metadata, transcript: Transcript
+) -> Tuple[Metadata, Transcript]:
     for src in metadata["srcList"]:
         new_tag = find_src_tag(metadata["short_name"], src["src"])
         src["tag"] = new_tag["tag"]
         src["transcript_prompt"] = new_tag["transcript_prompt"]
-        transcript = re.sub(
-            f'<i data-src="{src["src"]}">(.*?):</i>',
-            f'<i data-src="{src["src"]}">{src["tag"] if len(src["tag"]) else src["src"]}:</i>',
-            transcript,
-        )
+        transcript.update_src(src)
     return metadata, transcript
 
 
 def fix_document(document: MeiliDocument) -> search.Document:
     metadata: Metadata = json.loads(document.raw_metadata)
+    transcript: Transcript = (
+        Transcript(json.loads(document.raw_transcript))
+        if hasattr(document, "raw_transcript")
+        else Transcript(document.transcript)
+    )
     if UNIT_TAGS.get(metadata["short_name"]):
-        metadata, transcript = fix_srclist(metadata, document.transcript)
-    else:
-        transcript = document.transcript
+        metadata, transcript = fix_srclist(metadata, transcript)
     return search.build_document(
         metadata,
         document.raw_audio_url,
@@ -73,8 +75,8 @@ def fix_document(document: MeiliDocument) -> search.Document:
 def reindex(index: Index, documents: list[MeiliDocument]) -> TaskInfo:
     fixed_docs = list(map(fix_document, documents))
     logging.debug(
-        "Going to send the following documents to be indexed:\n"
-        + json.dumps(fixed_docs, sort_keys=True, indent=4)
+        "Showing the first 5 documents to be indexed:\n"
+        + json.dumps(fixed_docs[:5], sort_keys=True, indent=4)
     )
     return index.add_documents(fixed_docs)  # type: ignore
 
@@ -82,8 +84,8 @@ def reindex(index: Index, documents: list[MeiliDocument]) -> TaskInfo:
 def retranscribe(index: Index, documents: list[MeiliDocument]):
     fixed_docs = list(map(fix_document, documents))
     logging.debug(
-        "Going to send the following documents to be re-transcribed:\n"
-        + json.dumps(fixed_docs, sort_keys=True, indent=4)
+        "Showing the first 5 documents to be re-transcribed:\n"
+        + json.dumps(fixed_docs[:5], sort_keys=True, indent=4)
     )
     for doc in fixed_docs:
         retranscribe_task.delay(
@@ -95,8 +97,6 @@ def retranscribe(index: Index, documents: list[MeiliDocument]):
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-
     parser = argparse.ArgumentParser(description="Reindex calls.")
     parser.add_argument(
         "--unit_tags",
@@ -129,7 +129,14 @@ if __name__ == "__main__":
         action="store_true",
         help="Update index settings to match those in search.py",
     )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Enable verbose mode (debug logging)",
+    )
     args = parser.parse_args()
+
+    logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO)
 
     UNIT_TAGS = {}
     for system, file in args.unit_tags:
@@ -180,5 +187,5 @@ if __name__ == "__main__":
         total_processed += len(documents)
         completion = min((offset / total) * 100, 100)
         logging.info(
-            f"Processed {total_processed} matching documents, {completion:.2f}% complete ({offset}/{total})"
+            f"Processed {total_processed} matching documents, {completion:.2f}% complete ({min(offset, total)}/{total})"
         )

@@ -9,6 +9,7 @@ from meilisearch.index import Index
 from meilisearch.models.task import TaskInfo
 
 from app.metadata import Metadata, SearchableMetadata
+from app.transcript import Transcript
 
 client = None
 
@@ -18,6 +19,8 @@ class Document(SearchableMetadata):
     radios: list[str]
     srcList: list[str]
     transcript: str
+    transcript_plaintext: str
+    raw_transcript: str
     raw_metadata: str
     raw_audio_url: str
     id: str
@@ -48,7 +51,10 @@ def get_index(index_name: str) -> Index:
 
 
 def build_document(
-    metadata: Metadata, raw_audio_url: str, transcript: str, id: str | None = None
+    metadata: Metadata,
+    raw_audio_url: str,
+    transcript: Transcript,
+    id: str | None = None,
 ) -> Document:
     srcList = set()
     units = set()
@@ -82,7 +88,9 @@ def build_document(
         "srcList": list(srcList),
         "units": list(units),
         "radios": list(radios),
-        "transcript": transcript,
+        "transcript": transcript.html,
+        "transcript_plaintext": transcript.txt,
+        "raw_transcript": transcript.json,
         "raw_metadata": raw_metadata,
         "raw_audio_url": raw_audio_url,
         "id": id,
@@ -92,7 +100,7 @@ def build_document(
 def index_call(
     metadata: Metadata,
     raw_audio_url: str,
-    transcript: str,
+    transcript: Transcript,
     id: str | None = None,
     index_name: str | None = None,
 ) -> TaskInfo:
@@ -116,8 +124,7 @@ def create_or_update_index(
     index.update_settings(
         {
             "searchableAttributes": [
-                "transcript",
-                "units",
+                "transcript_plaintext",
             ],
             "filterableAttributes": [
                 "start_time",
