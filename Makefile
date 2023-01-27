@@ -25,6 +25,6 @@ test: start
 	@diff config/whisper.json config/whisper.json.testing
 	$(DOCKER_COMPOSE) exec api python3 -m unittest
 
-restart-and-test: restart test
+retest: restart test
 
 .PHONY: build deps fmt restart test

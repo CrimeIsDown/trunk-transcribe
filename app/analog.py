@@ -3,8 +3,6 @@ import subprocess
 from glob import glob
 from threading import Lock
 
-from whisper import Whisper
-
 from app.whisper import transcribe
 
 
@@ -43,7 +41,7 @@ def pad_silence(audio_file: str):
     return whisper_file
 
 
-def transcribe_call(model: Whisper, model_lock: Lock, audio_file: str) -> str:
+def transcribe_call(model, model_lock: Lock, audio_file: str) -> str:
     prev_transcript = ""
 
     audio_file = pad_silence(audio_file)
@@ -59,6 +57,9 @@ def transcribe_call(model: Whisper, model_lock: Lock, audio_file: str) -> str:
     if len(transcript) < 1:
         raise RuntimeError("Transcript empty/null")
     # Handle Whisper interpreting silence/non-speech
-    if len(transcript) == 1 and ("Thank you." in transcript or "urn.com urn.schemas-microsoft-com.h" in transcript):
+    if len(transcript) == 1 and (
+        "Thank you." in transcript
+        or "urn.com urn.schemas-microsoft-com.h" in transcript
+    ):
         raise RuntimeError("No speech found")
     return "\n".join(transcript)

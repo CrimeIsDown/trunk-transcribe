@@ -144,7 +144,7 @@ make test
 # Restart API and worker
 make restart
 # Do a restart, and then run tests (do this after making a change and needing to run tests again)
-make restart-and-test
+make retest
 ```
 
 PRs are welcome.

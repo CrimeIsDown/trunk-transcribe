@@ -2,8 +2,6 @@ import os
 import subprocess
 from threading import Lock
 
-from whisper import Whisper
-
 from app.metadata import Metadata, SrcListItem
 from app.whisper import transcribe
 
@@ -20,7 +18,7 @@ def dedupe_srclist(srclist: list[SrcListItem]) -> list[SrcListItem]:
 
 # TODO: Break this up into a smaller function
 def transcribe_call(
-    model: Whisper, model_lock: Lock, audio_file: str, metadata: Metadata
+    model, model_lock: Lock, audio_file: str, metadata: Metadata
 ) -> str:
     result = []
 
@@ -60,7 +58,11 @@ def transcribe_call(
 
         transcript = response["text"].strip() if response["text"] else None
         # Handle Whisper interpreting silence/non-speech
-        if not transcript or len(transcript) < 2 or transcript == "urn.com urn.schemas-microsoft-com.h":
+        if (
+            not transcript
+            or len(transcript) < 2
+            or transcript == "urn.com urn.schemas-microsoft-com.h"
+        ):
             transcript = "(unintelligible)"
 
         src_tag = src["tag"] if len(src["tag"]) else src_id

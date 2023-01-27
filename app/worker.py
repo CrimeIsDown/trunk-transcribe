@@ -71,17 +71,16 @@ def transcribe(
 @celery.task(name="transcribe")
 def transcribe_task(metadata: Metadata, audio_file_b64: str) -> str:
     with tempfile.TemporaryDirectory() as tempdir:
-        audio_file = tempfile.NamedTemporaryFile(
-            delete=False, dir=tempdir, suffix=".wav"
-        )
+        audio_file = tempfile.NamedTemporaryFile(delete=False, dir=tempdir)
         audio_file.write(b64decode(audio_file_b64))
         audio_file.close()
+        wav_file = convert_to_wav(audio_file.name)
 
         return transcribe(
             transcribe_task.model,
             transcribe_task.model_lock,
             metadata,
-            audio_file=audio_file.name,
+            audio_file=wav_file,
         )
 
 

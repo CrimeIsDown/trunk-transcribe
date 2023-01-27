@@ -37,6 +37,8 @@ def convert_to_wav(audio_file: str) -> str:
             "pcm_s16le",
             "-ar",
             "16000",
+            "-ac",
+            "1",
         ],
     )
 
