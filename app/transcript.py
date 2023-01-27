@@ -37,6 +37,20 @@ class Transcript:
         )
 
     @property
+    def markdown(self):
+        """
+        Convert to Markdown following https://core.telegram.org/bots/api#markdown-style
+        """
+        return "\n".join(
+            [
+                f'_{src["tag"] if len(src["tag"]) else src["src"]}:_ {transcript}'
+                if src
+                else transcript
+                for src, transcript in self.transcript
+            ]
+        )
+
+    @property
     def txt(self):
         return "\n".join(
             [
@@ -106,9 +120,7 @@ class Transcript:
                     )
                 )
             elif line.startswith("<i>"):
-                html_match = re.compile(
-                    r"<i>(-?[0-9]+):</i> (.*)"
-                ).fullmatch(line)
+                html_match = re.compile(r"<i>(-?[0-9]+):</i> (.*)").fullmatch(line)
                 if not html_match:
                     raise RuntimeError("Cannot parse HTML: " + line)
                 src = int(html_match.group(1))
