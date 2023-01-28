@@ -10,6 +10,7 @@ from functools import lru_cache
 from time import sleep
 from typing import Tuple, TypedDict
 
+from celery.result import AsyncResult
 from dotenv import load_dotenv
 from meilisearch.index import Index
 from meilisearch.models.document import Document as MeiliDocument
@@ -44,7 +45,7 @@ def find_src_tag(system: str, src: int) -> SrcListItemUpdate:
     return {"tag": "", "transcript_prompt": ""}
 
 
-def fix_srclist(
+def update_srclist(
     metadata: Metadata, transcript: Transcript
 ) -> Tuple[Metadata, Transcript]:
     for src in metadata["srcList"]:
@@ -55,7 +56,7 @@ def fix_srclist(
     return metadata, transcript
 
 
-def fix_document(document: MeiliDocument) -> search.Document:
+def update_document(document: MeiliDocument) -> search.Document:
     metadata: Metadata = json.loads(document.raw_metadata)
     transcript: Transcript = (
         Transcript(json.loads(document.raw_transcript))
@@ -63,7 +64,7 @@ def fix_document(document: MeiliDocument) -> search.Document:
         else Transcript(document.transcript)
     )
     if UNIT_TAGS.get(metadata["short_name"]):
-        metadata, transcript = fix_srclist(metadata, transcript)
+        metadata, transcript = update_srclist(metadata, transcript)
     return search.build_document(
         metadata,
         document.raw_audio_url,
@@ -72,37 +73,31 @@ def fix_document(document: MeiliDocument) -> search.Document:
     )
 
 
-def reindex(index: Index, documents: list[MeiliDocument]) -> TaskInfo:
-    fixed_docs = list(map(fix_document, documents))
-    logging.debug(
-        "Showing the first 5 documents to be indexed:\n"
-        + json.dumps(fixed_docs[:5], sort_keys=True, indent=4)
-    )
-    return index.add_documents(fixed_docs)  # type: ignore
+def reindex(index: Index, documents: list[search.Document]) -> TaskInfo:
+    return index.add_documents(documents)  # type: ignore
 
 
-def retranscribe(index: Index, documents: list[MeiliDocument]):
-    fixed_docs = list(map(fix_document, documents))
-    logging.debug(
-        "Showing the first 5 documents to be re-transcribed:\n"
-        + json.dumps(fixed_docs[:5], sort_keys=True, indent=4)
-    )
-    for doc in fixed_docs:
+def retranscribe(index: Index, documents: list[search.Document]) -> list[AsyncResult]:
+    return [
         retranscribe_task.delay(
             metadata=json.loads(doc["raw_metadata"]),
             audio_url=doc["raw_audio_url"],
             id=doc["id"],
             index_name=index.uid,
         )
+        for doc in documents
+    ]
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Reindex calls.")
+    parser = argparse.ArgumentParser(
+        description="Reindex calls.", formatter_class=argparse.RawTextHelpFormatter
+    )
     parser.add_argument(
         "--unit_tags",
         type=str,
         nargs=2,
-        metavar=("short_name", "unitTagsFile"),
+        metavar=("SHORT_NAME", "UNIT_TAGS_FILE"),
         action="append",
         help="System short_name and the path to the corresponding unitTagsFile CSV",
         required=True,
@@ -117,7 +112,9 @@ if __name__ == "__main__":
         "--filter",
         type=str,
         default="True",
-        help="Python expression defining whether or not to process a document, by default will process all documents",
+        help="Python expression defining whether or not to process a document, by default will process all documents"
+        + "\n"
+        + 'Examples: `not hasattr(document, "raw_transcript")`, `document.short_name == "system_name" and "123" in document.radios`',
     )
     parser.add_argument(
         "--retranscribe",
@@ -133,6 +130,11 @@ if __name__ == "__main__":
         "--verbose",
         action="store_true",
         help="Enable verbose mode (debug logging)",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show the matching documents and associated transformations, without actually doing the reindex",
     )
     args = parser.parse_args()
 
@@ -150,6 +152,7 @@ if __name__ == "__main__":
     client = search.get_client()
 
     if args.update_settings:
+        logging.info(f"Updating settings for index {args.index}")
         search.create_or_update_index(client, args.index, create=False)
 
     index = search.get_index(args.index)
@@ -158,8 +161,9 @@ if __name__ == "__main__":
     logging.info(f"Found {total} total documents")
     limit = 2000
     offset = 0
-
     total_processed = 0
+
+    action = "re-transcribed" if args.retranscribe else "re-indexed"
 
     while offset < total:
         docs = index.get_documents({"offset": offset, "limit": limit})
@@ -169,14 +173,30 @@ if __name__ == "__main__":
         documents = [document for document in docs.results if eval(args.filter)]
 
         if len(documents):
-            if args.retranscribe:
-                logging.info(
-                    f"Queueing {len(documents)} documents to be re-transcribed"
+            logging.log(
+                logging.INFO if args.dry_run else logging.DEBUG,
+                "First 5 documents that were matched:\n"
+                + json.dumps([dict(doc)["_Document__doc"] for doc in documents[:5]], sort_keys=True, indent=4),
+            )
+            updated_documents = list(map(update_document, documents))
+            logging.log(
+                logging.INFO if args.dry_run else logging.DEBUG,
+                f"The updated documents to be {action}:\n"
+                + json.dumps(updated_documents[:5], sort_keys=True, indent=4),
+            )
+
+            if args.dry_run:
+                logging.warning(
+                    f"Dry run enabled, exiting. We would have {action} at least {len(documents)} documents"
                 )
-                retranscribe(index, documents)
+                break
+
+            if args.retranscribe:
+                logging.info(f"Queueing {len(documents)} documents to be {action}")
+                retranscribe(index, updated_documents)
             else:
-                logging.info(f"Waiting for {len(documents)} documents to be re-indexed")
-                task = reindex(index, documents)
+                logging.info(f"Waiting for {len(documents)} documents to be {action}")
+                task = reindex(index, updated_documents)
                 while client.get_task(task.task_uid)["status"] not in [
                     "succeeded",
                     "failed",
@@ -186,6 +206,9 @@ if __name__ == "__main__":
 
         total_processed += len(documents)
         completion = min((offset / total) * 100, 100)
+        logging.info(f"{completion:.2f}% complete ({min(offset, total)}/{total})")
+
+    if not args.dry_run:
         logging.info(
-            f"Processed {total_processed} matching documents, {completion:.2f}% complete ({min(offset, total)}/{total})"
+            f"Successfully {action} {total_processed} total matching documents"
         )

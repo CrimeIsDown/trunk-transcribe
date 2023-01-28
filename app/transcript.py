@@ -10,7 +10,7 @@ RawTranscript: TypeAlias = list[Tuple[Union[None, SrcListItem], str]]
 class Transcript:
     transcript: RawTranscript
 
-    banned_keywords = ["urn.com urn.schemas-microsoft-com.h"]
+    banned_keywords = ["urn.com urn.schemas-microsoft-com.h", "urn.schemas-microsoft-com.h"]
     unintelligible = "(unintelligible)"
 
     def __init__(self, transcript: RawTranscript | str | None = None):
