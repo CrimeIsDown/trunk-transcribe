@@ -10,7 +10,7 @@ RawTranscript: TypeAlias = list[Tuple[Union[None, SrcListItem], str]]
 class Transcript:
     transcript: RawTranscript
 
-    banned_keywords = ["urn.com urn.schemas-microsoft-com.h", "urn.schemas-microsoft-com.h"]
+    banned_keywords = ["urn.com"]
     unintelligible = "(unintelligible)"
 
     def __init__(self, transcript: RawTranscript | str | None = None):
@@ -62,7 +62,7 @@ class Transcript:
         )
 
     def append(self, transcript: str, src: SrcListItem | None = None):
-        if len(transcript) <= 1 or transcript in Transcript.banned_keywords:
+        if len(transcript) <= 1 or True in [keyword in transcript for keyword in Transcript.banned_keywords]:
             transcript = Transcript.unintelligible
         self.transcript.append((src, transcript))
         return self
