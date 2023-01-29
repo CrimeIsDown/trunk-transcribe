@@ -20,7 +20,7 @@ Prerequsites: You should have Docker and Docker Compose installed, as well as th
 1. Clone repo
 1. Copy `.env.example` to `.env` and set values
     1. `TELEGRAM_BOT_TOKEN` can be found by making a new bot on Telegram with @BotFather
-1. Copy the `*.example` files in [`config`](./config/) to `.json` files and update them with your own settings.
+1. Copy the `*.example` files in [`config`](./config/) to `.json` files and update them with your own settings. [See below](#configuration-files) for documentation on the specific settings.
 1. Run `make start` to start (by default this will use your local GPU, see below for other options of running the worker)
 1. On the machine running `trunk-recorder`, in the `trunk-recorder` config, set the following for the systems you want to transcribe:
 
@@ -31,7 +31,11 @@ Prerequsites: You should have Docker and Docker Compose installed, as well as th
     ```
     An example upload script that can be used is available at [transcribe.sh](./transcribe.sh). Make sure to put that in the same location as the config.
 
-You can access a basic search page showing the calls at http://localhost:7700 (when prompted for an API key, enter the value of MEILI_MASTER_KEY in your .env). A custom search interface can also be built using the [Meilisearch API](https://docs.meilisearch.com/learn/getting_started/quick_start.html) and/or [InstantSearch.js](https://github.com/meilisearch/instant-meilisearch).
+    Additionally, make sure the systems are configured with a `talkgroupsFile`/`channelFile` and `unitTagsFile` so that the metadata sent to trunk-transcribe is complete with talkgroup/channel and unit names. You will be able to search on this metadata.
+
+You can access a basic search page showing the calls at http://localhost:7700 (when prompted for an API key, enter the value of MEILI_MASTER_KEY in your .env). A custom search interface can also be built using the [Meilisearch API](https://docs.meilisearch.com/learn/getting_started/quick_start.html) and/or [InstantSearch.js](https://github.com/meilisearch/instant-meilisearch). This software may come with a customized search interface at a later date.
+
+There are numerous `docker-compose.*.yml` files in this repo for various configurations of the different components. Add `COMPOSE_FILE=` to your `.env` with the value being a list of docker-compose configurations separated by `:`, see `.env.example` for some common ones.
 
 ### Running workers on Windows
 
@@ -64,6 +68,8 @@ AUTOSCALE_MIN_INSTANCES=1
 AUTOSCALE_MAX_INSTANCES=10
 AUTOSCALE_THROUGHPUT=20
 ```
+
+If you want to maintain a constant number of instances on Vast.ai instead of autoscaling, just set the min and max instances to the same value.
 
 ### Viewing worker health
 
@@ -122,6 +128,28 @@ File is cached in memory for 60 seconds upon reading from the worker's filesyste
     "beam_size": 5
 }
 ```
+
+## Updating the search index
+
+If a change is made to the search index settings or document data structure, it may be needed to re-index existing calls to migrate them to the new structure. This can be done by running the following:
+
+```bash
+bin/reindex.py --update-settings
+```
+
+A more complex command, which uses the connection settings from `.env.vast` to update calls in the `calls_demo` index without a `raw_transcript` attribute, and updating radio IDs for those calls from the chi_cfd system.
+
+```bash
+ENV=.env.vast bin/reindex.py --unit_tags chi_cfd ../trunk-recorder/config/cfd-radio-ids.csv --filter 'not hasattr(document, "raw_transcript")' --index calls_demo
+```
+
+This command can also be used to re-transcribe calls if improvements are made to the transcription accuracy. Beware that this will take a lot of resources, so consider adding a `--filter` argument with some Python code to limit what documents are re-transcribed.
+
+```bash
+bin/reindex.py --retranscribe
+```
+
+Get the full list of arguments with `bin/reindex.py -h`.
 
 ## Contributing
 
