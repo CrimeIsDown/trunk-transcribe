@@ -1,7 +1,12 @@
 # trunk-transcribe
 Transcription of calls from trunk-recorder using OpenAI Whisper
 
-This is the software that powers [CrimeIsDown.com Transcript Search](https://crimeisdown.com/transcripts/search) for Chicago.
+<details>
+  <summary>This is the software that powers <a href="https://crimeisdown.com/transcripts/search">CrimeIsDown.com Transcript Search</a> for Chicago.</summary>
+  
+  ![Transcript Search Page](https://user-images.githubusercontent.com/498525/215303132-9249123f-0fcd-41a4-b29e-8d9c5847e663.png)
+  
+</details>
 
 This is experimental alpha-version software, use at your own risk. Expect breaking changes until version 1 is released.
 
