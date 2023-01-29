@@ -86,7 +86,7 @@ def check_transcript_for_alert_keywords(
         if len(matches):
             matched_keywords += matches
             matched_lines.append(line)
-    return matched_keywords, matched_lines
+    return list(set(matched_keywords)), matched_lines
 
 
 def send_notifications(
