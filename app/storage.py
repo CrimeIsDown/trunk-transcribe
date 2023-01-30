@@ -1,8 +1,9 @@
-from base64 import b64encode
 import logging
 import os
+from base64 import b64encode
 from datetime import datetime
 from functools import lru_cache
+from mimetypes import guess_type
 
 import boto3
 from botocore.config import Config
@@ -25,10 +26,13 @@ def get_storage_client():
 
 
 def upload_file(filename: str, remote_path: str | None = None) -> str:
+    mime_type = guess_type(filename)
     if remote_path is None:
         remote_path = os.path.basename(filename)
     get_storage_client().Bucket(os.getenv("S3_BUCKET")).upload_file(
-        Filename=filename, Key=remote_path, ExtraArgs={"ACL": "public-read"}
+        Filename=filename,
+        Key=remote_path,
+        ExtraArgs={"ACL": "public-read", "ContentType": mime_type[0]},
     )
     return f"{os.getenv('S3_PUBLIC_URL', '')}/{remote_path}"
 

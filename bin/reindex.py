@@ -39,7 +39,9 @@ def find_src_tag(system: str, src: int) -> SrcListItemUpdate:
             # Expect row[1] to be like `E$1", "transcript_prompt": "Engine $1 on scene`
             # (this input looks weird, but it's needed to take advantage of trunk-recorder not escaping values in building JSON)
             replacement = row[1].replace("$", "\\")
-            result = json.loads('{"tag": "' + re.sub(pattern, replacement, source) + '"}')
+            result = json.loads(
+                '{"tag": "' + re.sub(pattern, replacement, source) + '"}'
+            )
             if "transcript_prompt" not in result:
                 result["transcript_prompt"] = ""
             return result
@@ -178,7 +180,11 @@ if __name__ == "__main__":
             logging.log(
                 logging.INFO if args.dry_run else logging.DEBUG,
                 "First 5 documents that were matched:\n"
-                + json.dumps([dict(doc)["_Document__doc"] for doc in documents[:5]], sort_keys=True, indent=4),
+                + json.dumps(
+                    [dict(doc)["_Document__doc"] for doc in documents[:5]],
+                    sort_keys=True,
+                    indent=4,
+                ),
             )
             updated_documents = list(map(update_document, documents))
             logging.log(

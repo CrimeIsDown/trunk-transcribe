@@ -62,7 +62,9 @@ class Transcript:
         )
 
     def append(self, transcript: str, src: SrcListItem | None = None):
-        if len(transcript) <= 1 or True in [keyword in transcript for keyword in Transcript.banned_keywords]:
+        if len(transcript) <= 1 or True in [
+            keyword in transcript for keyword in Transcript.banned_keywords
+        ]:
             transcript = Transcript.unintelligible
         self.transcript.append((src, transcript))
         return self

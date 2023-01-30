@@ -110,6 +110,7 @@ class TestEndToEnd(unittest.TestCase):
 
         r = requests.get(result["hits"][0]["raw_audio_url"])
         self.assertEqual(200, r.status_code)
+        self.assertEqual("audio/mpeg", r.headers.get("content-type"))
 
 
 if __name__ == "__main__":
