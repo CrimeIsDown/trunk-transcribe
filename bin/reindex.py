@@ -166,6 +166,7 @@ if __name__ == "__main__":
     limit = 2000
     offset = 0
     total_processed = 0
+    updated_documents = []
 
     action = "re-transcribed" if args.retranscribe else "re-indexed"
 
@@ -186,7 +187,7 @@ if __name__ == "__main__":
                     indent=4,
                 ),
             )
-            updated_documents = list(map(update_document, documents))
+            updated_documents += list(map(update_document, documents))
             logging.log(
                 logging.INFO if args.dry_run else logging.DEBUG,
                 f"The updated documents to be {action}:\n"
@@ -200,17 +201,21 @@ if __name__ == "__main__":
                 break
 
             if args.retranscribe:
-                logging.info(f"Queueing {len(documents)} documents to be {action}")
+                logging.info(f"Queueing {len(updated_documents)} documents to be {action}")
                 retranscribe(index, updated_documents)
             else:
-                logging.info(f"Waiting for {len(documents)} documents to be {action}")
-                task = reindex(index, updated_documents)
-                while client.get_task(task.task_uid)["status"] not in [
-                    "succeeded",
-                    "failed",
-                    "canceled",
-                ]:
-                    sleep(2)
+                # Only send the updated docs to be reindexed when we have a big enough batch
+                if len(updated_documents) >= limit or offset >= total:
+                    logging.info(f"Waiting for {len(updated_documents)} documents to be {action}")
+                    task = reindex(index, updated_documents)
+                    while client.get_task(task.task_uid)["status"] not in [
+                        "succeeded",
+                        "failed",
+                        "canceled",
+                    ]:
+                        sleep(2)
+
+            updated_documents = []
 
         total_processed += len(documents)
         completion = min((offset / total) * 100, 100)

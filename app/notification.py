@@ -166,7 +166,7 @@ def send_alert(
     )
 
     if len(matched_keywords):
-        body = "*" + ", ".join(matched_keywords) + "* detected in transcript\n\n"
+        body = "*" + ", ".join(matched_keywords) + "* detected in transcript\n"
 
         # Avoid duplicating the transcript if we don't have to
         transcript_excerpt = "\n".join(matched_lines)
