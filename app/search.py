@@ -44,8 +44,11 @@ def get_index(index_name: str) -> Index:
     index = client.index(index_name)
     try:
         index.fetch_info()
-    except MeiliSearchApiError:
-        index = create_or_update_index(client, index_name)
+    except MeiliSearchApiError as e:
+        if e.code == "index_not_found":
+            index = create_or_update_index(client, index_name)
+        else:
+            raise e
 
     return index
 
