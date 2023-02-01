@@ -93,6 +93,25 @@ def retranscribe(index: Index, documents: list[search.Document]) -> list[AsyncRe
     ]
 
 
+def get_documents(
+    index: Index, pagination: dict, search: dict | None = None
+) -> Tuple[int, list[MeiliDocument]]:
+    if search:
+        query = search["q"]
+        # Merge the two dicts via copying
+        opts = {**search, **pagination}
+        # Delete it from opts, not search, so we don't modify the original dict
+        del opts["q"]
+        # Perform the search and process results into the same format as index.get_documents()
+        results = index.search(query, opts)
+        return results["estimatedTotalHits"], [
+            MeiliDocument(hit) for hit in results["hits"]
+        ]
+    else:
+        results = index.get_documents(pagination)
+        return results.total, results.results
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Reindex calls.", formatter_class=argparse.RawTextHelpFormatter
@@ -119,6 +138,13 @@ if __name__ == "__main__":
         help="Python expression defining whether or not to process a document, by default will process all documents"
         + "\n"
         + 'Examples: `not hasattr(document, "raw_transcript")`, `document.short_name == "system_name" and "123" in document.radios`',
+    )
+    parser.add_argument(
+        "--search",
+        type=json.loads,
+        help="JSON string representing the search query to perform to find matching documents, instead of fetching all"
+        + "\n"
+        + 'Examples: `{ "q": "some search" }`, `{"q": "", "filter": [["talkgroup = 1", "talkgroup = 2"], "radios = 12345"]}`',
     )
     parser.add_argument(
         "--retranscribe",
@@ -161,7 +187,7 @@ if __name__ == "__main__":
 
     index = search.get_index(args.index)
 
-    total = index.get_documents({"limit": 1}).total
+    total, _ = get_documents(index, {"limit": 1}, args.search)
     logging.info(f"Found {total} total documents")
     limit = 2000
     offset = 0
@@ -171,11 +197,12 @@ if __name__ == "__main__":
     action = "re-transcribed" if args.retranscribe else "re-indexed"
 
     while offset < total:
-        docs = index.get_documents({"offset": offset, "limit": limit})
+        total, docs = get_documents(
+            index, {"offset": offset, "limit": limit}, args.search
+        )
         offset += limit
-        total = docs.total
-
-        documents = [document for document in docs.results if eval(args.filter)]
+        completion = min((offset / total) * 100, 100)
+        documents = [document for document in docs if eval(args.filter)]
 
         if len(documents):
             logging.log(
@@ -188,6 +215,7 @@ if __name__ == "__main__":
                 ),
             )
             updated_documents += list(map(update_document, documents))
+            total_processed += len(updated_documents)
             logging.log(
                 logging.INFO if args.dry_run else logging.DEBUG,
                 f"The updated documents to be {action}:\n"
@@ -201,12 +229,16 @@ if __name__ == "__main__":
                 break
 
             if args.retranscribe:
-                logging.info(f"Queueing {len(updated_documents)} documents to be {action}")
+                logging.info(
+                    f"Queueing {len(updated_documents)} documents to be {action}"
+                )
                 retranscribe(index, updated_documents)
             else:
                 # Only send the updated docs to be reindexed when we have a big enough batch
                 if len(updated_documents) >= limit or offset >= total:
-                    logging.info(f"Waiting for {len(updated_documents)} documents to be {action}")
+                    logging.info(
+                        f"Waiting for {len(updated_documents)} documents to be {action}"
+                    )
                     task = reindex(index, updated_documents)
                     while client.get_task(task.task_uid)["status"] not in [
                         "succeeded",
@@ -214,11 +246,9 @@ if __name__ == "__main__":
                         "canceled",
                     ]:
                         sleep(2)
+                    # Reset the list of updated documents
+                    updated_documents = []
 
-            updated_documents = []
-
-        total_processed += len(documents)
-        completion = min((offset / total) * 100, 100)
         logging.info(f"{completion:.2f}% complete ({min(offset, total)}/{total})")
 
     if not args.dry_run:
