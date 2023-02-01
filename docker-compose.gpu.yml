@@ -3,6 +3,13 @@ version: '3.8'
 services:
 
   worker:
+    image: crimeisdown/trunk-transcribe:${VERSION:-main}-${WHISPER_MODEL:-small.en}-${DESIRED_CUDA:-cu117}
+    build:
+      context: .
+      dockerfile: Dockerfile.whisper
+      args:
+        WHISPER_MODEL: ${WHISPER_MODEL}
+        DESIRED_CUDA: ${DESIRED_CUDA:-cu117}
     deploy:
       resources:
         reservations:

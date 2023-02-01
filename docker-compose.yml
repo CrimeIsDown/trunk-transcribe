@@ -3,20 +3,28 @@ version: '3.8'
 services:
 
   api:
-    image: crimeisdown/trunk-transcribe:main-tiny.en-cpu
+    image: crimeisdown/trunk-transcribe:${VERSION:-main}
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
       - 8000:8000
     command: api
     volumes:
       - ./app:/src/app
       - ./config:/src/config
+      - ./tests:/src/tests
       - ./bin/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
     env_file: .env
     restart: always
 
   worker:
-    image: crimeisdown/trunk-transcribe:main-${WHISPER_MODEL:-medium.en}-${DESIRED_CUDA:-cu117}
-    command: worker
+    image: crimeisdown/trunk-transcribe:${VERSION:-main}-${WHISPER_MODEL:-small.en}-${DESIRED_CUDA:-cpu-cpp}
+    build:
+      context: .
+      dockerfile: Dockerfile.whispercpp
+      args:
+        WHISPER_MODEL: ${WHISPER_MODEL}
     volumes:
       - ./app:/src/app
       - ./config:/src/config
@@ -25,7 +33,7 @@ services:
     restart: always
 
   flower:
-    image: crimeisdown/trunk-transcribe:main-tiny.en-cpu
+    image: crimeisdown/trunk-transcribe:${VERSION:-main}
     command: flower
     volumes:
       - ./config/flowerconfig.py:/src/config/flowerconfig.py

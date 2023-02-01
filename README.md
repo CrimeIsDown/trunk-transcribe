@@ -3,9 +3,9 @@ Transcription of calls from trunk-recorder using OpenAI Whisper
 
 <details>
   <summary>This is the software that powers <a href="https://crimeisdown.com/transcripts/search">CrimeIsDown.com Transcript Search</a> for Chicago. (open for screenshot)</summary>
-  
+
   ![Transcript Search Page](https://user-images.githubusercontent.com/498525/215303132-9249123f-0fcd-41a4-b29e-8d9c5847e663.png)
-  
+
 </details>
 
 This is experimental alpha-version software, use at your own risk. Expect breaking changes until version 1 is released.
@@ -27,6 +27,7 @@ Prerequsites: You should have Docker and Docker Compose installed, as well as th
     1. `TELEGRAM_BOT_TOKEN` can be found by making a new bot on Telegram with @BotFather
 1. Copy the `*.example` files in [`config`](./config/) to `.json` files and update them with your own settings. [See below](#configuration-files) for documentation on the specific settings.
 1. Run `make start` to start (by default this will use your local GPU, see below for other options of running the worker)
+    1. To use the CPU with Whisper.cpp (a CPU-optimized version of Whisper), comment out the `COMPOSE_FILE` line in your `.env`
 1. On the machine running `trunk-recorder`, in the `trunk-recorder` config, set the following for the systems you want to transcribe:
 
     ```json

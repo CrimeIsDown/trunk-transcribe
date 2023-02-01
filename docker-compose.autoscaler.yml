@@ -2,7 +2,10 @@ version: '3.8'
 
 services:
   autoscaler:
-    image: crimeisdown/trunk-transcribe:main-tiny.en-cpu
+    image: crimeisdown/trunk-transcribe:${VERSION:-main}
+    build:
+      context: .
+      dockerfile: Dockerfile
     command:
       - ./autoscale-vast.py
       - --min-instances
