@@ -7,7 +7,7 @@ on:
       - '*'
     paths:
       - 'app/**'
-      - 'bin/**'
+      - 'bin/*.sh'
       - 'config/**'
       - 'Dockerfile'
       - 'Dockerfile.whisper'
