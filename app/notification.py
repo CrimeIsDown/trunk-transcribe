@@ -54,7 +54,7 @@ def build_suffix(metadata: Metadata, add_talkgroup: bool = False) -> str:
         windows_format = linux_format.replace("-", "#")
         timestamp = (
             datetime.fromtimestamp(metadata["start_time"], tz=timezone.utc)
-            .astimezone(pytz.timezone(os.getenv("TZ", "America/Chicago")))
+            .astimezone(pytz.timezone(os.getenv("DISPLAY_TZ", "America/Chicago")))
             .strftime(windows_format if platform == "win32" else linux_format)
         )
         suffix.append(f"\n_{timestamp} (delayed)_")
