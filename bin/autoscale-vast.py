@@ -35,22 +35,22 @@ class Autoscaler:
         else:
             self.image = f"crimeisdown/trunk-transcribe:main-{self.model}-cu117"
 
-    def get_worker_status(self) -> dict:
+    def get_worker_status(self) -> dict[str, dict]:
         flower_baseurl = os.getenv("FLOWER_URL")
         url = f"{flower_baseurl}/api/workers?refresh=true"
         r = requests.get(url, timeout=5)
         r.raise_for_status()
         return r.json()
 
-    def get_queue_status(self) -> dict:
+    def get_queue_status(self) -> list[dict]:
         flower_baseurl = os.getenv("FLOWER_URL")
         url = f"{flower_baseurl}/api/queues/length"
         r = requests.get(url, timeout=5)
         r.raise_for_status()
-        return r.json()
+        return r.json()["active_queues"]
 
     @lru_cache()
-    def get_git_commit() -> str:
+    def get_git_commit(self) -> str:
         if os.getenv("GIT_COMMIT"):
             return os.environ["GIT_COMMIT"][:7]
         p = subprocess.run(
@@ -182,10 +182,10 @@ class Autoscaler:
         queues = self.get_queue_status()
 
         max_capacity = sum(
-            [worker["stats"]["pool"]["max-concurrency"] for worker in workers]
+            [worker["stats"]["pool"]["max-concurrency"] for worker in workers.values()]
         )
-        processing = sum([len(worker["active"]) for worker in workers])
-        queued = queues["active_queues"][0]["messages"]
+        processing = sum([len(worker["active"]) for worker in workers.values()])
+        queued = queues[0]["messages"]
 
         if processing + queued > max_capacity:
             return current_instances + 1

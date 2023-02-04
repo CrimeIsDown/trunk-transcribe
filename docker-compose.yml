@@ -24,7 +24,7 @@ services:
       context: .
       dockerfile: Dockerfile.whispercpp
       args:
-        WHISPER_MODEL: ${WHISPER_MODEL}
+        WHISPER_MODEL: ${WHISPER_MODEL:-small.en}
     volumes:
       - ./app:/src/app
       - ./config:/src/config
