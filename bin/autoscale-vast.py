@@ -61,6 +61,7 @@ def find_available_instances() -> list[dict]:
         "reliability2": {"gt": "0.98"},
         "num_gpus": {"eq": "1"},
         "gpu_ram": {"gt": "8000.0"},
+        "dlperf": {"gt": "8"},
         "dlperf_usd": {"gt": "200"},
         "dlperf_per_dphtotal": {"gt": "200"},
         "dph": {"lte": "0.1"},
@@ -140,6 +141,8 @@ def create_instances(count: int, envs: dict, image: str | None = None):
         logging.info(
             f"Started instance {instance_id}, a {instance['gpu_name']} for ${bid}/hr"
         )
+    # Wait for them to come online
+    time.sleep(60)
 
 
 def delete_instances(count: int):
