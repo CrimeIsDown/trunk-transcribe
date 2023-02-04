@@ -44,7 +44,7 @@ def upload_raw_audio(metadata: Metadata, audio_file: str) -> str:
         + f"_{metadata['short_name']}_{metadata['talkgroup']}.mp3"
     )
 
-    mp3 = convert_to_mp3(audio_file)
+    mp3 = convert_to_mp3(audio_file, metadata)
     if not (
         os.getenv("S3_ENDPOINT")
         and os.getenv("AWS_ACCESS_KEY_ID")

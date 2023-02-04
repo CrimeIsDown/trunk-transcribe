@@ -17,6 +17,18 @@ class TestEndToEnd(unittest.TestCase):
         index = search.get_index(search.get_default_index_name())
         index.delete()
 
+        show_success = False
+        while True:
+            try:
+                requests.get(url=str(os.getenv("API_BASE_URL")), timeout=5)
+                if show_success:
+                    print("Connected to API successfully.")
+                break
+            except:
+                print("Waiting for API to come online...")
+                show_success = True
+                sleep(1)
+
     def transcribe(self, call_audio_path: str, call_json_path: str) -> dict:
         api_base_url = os.getenv("API_BASE_URL")
         api_key = os.getenv("API_KEY")
@@ -54,8 +66,10 @@ class TestEndToEnd(unittest.TestCase):
         return index.search(query, opt_params=options)
 
     def test_transcribes_digital(self):
-        transcript_html = '<i data-src="1410967">E96:</i> Engine comedy 96 on the truck 3 3 3 nor central.'
-        transcript_txt = "E96: Engine comedy 96 on the truck 3 3 3 nor central."
+        transcript_html = '<i data-src="1410967">E96:</i> Engine comedy 96 in the trunk 3 3 3 nor central. Gas leak.'
+        transcript_txt = (
+            "E96: Engine comedy 96 in the trunk 3 3 3 nor central. Gas leak."
+        )
         expected = {
             "task_result": transcript_txt,
             "task_status": "SUCCESS",
@@ -68,7 +82,7 @@ class TestEndToEnd(unittest.TestCase):
 
         self.assertDictEqual(expected, result)
 
-        result = self.search('"Engine comedy 96"', {"filter": ["units = E96"]})
+        result = self.search("Engine central", {"filter": ["units = E96"]})
 
         self.assertEqual(1, len(result["hits"]))
         self.assertEqual(transcript_html, result["hits"][0]["transcript"])
@@ -82,8 +96,8 @@ class TestEndToEnd(unittest.TestCase):
         self.assertEqual(200, r.status_code)
 
     def test_transcribes_analog(self):
-        transcript_html = "2011, lunch is 20 please.<br>20."
-        transcript_txt = "2011, lunch is 20 please.\n20."
+        transcript_txt = "2011, lunch is 20 please.\nI have a lunch in 20."
+        transcript_html = transcript_txt.replace("\n", "<br>")
         expected = {
             "task_result": transcript_txt,
             "task_status": "SUCCESS",

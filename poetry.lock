@@ -519,6 +519,18 @@ files = [
 types-awscrt = "*"
 
 [[package]]
+name = "cachetools"
+version = "5.3.0"
+description = "Extensible memoizing collections and decorators"
+category = "main"
+optional = false
+python-versions = "~=3.7"
+files = [
+    {file = "cachetools-5.3.0-py3-none-any.whl", hash = "sha256:429e1a1e845c008ea6c85aa35d4b98b65d6a9763eeef3e37e92728a12d1de9d4"},
+    {file = "cachetools-5.3.0.tar.gz", hash = "sha256:13dfddc7b8df938c21a940dfa6557ce6e94a2f1cdfa58eb90c805721d58f2c14"},
+]
+
+[[package]]
 name = "camel-converter"
 version = "3.0.0"
 description = "Converts a string from snake case to camel case or camel case to snake case"
@@ -1960,4 +1972,4 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "5801b0133976f474383e5ccccb26a2ff428f88c7cacf9247df8a3b6ee675c23a"
+content-hash = "f89557e41f5abf078de38779faf34bd721f223ea25e3bce1bb2e28fcc0debbc7"

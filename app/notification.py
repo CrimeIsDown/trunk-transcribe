@@ -4,10 +4,9 @@ import re
 from datetime import datetime, timezone
 from sys import platform
 from time import time
-from urllib import parse as urlparse
 
 import pytz
-from apprise import Apprise, NotifyFormat
+from apprise import Apprise, AppriseAttachment, NotifyFormat
 from apprise.plugins.NotifyTelegram import NotifyTelegram as NotifyTelegramBase
 
 from app.config import (
@@ -31,14 +30,6 @@ def truncate_transcript(transcript: str) -> str:
     return transcript
 
 
-def set_format(channel: str) -> str:
-    url = urlparse.urlparse(channel)
-    query = urlparse.parse_qs(url.query)
-    query["format"] = [str(NotifyFormat.MARKDOWN)]
-    url = url._replace(query=urlparse.urlencode(query, doseq=True))
-    return urlparse.urlunparse(url)
-
-
 def add_channels(apprise: Apprise, channels: list) -> Apprise:
     for channel in channels:
         if channel.startswith("tgram://"):
@@ -46,7 +37,6 @@ def add_channels(apprise: Apprise, channels: list) -> Apprise:
                 "$TELEGRAM_BOT_TOKEN",
                 os.getenv("TELEGRAM_BOT_TOKEN", "no-token-defined"),
             )
-        channel = set_format(channel)
 
         logging.debug("Adding channel: " + channel)
         apprise.add(channel)
@@ -129,7 +119,7 @@ def notify_channels(
     if not len(config["channels"]):
         return
 
-    voice_file = convert_to_ogg(audio_file=audio_file)
+    voice_file = AppriseAttachment(convert_to_ogg(audio_file, metadata))
 
     # Captions are only 1024 chars max so we must truncate the transcript to fit for Telegram
     if "tgram://" in str(config["channels"]):
@@ -137,11 +127,18 @@ def notify_channels(
 
     suffix = build_suffix(metadata, config["append_talkgroup"])
 
+    # Save original methods to return later
+    orig_send = NotifyTelegramBase.send
+    orig_send_media = NotifyTelegramBase.send_media
     # Monkey patch NotifyTelegram so we can send voice messages with captions
     NotifyTelegramBase.send = NotifyTelegram.send  # type: ignore
     NotifyTelegramBase.send_media = NotifyTelegram.send_media  # type: ignore
 
-    add_channels(Apprise(), config["channels"]).notify(body="\n".join([transcript, suffix]), attach=voice_file)  # type: ignore
+    add_channels(Apprise(), config["channels"]).notify(body="\n".join([transcript, suffix]), body_format=NotifyFormat.MARKDOWN, attach=voice_file)
+
+    # Undo the patch
+    NotifyTelegramBase.send = orig_send
+    NotifyTelegramBase.send_media = orig_send_media
 
 
 def send_alert(
@@ -175,6 +172,8 @@ def send_alert(
         else:
             body += transcript_excerpt + "\n---\n" + transcript
 
-        body += f"\n{suffix}\n[Listen to transmission]({raw_audio_url})"
-
-        add_channels(Apprise(), config["channels"]).notify(body=body)
+        add_channels(Apprise(), config["channels"]).notify(
+            body="\n".join([body, suffix]),
+            body_format=NotifyFormat.MARKDOWN,
+            attach=AppriseAttachment(raw_audio_url),
+        )

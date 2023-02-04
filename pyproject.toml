@@ -21,6 +21,7 @@ pytz = "^2022.7.1"
 requests = "^2.28.2"
 uvicorn = {extras = ["standard"], version = "^0.20.0"}
 apprise = "^1.2.1"
+cachetools = "^5.3.0"
 
 
 [tool.poetry.group.dev.dependencies]

@@ -113,7 +113,9 @@ def create_instances(count: int, envs: dict, image: str | None = None):
         bid = round(float(instance["dph_total"]) * 1.5, 6)
 
         # Adjust concurrency based on GPU RAM
-        envs["CELERY_CONCURRENCY"] = str(floor(instance["gpu_ram"] / vram_requirements[model]))
+        envs["CELERY_CONCURRENCY"] = str(
+            floor(instance["gpu_ram"] / vram_requirements[model])
+        )
 
         # Set a nice hostname so we don't use a random Docker hash
         git_commit = get_git_commit()
@@ -176,11 +178,19 @@ def autoscale(
     current_publish_count = queue_status["message_stats"]["publish"]
     global last_publish_count
     # Account for counts getting reset
-    published_count = current_publish_count - last_publish_count if current_publish_count > last_publish_count else current_publish_count
+    published_count = (
+        current_publish_count - last_publish_count
+        if current_publish_count > last_publish_count
+        else current_publish_count
+    )
     current_deliver_count = queue_status["message_stats"]["deliver_get"]
     global last_deliver_count
     # Account for counts getting reset
-    delivered_count = current_deliver_count - last_deliver_count if current_deliver_count > last_deliver_count else current_deliver_count
+    delivered_count = (
+        current_deliver_count - last_deliver_count
+        if current_deliver_count > last_deliver_count
+        else current_deliver_count
+    )
 
     # Update our last_ numbers now that we've done our calculation
     last_publish_count = current_publish_count
@@ -194,7 +204,9 @@ def autoscale(
     outgoing_rate = delivered_count / last_sleep_duration
 
     current_throughput = round((outgoing_rate / current_instances) * interval, 4)
-    logging.info(f"Current throughput: {current_throughput} messages/min per avg instance")
+    logging.info(
+        f"Current throughput: {current_throughput} messages/min per avg instance"
+    )
 
     # If messages are coming in faster than we process them, then scale up
     if incoming_rate > outgoing_rate:
@@ -202,7 +214,10 @@ def autoscale(
         desired_instances = max(round(message_count / throughput), current_instances)
     # If we're processing messages as fast as we get them, but we have
     # capacity for a higher rate of messages than we're getting, then scale down
-    elif incoming_rate <= outgoing_rate and throughput * current_instances > delivered_count:
+    elif (
+        incoming_rate <= outgoing_rate
+        and throughput * current_instances > delivered_count
+    ):
         desired_instances = round(delivered_count / throughput)
 
     scale = (
