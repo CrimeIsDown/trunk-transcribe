@@ -8,14 +8,16 @@ import subprocess
 import time
 from functools import lru_cache
 from math import floor
-from statistics import mean
 from urllib.parse import urlparse
 
 import requests
 from dotenv import dotenv_values
 from requests.auth import HTTPBasicAuth
 
-past_utilization = []
+interval = 60
+last_sleep_duration = 0
+last_publish_count = 0
+last_deliver_count = 0
 vast_api_key = None
 
 
@@ -51,6 +53,7 @@ def get_git_commit() -> str:
 
 
 def find_available_instances() -> list[dict]:
+    # TODO: exclude instances we are already running
     query = {
         "rentable": {"eq": "true"},
         "rented": {"eq": "false"},
@@ -75,6 +78,7 @@ def find_available_instances() -> list[dict]:
         params={"q": json.dumps(query), "api_key": vast_api_key},
     )
     r.raise_for_status()
+    # TODO: Filter this list to exclude any instances we're already renting
     return r.json()["offers"]
 
 
@@ -87,7 +91,17 @@ def get_current_instances() -> list[dict]:
     return r.json()["instances"]
 
 
-def create_instances(count: int, envs: dict, image: str):
+def create_instances(count: int, envs: dict, image: str | None = None):
+    model = envs["WHISPER_MODEL"] if "WHISPER_MODEL" in envs else "medium.en"
+    vram_requirements = {
+        "tiny.en": 1.5 * 1024,
+        "base.en": 2 * 1024,
+        "small.en": 3.5 * 1024,
+        "medium.en": 6.5 * 1024,
+        "large": 12 * 1024,
+    }
+    if not image:
+        image = f"crimeisdown/trunk-transcribe:main-{model}-cu117"
     instances = find_available_instances()
 
     while count and len(instances):
@@ -98,8 +112,8 @@ def create_instances(count: int, envs: dict, image: str):
         # Bid 1.5x the minimum bid
         bid = round(float(instance["dph_total"]) * 1.5, 6)
 
-        # Adjust concurrency based on GPU RAM (assuming medium.en model)
-        envs["CELERY_CONCURRENCY"] = str(floor(instance["gpu_ram"] / (7 * 1024)))
+        # Adjust concurrency based on GPU RAM
+        envs["CELERY_CONCURRENCY"] = str(floor(instance["gpu_ram"] / vram_requirements[model]))
 
         # Set a nice hostname so we don't use a random Docker hash
         git_commit = get_git_commit()
@@ -150,32 +164,46 @@ def delete_instances(count: int):
 
 
 def autoscale(
-    min_instances: int, max_instances: int, throughput: int, image: str
+    min_instances: int, max_instances: int, throughput: int, image: str | None = None
 ) -> int:
     envs = dotenv_values(".env.vast")
 
     queue_status = get_queue_status(envs)
     current_instances = int(queue_status["consumers"])
-    past_utilization.insert(0, float(queue_status["consumer_utilisation"]))
-    if len(past_utilization) > 5:
-        past_utilization.pop()
-
     desired_instances = current_instances
-    # TODO: make this a moving average/weighted average
-    past_utilization_avg = mean(past_utilization)
-    if (
-        past_utilization_avg < 0.9
-        and queue_status["backing_queue_status"]["avg_egress_rate"]
-        < queue_status["backing_queue_status"]["avg_ingress_rate"]
-    ):
+
+    # Figure out how many messages were published and delivered since we last checked
+    current_publish_count = queue_status["message_stats"]["publish"]
+    global last_publish_count
+    # Account for counts getting reset
+    published_count = current_publish_count - last_publish_count if current_publish_count > last_publish_count else current_publish_count
+    current_deliver_count = queue_status["message_stats"]["deliver_get"]
+    global last_deliver_count
+    # Account for counts getting reset
+    delivered_count = current_deliver_count - last_deliver_count if current_deliver_count > last_deliver_count else current_deliver_count
+
+    # Update our last_ numbers now that we've done our calculation
+    last_publish_count = current_publish_count
+    last_deliver_count = current_deliver_count
+
+    # If this is our first run, just save the counts for the next time around
+    if not last_sleep_duration:
+        return 0
+
+    incoming_rate = published_count / last_sleep_duration
+    outgoing_rate = delivered_count / last_sleep_duration
+
+    current_throughput = round((outgoing_rate / current_instances) * interval, 4)
+    logging.info(f"Current throughput: {current_throughput} messages/min per avg instance")
+
+    # If messages are coming in faster than we process them, then scale up
+    if incoming_rate > outgoing_rate:
         message_count = queue_status["messages"]
-        desired_instances += round(message_count / throughput)
-    elif (
-        past_utilization_avg == 1
-        and queue_status["backing_queue_status"]["avg_ack_egress_rate"]
-        > queue_status["backing_queue_status"]["avg_ack_ingress_rate"]
-    ):
-        desired_instances -= 1
+        desired_instances = max(round(message_count / throughput), current_instances)
+    # If we're processing messages as fast as we get them, but we have
+    # capacity for a higher rate of messages than we're getting, then scale down
+    elif incoming_rate <= outgoing_rate and throughput * current_instances > delivered_count:
+        desired_instances = round(delivered_count / throughput)
 
     scale = (
         min(max_instances, max(min_instances, desired_instances)) - current_instances
@@ -183,6 +211,8 @@ def autoscale(
     count = abs(scale)
     if count:
         if scale > 0:
+            # Clean up any exited instances
+            delete_instances(0)
             logging.info(f"Scaling up by {count} instances")
             create_instances(count, envs, image)
         else:
@@ -215,12 +245,11 @@ if __name__ == "__main__":
         type=int,
         metavar="N",
         default=20,
-        help="How many calls a worker can process in a minute",
+        help=f"How many calls a worker can process in {interval} seconds",
     )
     parser.add_argument(
         "--image",
         type=str,
-        default="crimeisdown/trunk-transcribe:main-medium.en-cu117",
         help="Docker image to run",
     )
     args = parser.parse_args()
@@ -229,10 +258,8 @@ if __name__ == "__main__":
     if not vast_api_key:
         vast_api_key = open(os.path.expanduser("~/.vast_api_key")).read().strip()
 
-    interval = 120
-
     logging.info(
-        f"Started autoscaler: min_instances={args.min_instances} max_instances={args.max_instances} throughput={args.throughput} image={args.image}"
+        f"Started autoscaler: min_instances={args.min_instances} max_instances={args.max_instances} throughput={args.throughput}"
     )
 
     while True:
@@ -242,4 +269,5 @@ if __name__ == "__main__":
         except Exception as e:
             logging.exception(e)
         end = time.time()
-        time.sleep(interval - (end - start))
+        last_sleep_duration = interval - (end - start)
+        time.sleep(last_sleep_duration)
