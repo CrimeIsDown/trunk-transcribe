@@ -14,8 +14,6 @@ services:
       - ${AUTOSCALE_MAX_INSTANCES:-10}
       - --throughput
       - ${AUTOSCALE_THROUGHPUT:-20}
-      - --image
-      - crimeisdown/trunk-transcribe:main-${WHISPER_MODEL:-medium.en}-${DESIRED_CUDA:-cu117}
     environment:
       - VAST_API_KEY
     volumes:
