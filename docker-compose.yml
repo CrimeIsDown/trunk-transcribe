@@ -36,7 +36,6 @@ services:
     image: crimeisdown/trunk-transcribe:${VERSION:-main}
     command: flower
     volumes:
-      - ./config/flowerconfig.py:/src/config/flowerconfig.py
       - ./bin/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
       - flower-data:/src/data
     ports:

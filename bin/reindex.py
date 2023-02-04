@@ -22,7 +22,7 @@ load_dotenv(os.getenv("ENV"))
 from app import search
 from app.metadata import Metadata
 from app.transcript import Transcript
-from app.worker import retranscribe_task
+from app.worker import transcribe_task
 
 
 class SrcListItemUpdate(TypedDict):
@@ -83,11 +83,14 @@ def reindex(index: Index, documents: list[search.Document]) -> TaskInfo:
 
 def retranscribe(index: Index, documents: list[search.Document]) -> list[AsyncResult]:
     return [
-        retranscribe_task.delay(
-            metadata=json.loads(doc["raw_metadata"]),
-            audio_url=doc["raw_audio_url"],
-            id=doc["id"],
-            index_name=index.uid,
+        transcribe_task.apply_async(
+            queue="retranscribe",
+            kwargs={
+                "metadata": json.loads(doc["raw_metadata"]),
+                "audio_url": doc["raw_audio_url"],
+                "id": doc["id"],
+                "index_name": index.uid,
+            },
         )
         for doc in documents
     ]

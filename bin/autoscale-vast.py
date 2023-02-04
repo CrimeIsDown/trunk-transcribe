@@ -14,6 +14,7 @@ import requests
 from dotenv import dotenv_values
 from requests.auth import HTTPBasicAuth
 
+prev_delta = 0
 interval = 60
 last_sleep_duration = 0
 last_publish_count = 0
@@ -141,8 +142,6 @@ def create_instances(count: int, envs: dict, image: str | None = None):
         logging.info(
             f"Started instance {instance_id}, a {instance['gpu_name']} for ${bid}/hr"
         )
-    # Wait for them to come online
-    time.sleep(60)
 
 
 def delete_instances(count: int):
@@ -178,7 +177,7 @@ def autoscale(
     desired_instances = current_instances
 
     # Figure out how many messages were published and delivered since we last checked
-    current_publish_count = queue_status["message_stats"]["publish"]
+    current_publish_count = int(queue_status["message_stats"]["publish"])
     global last_publish_count
     # Account for counts getting reset
     published_count = (
@@ -186,7 +185,7 @@ def autoscale(
         if current_publish_count > last_publish_count
         else current_publish_count
     )
-    current_deliver_count = queue_status["message_stats"]["deliver_get"]
+    current_deliver_count = int(queue_status["message_stats"]["deliver_get"])
     global last_deliver_count
     # Account for counts getting reset
     delivered_count = (
@@ -206,7 +205,11 @@ def autoscale(
     incoming_rate = published_count / last_sleep_duration
     outgoing_rate = delivered_count / last_sleep_duration
 
-    current_throughput = round((outgoing_rate / current_instances) * interval, 1) if current_instances else 0
+    current_throughput = (
+        round((outgoing_rate / current_instances) * interval, 1)
+        if current_instances
+        else 0
+    )
     logging.info(
         f"Current throughput: {current_throughput} messages/min per avg instance"
     )
@@ -227,10 +230,10 @@ def autoscale(
         min(max_instances, max(min_instances, desired_instances)) - current_instances
     )
     count = abs(scale)
+    # Clean up any exited instances
+    delete_instances(0)
     if count:
         if scale > 0:
-            # Clean up any exited instances
-            delete_instances(0)
             logging.info(f"Scaling up by {count} instances")
             create_instances(count, envs, image)
         else:
@@ -282,10 +285,14 @@ if __name__ == "__main__":
 
     while True:
         start = time.time()
-        try:
-            autoscale(**vars(args))
-        except Exception as e:
-            logging.exception(e)
+        # If we scaled up or down previously, then wait an iteration for things to settle
+        if prev_delta:
+            prev_delta = 0
+        else:
+            try:
+                prev_delta = autoscale(**vars(args))
+            except Exception as e:
+                logging.exception(e)
         end = time.time()
         last_sleep_duration = interval - (end - start)
         time.sleep(last_sleep_duration)

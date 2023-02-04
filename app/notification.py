@@ -134,7 +134,11 @@ def notify_channels(
     NotifyTelegramBase.send = NotifyTelegram.send  # type: ignore
     NotifyTelegramBase.send_media = NotifyTelegram.send_media  # type: ignore
 
-    add_channels(Apprise(), config["channels"]).notify(body="\n".join([transcript, suffix]), body_format=NotifyFormat.MARKDOWN, attach=voice_file)
+    add_channels(Apprise(), config["channels"]).notify(
+        body="\n".join([transcript, suffix]),
+        body_format=NotifyFormat.MARKDOWN,
+        attach=voice_file,
+    )
 
     # Undo the patch
     NotifyTelegramBase.send = orig_send

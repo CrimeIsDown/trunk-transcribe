@@ -58,4 +58,7 @@ def upload_raw_audio(metadata: Metadata, audio_file: str) -> str:
             base64 = b64encode(file.read()).decode("utf-8")
             return f"data:audio/mpeg;base64,{base64}"
 
-    return upload_file(mp3, uploaded_audio_path)
+    url = upload_file(mp3, uploaded_audio_path)
+    os.unlink(mp3)
+
+    return url

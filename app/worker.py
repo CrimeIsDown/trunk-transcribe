@@ -29,10 +29,6 @@ celery = Celery(
     "worker",
     broker=broker_url,
     backend=result_backend,
-    task_routes={
-        "retranscribe": {"queue": "retranscribe"},
-        "transcribe": {"queue": "transcribe"},
-    },
     task_cls="app.whisper:WhisperTask",
 )
 
@@ -42,8 +38,8 @@ def transcribe(
     model_lock,
     metadata: Metadata,
     audio_file: str,
+    raw_audio_url: str,
     id: str | None = None,
-    raw_audio_url: str | None = None,
     index_name: str | None = None,
 ) -> str:
     try:
@@ -57,8 +53,6 @@ def transcribe(
         return str(e)
     logging.debug(transcript)
 
-    if not raw_audio_url:
-        raw_audio_url = upload_raw_audio(metadata, audio_file)
     index_call(metadata, raw_audio_url, transcript, id, index_name=index_name)
 
     # Do not send Telegram messages for calls we already have transcribed previously
@@ -68,25 +62,12 @@ def transcribe(
     return transcript.txt
 
 
-@celery.task(name="transcribe")
-def transcribe_task(metadata: Metadata, audio_file_b64: str) -> str:
-    with tempfile.TemporaryDirectory() as tempdir:
-        audio_file = tempfile.NamedTemporaryFile(delete=False, dir=tempdir)
-        audio_file.write(b64decode(audio_file_b64))
-        audio_file.close()
-        wav_file = convert_to_wav(audio_file.name)
-
-        return transcribe(
-            transcribe_task.model,
-            transcribe_task.model_lock,
-            metadata,
-            audio_file=wav_file,
-        )
-
-
-@celery.task(name="retranscribe")
-def retranscribe_task(
-    metadata: Metadata, audio_url: str, id: str, index_name: str | None = None
+@celery.task
+def transcribe_task(
+    metadata: Metadata,
+    audio_url: str,
+    id: str | None = None,
+    index_name: str | None = None,
 ) -> str:
     with tempfile.TemporaryDirectory() as tempdir:
         with requests.get(audio_url, stream=True) as r:
@@ -101,11 +82,11 @@ def retranscribe_task(
         audio_file = convert_to_wav(mp3_file.name)
 
         return transcribe(
-            retranscribe_task.model,
-            retranscribe_task.model_lock,
+            transcribe_task.model,
+            transcribe_task.model_lock,
             metadata,
             audio_file,
+            audio_url,
             id,
-            raw_audio_url=audio_url,
-            index_name=index_name,
+            index_name,
         )

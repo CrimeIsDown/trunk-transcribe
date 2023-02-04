@@ -3,11 +3,13 @@
 import json
 import os
 from base64 import b64encode
+import tempfile
 
 from celery.result import AsyncResult
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, UploadFile, Request
 from fastapi.responses import JSONResponse
+from app.storage import upload_raw_audio
 
 from app.worker import transcribe_task, celery as celery_app
 
@@ -32,8 +34,27 @@ def queue_for_transcription(call_audio: UploadFile, call_json: UploadFile):
     if metadata["call_length"] < float(os.getenv("MIN_CALL_LENGTH", "2")):
         raise HTTPException(status_code=400, detail="Call too short to transcribe")
 
-    audio_file_b64 = b64encode(call_audio.file.read()).decode("utf-8")
-    task = transcribe_task.delay(metadata=metadata, audio_file_b64=audio_file_b64)
+    raw_audio = tempfile.NamedTemporaryFile(
+        delete=False, suffix=f"_{call_audio.filename}"
+    )
+    while True:
+        data = call_audio.file.read(1024 * 1024)
+        if not data:
+            raw_audio.close()
+            break
+        raw_audio.write(data)
+
+    audio_url = upload_raw_audio(metadata, raw_audio.name)
+
+    os.unlink(raw_audio.name)
+
+    task = transcribe_task.apply_async(
+        queue="transcribe",
+        kwargs={
+            "metadata": metadata,
+            "audio_url": audio_url,
+        },
+    )
     return JSONResponse({"task_id": task.id}, status_code=201)
 
 

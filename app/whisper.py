@@ -10,6 +10,12 @@ from app.config import get_ttl_hash, get_whisper_config
 
 
 class WhisperTask(Task):
+    autoretry_for = (Exception,)
+    max_retries = 5
+    retry_backoff = True
+    retry_backoff_max = 600
+    retry_jitter = True
+
     _model = None
     model_lock = Lock()
 
