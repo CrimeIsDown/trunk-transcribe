@@ -270,3 +270,5 @@ if __name__ == "__main__":
         vast_api_key=vast_api_key,
         image=args.image,
     )
+
+    autoscaler.run()
