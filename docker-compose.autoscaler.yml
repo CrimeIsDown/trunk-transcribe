@@ -12,10 +12,9 @@ services:
       - ${AUTOSCALE_MIN_INSTANCES:-1}
       - --max-instances
       - ${AUTOSCALE_MAX_INSTANCES:-10}
-      - --throughput
-      - ${AUTOSCALE_THROUGHPUT:-20}
     environment:
       - VAST_API_KEY
+      - FLOWER_URL=http://flower:5555
     volumes:
       - ./bin/autoscale-vast.py:/src/autoscale-vast.py
       - ./.env.vast:/src/.env.vast

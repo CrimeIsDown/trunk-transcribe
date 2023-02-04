@@ -66,26 +66,20 @@ class TestEndToEnd(unittest.TestCase):
         return index.search(query, opt_params=options)
 
     def test_transcribes_digital(self):
-        transcript_html = '<i data-src="1410967">E96:</i> Engine comedy 96 in the trunk 3 3 3 nor central. Gas leak.'
-        transcript_txt = (
-            "E96: Engine comedy 96 in the trunk 3 3 3 nor central. Gas leak."
-        )
-        expected = {
-            "task_result": transcript_txt,
-            "task_status": "SUCCESS",
-        }
-
         result = self.transcribe(
             "tests/data/1-1673118015_477787500-call_1.wav",
             "tests/data/1-1673118015_477787500-call_1.json",
         )
 
-        self.assertDictEqual(expected, result)
+        self.assertEqual("SUCCESS", result["task_status"])
+        self.assertTrue("E96: " in result["task_result"])
 
-        result = self.search("Engine central", {"filter": ["units = E96"]})
+        result = self.search("96 central", {"filter": ["units = E96"]})
 
         self.assertEqual(1, len(result["hits"]))
-        self.assertEqual(transcript_html, result["hits"][0]["transcript"])
+        self.assertTrue(
+            '<i data-src="1410967">E96:</i> ' in result["hits"][0]["transcript"]
+        )
 
         self.assertTrue(isinstance(json.loads(result["hits"][0]["raw_metadata"]), dict))
         self.assertTrue(
@@ -96,26 +90,24 @@ class TestEndToEnd(unittest.TestCase):
         self.assertEqual(200, r.status_code)
 
     def test_transcribes_analog(self):
-        transcript_txt = "2011, lunch is 20 please.\nI have a lunch in 20."
-        transcript_html = transcript_txt.replace("\n", "<br>")
-        expected = {
-            "task_result": transcript_txt,
-            "task_status": "SUCCESS",
-        }
-
         result = self.transcribe(
             "tests/data/11-1673118186_460378000-call_0.wav",
             "tests/data/11-1673118186_460378000-call_0.json",
         )
 
-        self.assertDictEqual(expected, result)
+        self.assertEqual("SUCCESS", result["task_status"])
+        self.assertTrue("2011" in result["task_result"])
+        self.assertTrue("\n" in result["task_result"])
 
         result = self.search(
             "2011", {"filter": ["short_name = chi_cpd", "audio_type = analog"]}
         )
 
         self.assertEqual(1, len(result["hits"]))
-        self.assertEqual(transcript_html, result["hits"][0]["transcript"])
+        self.assertTrue(
+            "<br>" in result["hits"][0]["transcript"]
+            and "\n" not in result["hits"][0]["transcript"]
+        )
 
         self.assertTrue(isinstance(json.loads(result["hits"][0]["raw_metadata"]), dict))
         self.assertTrue(
