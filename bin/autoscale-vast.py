@@ -203,7 +203,7 @@ def autoscale(
     incoming_rate = published_count / last_sleep_duration
     outgoing_rate = delivered_count / last_sleep_duration
 
-    current_throughput = round((outgoing_rate / current_instances) * interval, 4)
+    current_throughput = round((outgoing_rate / current_instances) * interval, 1) if current_instances else 0
     logging.info(
         f"Current throughput: {current_throughput} messages/min per avg instance"
     )
