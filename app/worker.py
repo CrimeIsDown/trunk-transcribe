@@ -49,6 +49,7 @@ celery = Celery(
     broker=broker_url,
     backend=result_backend,
     task_cls="app.whisper:WhisperTask",
+    task_acks_late=True,
     worker_prefetch_multiplier=1,
 )
 

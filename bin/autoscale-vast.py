@@ -75,6 +75,9 @@ class Autoscaler:
         else:
             self.image = f"crimeisdown/trunk-transcribe:main-{self.model}-cu117"
 
+    def _make_instance_hostname(self, instance: dict) -> str:
+        return f'{instance["machine_id"]}.{instance["host_id"]}.vast.ai'
+
     def get_worker_status(self) -> list[dict]:
         url = f'{os.getenv("FLOWER_URL")}/api/workers'
         # Get all workers
@@ -150,7 +153,7 @@ class Autoscaler:
         # Filter this list to exclude any instances we're already renting
         return list(
             filter(
-                lambda offer: f'{offer["host_id"]}_{offer["machine_id"]}'
+                lambda offer: self._make_instance_hostname(offer)
                 not in self.instance_ids,
                 r.json()["offers"],
             )
@@ -164,8 +167,7 @@ class Autoscaler:
         r.raise_for_status()
         self.instances = r.json()["instances"]
         self.instance_ids = [
-            f'{instance["host_id"]}_{instance["machine_id"]}'
-            for instance in self.instances
+            self._make_instance_hostname(instance) for instance in self.instances
         ]
         return self.instances
 
@@ -196,7 +198,9 @@ class Autoscaler:
 
             # Set a nice hostname so we don't use a random Docker hash
             git_commit = self.get_git_commit()
-            self.envs["CELERY_HOSTNAME"] = f"celery-{git_commit}@vast-{instance_id}"
+            self.envs[
+                "CELERY_HOSTNAME"
+            ] = f"celery-{git_commit}@{self._make_instance_hostname(instance)}"
 
             body = {
                 "client_id": "me",
@@ -252,9 +256,7 @@ class Autoscaler:
                 )
                 # Remove the deleted instance from our list
                 self.instance_ids.pop(
-                    self.instance_ids.index(
-                        f'{instance["host_id"]}_{instance["machine_id"]}'
-                    )
+                    self.instance_ids.index(self._make_instance_hostname(instance))
                 )
 
     def calculate_utilization(self):
