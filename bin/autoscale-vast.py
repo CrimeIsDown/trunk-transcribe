@@ -189,7 +189,11 @@ class Autoscaler:
             deletable_instances = []
 
             # Sort instance list by most expensive first, so those get deleted first
-            instances = sorted(self.get_current_instances(), key=lambda instance: instance["dph_total"], reverse=True)
+            instances = sorted(
+                self.get_current_instances(),
+                key=lambda instance: instance["dph_total"],
+                reverse=True,
+            )
             for instance in instances:
                 if count:
                     deletable_instances.append(instance)
@@ -215,20 +219,31 @@ class Autoscaler:
                     )
                 )
 
-    def calculate_needed_instances(self, current_instances: int):
+    def calculate_needed_instances(
+        self, current_instances: int, loading_instances: int
+    ):
         workers = self.get_worker_status()
         queues = self.get_queue_status()
 
         max_capacity = sum(
             [worker["stats"]["pool"]["max-concurrency"] for worker in workers]
         )
+        # TODO: Count loading instances based on their future concurrency instead of assuming 1
+        total_capacity = max_capacity + loading_instances
         processing = sum([len(worker["active"]) for worker in workers])
         queued = queues[0]["messages"]
+        jobs = processing + queued
+        # Use our job count if we have no capacity to determine what to do
+        utilization = jobs / total_capacity if total_capacity else jobs
 
-        # Use current_instances if it is higher, to account for instances that are starting up
-        if processing + queued > max(max_capacity, current_instances):
+        # Some examples:
+        # 5 jobs / 2 worker processes = scale up
+        # 1 jobs / 12 worker processes = scale down
+        # 10 jobs / 8 worker processes = do nothing
+
+        if utilization > 1.5:
             return current_instances + 1
-        elif processing < max_capacity:
+        elif utilization < 0.5:
             return current_instances - 1
         else:
             return current_instances
@@ -246,8 +261,19 @@ class Autoscaler:
         current_instances = len(
             list(filter(lambda i: i["next_state"] == "running", instances))
         )
+        loading_instances = len(
+            list(
+                filter(
+                    lambda i: i["cur_state"] != i["next_state"]
+                    and i["next_state"] == "running",
+                    instances,
+                )
+            )
+        )
 
-        needed_instances = self.calculate_needed_instances(current_instances)
+        needed_instances = self.calculate_needed_instances(
+            current_instances, loading_instances
+        )
 
         target_instances = min(needed_instances, self.max)
         if target_instances > current_instances:
