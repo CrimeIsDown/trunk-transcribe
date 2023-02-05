@@ -3,15 +3,16 @@
 import logging
 import os
 import tempfile
-from base64 import b64decode
 
 # This is needed so all workers are synced to the same timezone
 os.environ["TZ"] = "UTC"
 
 import requests
+import sentry_sdk
 from celery import Celery
 from celery.exceptions import Reject
 from dotenv import load_dotenv
+from sentry_sdk.integrations.celery import CeleryIntegration
 
 from app.analog import transcribe_call as transcribe_analog
 from app.conversion import convert_to_wav
@@ -19,9 +20,21 @@ from app.digital import transcribe_call as transcribe_digital
 from app.metadata import Metadata
 from app.notification import send_notifications
 from app.search import index_call
-from app.storage import upload_raw_audio
 
 load_dotenv()
+
+sentry_dsn = os.getenv("SENTRY_DSN")
+if sentry_dsn:
+    sentry_sdk.init(
+        dsn=sentry_dsn,
+        integrations=[
+            CeleryIntegration(),
+        ],
+        # Set traces_sample_rate to 1.0 to capture 100%
+        # of transactions for performance monitoring.
+        # We recommend adjusting this value in production.
+        traces_sample_rate=float(os.getenv("SENTRY_SAMPLE_RATE", "1")),
+    )
 
 broker_url = os.getenv("CELERY_BROKER_URL")
 result_backend = os.getenv("CELERY_RESULT_BACKEND")

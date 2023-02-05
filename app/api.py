@@ -2,18 +2,31 @@
 
 import json
 import os
-from base64 import b64encode
 import tempfile
+from base64 import b64encode
+import traceback
 
+import sentry_sdk
 from celery.result import AsyncResult
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, UploadFile, Request
+from fastapi import FastAPI, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
-from app.storage import upload_raw_audio
 
-from app.worker import transcribe_task, celery as celery_app
+from app.storage import upload_raw_audio
+from app.worker import celery as celery_app
+from app.worker import transcribe_task
 
 load_dotenv()
+
+sentry_dsn = os.getenv("SENTRY_DSN")
+if sentry_dsn:
+    sentry_sdk.init(
+        dsn=sentry_dsn,
+        # Set traces_sample_rate to 1.0 to capture 100%
+        # of transactions for performance monitoring.
+        # We recommend adjusting this value in production.
+        traces_sample_rate=float(os.getenv("SENTRY_SAMPLE_RATE", "1")),
+    )
 
 app = FastAPI()
 
@@ -64,7 +77,9 @@ def get_status(task_id):
     result = {
         "task_id": task_id,
         "task_status": task_result.status,
-        "task_result": task_result.result,
+        "task_result": repr(task_result.result)
+        if isinstance(task_result.result, Exception)
+        else task_result.result,
     }
     return JSONResponse(result)
 
