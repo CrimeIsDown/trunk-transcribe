@@ -252,6 +252,7 @@ class Autoscaler:
                 self.maybe_scale()
             except Exception as e:
                 logging.exception(e)
+                sentry_sdk.capture_exception(e)
             end = time.time()
             last_sleep_duration = self.interval - (end - start)
             time.sleep(last_sleep_duration)
