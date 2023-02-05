@@ -181,7 +181,9 @@ class Autoscaler:
             logging.info(f"Scaling down by {count} instances")
             deletable_instances = []
 
-            for instance in self.get_current_instances():
+            # Sort instance list by most expensive first, so those get deleted first
+            instances = sorted(self.get_current_instances(), key=lambda instance: instance["dph_total"], reverse=True)
+            for instance in instances:
                 if count:
                     deletable_instances.append(instance)
                     count -= 1
