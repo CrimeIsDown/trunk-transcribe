@@ -9,6 +9,7 @@ import time
 from functools import lru_cache
 from math import floor
 from statistics import mean
+from threading import Thread
 
 import requests
 import sentry_sdk
@@ -28,16 +29,27 @@ if sentry_dsn:
     )
 
 
-class Autoscaler:
-    interval = 60
-    min = 1
-    max = 10
-    envs: dict[str, str] = {}
+DEFAULT_MIN_INSTANCES = 1
+DEFAULT_MAX_INSTANCES = 10
+DEFAULT_INTERVAL = 60
 
-    def __init__(self, min: int, max: int, image: str | None = None):
+
+class Autoscaler:
+    envs: dict[str, str] = {}
+    utilization_readings: list[float] = []
+    pending_instances: dict[str, int] = {}
+
+    def __init__(
+        self,
+        min: int = DEFAULT_MIN_INSTANCES,
+        max: int = DEFAULT_MAX_INSTANCES,
+        interval: int = DEFAULT_INTERVAL,
+        image: str | None = None,
+    ):
         super().__init__()
         self.min = min
         self.max = max
+        self.interval = interval
 
         self.vast_api_key = os.getenv("VAST_API_KEY")
         if not self.vast_api_key:
@@ -67,10 +79,16 @@ class Autoscaler:
         # Get the status of each worker
         r = requests.get(url, params={"status": True}, timeout=5)
         r.raise_for_status()
-        # Get the names of the online workers
-        online_workers = [name for name, online in r.json().items() if online]
-        # Filter our worker data to only those that are online
-        return [worker for name, worker in workers.items() if name in online_workers]
+
+        online_workers = []
+        for name, online in r.json().items():
+            if online:
+                # If this was one of our pending instances, remove it from the list
+                if name in self.pending_instances:
+                    del self.pending_instances[name]
+                online_workers.append(workers[name])
+        # Return info for only the workers that are online
+        return online_workers
 
     def get_queue_status(self) -> list[dict]:
         flower_baseurl = os.getenv("FLOWER_URL")
@@ -166,9 +184,8 @@ class Autoscaler:
             bid = round(float(instance["dph_total"]) * 1.5, 6)
 
             # Adjust concurrency based on GPU RAM
-            self.envs["CELERY_CONCURRENCY"] = str(
-                floor(instance["gpu_ram"] / vram_required)
-            )
+            concurrency = floor(instance["gpu_ram"] / vram_required)
+            self.envs["CELERY_CONCURRENCY"] = str(concurrency)
 
             # Set a nice hostname so we don't use a random Docker hash
             git_commit = self.get_git_commit()
@@ -193,6 +210,8 @@ class Autoscaler:
             logging.info(
                 f"Started instance {instance_id}, a {instance['gpu_name']} for ${bid}/hr"
             )
+            # Add the instance to our list of pending instances so we can check when it comes online
+            self.pending_instances[self.envs["CELERY_HOSTNAME"]] = concurrency
 
     def delete_instances(self, count: int | list[dict]):
         if isinstance(count, int):
@@ -221,7 +240,7 @@ class Autoscaler:
                 )
                 r.raise_for_status()
                 logging.info(
-                    f"Deleted instance {instance['id']}, had status: {instance['status_msg']}"
+                    f"Deleted instance {instance['id']} (a {instance['gpu_name']} for ${instance['dph_total']}/hr), had status: {instance['status_msg']}"
                 )
                 # Remove the deleted instance from our list
                 self.instance_ids.pop(
@@ -233,51 +252,56 @@ class Autoscaler:
     def calculate_utilization(self):
         workers = self.get_worker_status()
         queues = self.get_queue_status()
-        loading_instances = len(
-            list(
-                filter(
-                    lambda i: i["cur_state"] != i["next_state"]
-                    and i["next_state"] == "running",
-                    self.instances,
-                )
-            )
-        )
 
+        # Calculate the total number of worker processes online
         max_capacity = sum(
-            [worker["stats"]["pool"]["max-concurrency"] for worker in workers if "stats" in worker]
+            [
+                worker["stats"]["pool"]["max-concurrency"]
+                for worker in workers
+                if "stats" in worker
+            ]
         )
-        # TODO: Count loading instances based on their future concurrency instead of assuming 1
-        total_capacity = max_capacity + loading_instances
-        processing = sum([len(worker["active"]) for worker in workers if "active" in worker])
+        # Calculate the total number of worker processes we will be creating
+        pending_capacity = sum(self.pending_instances.values())
+        total_capacity = max_capacity + pending_capacity
+        processing = sum(
+            [len(worker["active"]) for worker in workers if "active" in worker]
+        )
         queued = queues[0]["messages"] if len(queues) else 0
         jobs = processing + queued
         # Use our job count if we have no capacity to determine what to do
         utilization = jobs / total_capacity if total_capacity else jobs
 
         logging.debug(
-            f"Calculated utilization {utilization:.2f} = {processing} active jobs + {queued} queued jobs / {max_capacity} processes + {loading_instances} pending instances"
+            f"Calculated utilization {utilization:.2f} = {processing} active jobs + {queued} queued jobs / {max_capacity} processes + {pending_capacity} pending processes"
         )
 
         return utilization
 
-    def calculate_needed_instances(self, current_instances: int):
-        utilization_readings = []
-        while len(utilization_readings) < round(self.interval / 4):
-            utilization_readings.append(self.calculate_utilization())
-            time.sleep(self.interval / 30)
+    def monitor_utilization(self):
+        while True:
+            self.utilization_readings.append(self.calculate_utilization())
+            if len(self.utilization_readings) > self.interval / 2:
+                self.utilization_readings.pop(0)
+            time.sleep(2)
 
-        avg_utilization = mean(utilization_readings)
+    def calculate_needed_instances(self, current_instances: int):
+        avg_utilization = mean(self.utilization_readings)
 
         logging.info(f"Current average utilization: {avg_utilization:.2f}")
 
         if avg_utilization > 1.5:
             return current_instances + 1
-        elif avg_utilization < 0.5:
+        elif avg_utilization < 0.4:
             return current_instances - 1
         else:
             return current_instances
 
     def maybe_scale(self) -> bool:
+        # If we don't have any utilization readings yet, we can't make a determination
+        if not len(self.utilization_readings):
+            return False
+
         instances = self.get_current_instances()
 
         # Clean up any exited instances
@@ -309,6 +333,10 @@ class Autoscaler:
             f"Started autoscaler: min_instances={self.min} max_instances={self.max} interval={self.interval}"
         )
 
+        # Start monitoring the utilization
+        t = Thread(target=self.monitor_utilization)
+        t.start()
+
         while True:
             start = time.time()
             try:
@@ -328,21 +356,21 @@ if __name__ == "__main__":
         "--min-instances",
         type=int,
         metavar="N",
-        default=Autoscaler.min,
+        default=DEFAULT_MIN_INSTANCES,
         help="Minimum number of worker instances",
     )
     parser.add_argument(
         "--max-instances",
         type=int,
         metavar="N",
-        default=Autoscaler.max,
+        default=DEFAULT_MAX_INSTANCES,
         help="Maximum number of worker instances",
     )
     parser.add_argument(
         "--interval",
         type=int,
-        default=Autoscaler.interval,
-        help="Interval of autoscaling loop in seconds"
+        default=DEFAULT_INTERVAL,
+        help="Interval of autoscaling loop in seconds",
     )
     parser.add_argument(
         "--image",
@@ -356,9 +384,8 @@ if __name__ == "__main__":
     autoscaler = Autoscaler(
         min=args.min_instances,
         max=args.max_instances,
+        interval=args.interval,
         image=args.image,
     )
-
-    autoscaler.interval = args.interval
 
     autoscaler.run()
