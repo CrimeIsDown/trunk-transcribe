@@ -244,12 +244,12 @@ class Autoscaler:
         )
 
         max_capacity = sum(
-            [worker["stats"]["pool"]["max-concurrency"] for worker in workers]
+            [worker["stats"]["pool"]["max-concurrency"] for worker in workers if "stats" in worker]
         )
         # TODO: Count loading instances based on their future concurrency instead of assuming 1
         total_capacity = max_capacity + loading_instances
-        processing = sum([len(worker["active"]) for worker in workers])
-        queued = queues[0]["messages"]
+        processing = sum([len(worker["active"]) for worker in workers if "active" in worker])
+        queued = queues[0]["messages"] if len(queues) else 0
         jobs = processing + queued
         # Use our job count if we have no capacity to determine what to do
         utilization = jobs / total_capacity if total_capacity else jobs
