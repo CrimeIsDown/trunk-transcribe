@@ -12,6 +12,8 @@ services:
       - ${AUTOSCALE_MIN_INSTANCES:-1}
       - --max-instances
       - ${AUTOSCALE_MAX_INSTANCES:-10}
+      - --interval
+      - ${AUTOSCALE_INTERVAL:-60}
     environment:
       - VAST_API_KEY
       - SENTRY_DSN

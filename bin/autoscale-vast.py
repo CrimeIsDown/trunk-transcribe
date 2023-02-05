@@ -306,7 +306,7 @@ class Autoscaler:
 
     def run(self):
         logging.info(
-            f"Started autoscaler: min_instances={self.min} max_instances={self.max}"
+            f"Started autoscaler: min_instances={self.min} max_instances={self.max} interval={self.interval}"
         )
 
         while True:
@@ -339,6 +339,12 @@ if __name__ == "__main__":
         help="Maximum number of worker instances",
     )
     parser.add_argument(
+        "--interval",
+        type=int,
+        default=Autoscaler.interval,
+        help="Interval of autoscaling loop in seconds"
+    )
+    parser.add_argument(
         "--image",
         type=str,
         help="Docker image to run",
@@ -352,5 +358,7 @@ if __name__ == "__main__":
         max=args.max_instances,
         image=args.image,
     )
+
+    autoscaler.interval = args.interval
 
     autoscaler.run()
