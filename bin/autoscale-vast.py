@@ -34,17 +34,25 @@ class Autoscaler:
     max = 10
     envs: dict[str, str] = {}
 
-    def __init__(self, min: int, max: int, vast_api_key: str, image: str | None = None):
+    def __init__(self, min: int, max: int, image: str | None = None):
         super().__init__()
         self.min = min
         self.max = max
-        self.vast_api_key = vast_api_key
+
+        self.vast_api_key = os.getenv("VAST_API_KEY")
+        if not self.vast_api_key:
+            self.vast_api_key = (
+                open(os.path.expanduser("~/.vast_api_key")).read().strip()
+            )
+
         self.envs = dotenv_values(".env.vast")  # type: ignore
+
         self.model = (
             self.envs["WHISPER_MODEL"]
             if "WHISPER_MODEL" in self.envs and self.envs["WHISPER_MODEL"]
             else "medium.en"
         )
+
         if image:
             self.image = image
         else:
@@ -208,7 +216,7 @@ class Autoscaler:
             for instance in deletable_instances:
                 r = requests.delete(
                     f"https://console.vast.ai/api/v0/instances/{instance['id']}/",
-                    params={"api_key": vast_api_key},
+                    params={"api_key": self.vast_api_key},
                     json={},
                 )
                 r.raise_for_status()
@@ -247,16 +255,16 @@ class Autoscaler:
         utilization = jobs / total_capacity if total_capacity else jobs
 
         logging.debug(
-            f"Calculated utilization {utilization:.2f} = {jobs} jobs / ({max_capacity} processes + {loading_instances} pending instances)"
+            f"Calculated utilization {utilization:.2f} = {processing} active jobs + {queued} queued jobs / {max_capacity} processes + {loading_instances} pending instances"
         )
 
         return utilization
 
     def calculate_needed_instances(self, current_instances: int):
         utilization_readings = []
-        while len(utilization_readings) < self.interval / 3:
+        while len(utilization_readings) < round(self.interval / 4):
             utilization_readings.append(self.calculate_utilization())
-            time.sleep(2)
+            time.sleep(self.interval / 30)
 
         avg_utilization = mean(utilization_readings)
 
@@ -310,7 +318,7 @@ class Autoscaler:
                 sentry_sdk.capture_exception(e)
             end = time.time()
             last_sleep_duration = self.interval - (end - start)
-            time.sleep(last_sleep_duration)
+            time.sleep(max(last_sleep_duration, 0))
 
 
 if __name__ == "__main__":
@@ -339,14 +347,9 @@ if __name__ == "__main__":
 
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO)
 
-    vast_api_key = os.getenv("VAST_API_KEY")
-    if not vast_api_key:
-        vast_api_key = open(os.path.expanduser("~/.vast_api_key")).read().strip()
-
     autoscaler = Autoscaler(
         min=args.min_instances,
         max=args.max_instances,
-        vast_api_key=vast_api_key,
         image=args.image,
     )
 
