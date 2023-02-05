@@ -8,6 +8,7 @@ import subprocess
 import time
 from functools import lru_cache
 from math import floor
+from statistics import mean
 
 import requests
 import sentry_sdk
@@ -117,7 +118,7 @@ class Autoscaler:
         return list(
             filter(
                 lambda offer: f'{offer["host_id"]}_{offer["machine_id"]}'
-                not in self.instances,
+                not in self.instance_ids,
                 r.json()["offers"],
             )
         )
@@ -128,11 +129,12 @@ class Autoscaler:
             params={"owner": "me", "api_key": self.vast_api_key},
         )
         r.raise_for_status()
-        instances = r.json()["instances"]
-        self.instances = [
-            f'{instance["host_id"]}_{instance["machine_id"]}' for instance in instances
+        self.instances = r.json()["instances"]
+        self.instance_ids = [
+            f'{instance["host_id"]}_{instance["machine_id"]}'
+            for instance in self.instances
         ]
-        return instances
+        return self.instances
 
     def create_instances(self, count: int):
         logging.info(f"Scaling up by {count} instances")
@@ -214,17 +216,24 @@ class Autoscaler:
                     f"Deleted instance {instance['id']}, had status: {instance['status_msg']}"
                 )
                 # Remove the deleted instance from our list
-                self.instances.pop(
-                    self.instances.index(
+                self.instance_ids.pop(
+                    self.instance_ids.index(
                         f'{instance["host_id"]}_{instance["machine_id"]}'
                     )
                 )
 
-    def calculate_needed_instances(
-        self, current_instances: int, loading_instances: int
-    ):
+    def calculate_utilization(self):
         workers = self.get_worker_status()
         queues = self.get_queue_status()
+        loading_instances = len(
+            list(
+                filter(
+                    lambda i: i["cur_state"] != i["next_state"]
+                    and i["next_state"] == "running",
+                    self.instances,
+                )
+            )
+        )
 
         max_capacity = sum(
             [worker["stats"]["pool"]["max-concurrency"] for worker in workers]
@@ -237,14 +246,25 @@ class Autoscaler:
         # Use our job count if we have no capacity to determine what to do
         utilization = jobs / total_capacity if total_capacity else jobs
 
-        # Some examples:
-        # 5 jobs / 2 worker processes = scale up
-        # 1 jobs / 12 worker processes = scale down
-        # 10 jobs / 8 worker processes = do nothing
+        logging.debug(
+            f"Calculated utilization {utilization:.2f} = {jobs} jobs / ({max_capacity} processes + {loading_instances} pending instances)"
+        )
 
-        if utilization > 1.5:
+        return utilization
+
+    def calculate_needed_instances(self, current_instances: int):
+        utilization_readings = []
+        while len(utilization_readings) < self.interval / 3:
+            utilization_readings.append(self.calculate_utilization())
+            time.sleep(2)
+
+        avg_utilization = mean(utilization_readings)
+
+        logging.info(f"Current average utilization: {avg_utilization:.2f}")
+
+        if avg_utilization > 1.5:
             return current_instances + 1
-        elif utilization < 0.5:
+        elif avg_utilization < 0.5:
             return current_instances - 1
         else:
             return current_instances
@@ -262,19 +282,8 @@ class Autoscaler:
         current_instances = len(
             list(filter(lambda i: i["next_state"] == "running", instances))
         )
-        loading_instances = len(
-            list(
-                filter(
-                    lambda i: i["cur_state"] != i["next_state"]
-                    and i["next_state"] == "running",
-                    instances,
-                )
-            )
-        )
 
-        needed_instances = self.calculate_needed_instances(
-            current_instances, loading_instances
-        )
+        needed_instances = self.calculate_needed_instances(current_instances)
 
         target_instances = min(needed_instances, self.max)
         if target_instances > current_instances:
@@ -305,9 +314,8 @@ class Autoscaler:
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-
     parser = argparse.ArgumentParser(description="Start workers with vast.ai")
+    parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
     parser.add_argument(
         "--min-instances",
         type=int,
@@ -328,6 +336,8 @@ if __name__ == "__main__":
         help="Docker image to run",
     )
     args = parser.parse_args()
+
+    logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO)
 
     vast_api_key = os.getenv("VAST_API_KEY")
     if not vast_api_key:
