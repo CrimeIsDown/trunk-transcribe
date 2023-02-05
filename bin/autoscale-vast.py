@@ -10,7 +10,20 @@ from functools import lru_cache
 from math import floor
 
 import requests
-from dotenv import dotenv_values
+import sentry_sdk
+from dotenv import dotenv_values, load_dotenv
+
+load_dotenv()
+
+sentry_dsn = os.getenv("SENTRY_DSN")
+if sentry_dsn:
+    sentry_sdk.init(
+        dsn=sentry_dsn,
+        # Set traces_sample_rate to 1.0 to capture 100%
+        # of transactions for performance monitoring.
+        # We recommend adjusting this value in production.
+        traces_sample_rate=float(os.getenv("SENTRY_SAMPLE_RATE", "1")),
+    )
 
 
 class Autoscaler:
@@ -91,8 +104,13 @@ class Autoscaler:
             params={"q": json.dumps(query), "api_key": self.vast_api_key},
         )
         r.raise_for_status()
-        # TODO: Filter this list to exclude any instances we're already renting
-        return r.json()["offers"]
+
+        # Filter this list to exclude any instances we're already renting
+        return [
+            offer
+            for offer in r.json()["offers"]
+            if f'{offer["host_id"]}_{offer["machine_id"]}' not in self.instances
+        ]
 
     def get_current_instances(self) -> list[dict]:
         r = requests.get(
@@ -100,8 +118,11 @@ class Autoscaler:
             params={"owner": "me", "api_key": self.vast_api_key},
         )
         r.raise_for_status()
-        self.instances = r.json()["instances"]
-        return self.instances
+        instances = r.json()["instances"]
+        self.instances = [
+            f'{instance["host_id"]}_{instance["machine_id"]}' for instance in instances
+        ]
+        return instances
 
     def create_instances(self, count: int):
         logging.info(f"Scaling up by {count} instances")
@@ -187,7 +208,8 @@ class Autoscaler:
         processing = sum([len(worker["active"]) for worker in workers.values()])
         queued = queues[0]["messages"]
 
-        if processing + queued > max_capacity:
+        # Use current_instances if it is higher, to account for instances that are starting up
+        if processing + queued > max(max_capacity, current_instances):
             return current_instances + 1
         elif processing < max_capacity:
             return current_instances - 1
