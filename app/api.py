@@ -28,7 +28,9 @@ if sentry_dsn:
         # We recommend adjusting this value in production.
         traces_sample_rate=float(os.getenv("SENTRY_TRACE_SAMPLE_RATE", "0.1")),
         _experiments={
-            "profiles_sample_rate": float(os.getenv("SENTRY_PROFILE_SAMPLE_RATE", "0.1")),
+            "profiles_sample_rate": float(
+                os.getenv("SENTRY_PROFILE_SAMPLE_RATE", "0.1")
+            ),
         },
     )
 

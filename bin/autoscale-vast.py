@@ -27,7 +27,9 @@ if sentry_dsn:
         # We recommend adjusting this value in production.
         traces_sample_rate=float(os.getenv("SENTRY_TRACE_SAMPLE_RATE", "0.1")),
         _experiments={
-            "profiles_sample_rate": float(os.getenv("SENTRY_PROFILE_SAMPLE_RATE", "0.1")),
+            "profiles_sample_rate": float(
+                os.getenv("SENTRY_PROFILE_SAMPLE_RATE", "0.1")
+            ),
         },
     )
 
@@ -89,7 +91,9 @@ class Autoscaler:
                 # If this was one of our pending instances, remove it from the list
                 if name in self.pending_instances:
                     del self.pending_instances[name]
-                online_workers.append(workers[name])
+                # Assuming we have the corresponding worker details, add the worker to our list
+                if name in workers:
+                    online_workers.append(workers[name])
         # Return info for only the workers that are online
         return online_workers
 
@@ -242,8 +246,9 @@ class Autoscaler:
                     json={},
                 )
                 r.raise_for_status()
+                age_hrs = (time.time() - instance["start_date"]) / (60 * 60)
                 logging.info(
-                    f"Deleted instance {instance['id']} (a {instance['gpu_name']} for ${instance['dph_total']}/hr), had status: {instance['status_msg']}"
+                    f"Deleted instance {instance['id']} (a {instance['gpu_name']} for ${instance['dph_total']:.3f}/hr), was up for {age_hrs:.2f} hours. Last status: {instance['status_msg']}"
                 )
                 # Remove the deleted instance from our list
                 self.instance_ids.pop(
@@ -283,10 +288,17 @@ class Autoscaler:
 
     def monitor_utilization(self):
         while True:
-            self.utilization_readings.append(self.calculate_utilization())
+            time.sleep(2)
+            try:
+                current_utilization = self.calculate_utilization()
+            except Exception as e:
+                logging.exception(e)
+                sentry_sdk.capture_exception(e)
+                continue
+
+            self.utilization_readings.append(current_utilization)
             if len(self.utilization_readings) > self.interval / 2:
                 self.utilization_readings.pop(0)
-            time.sleep(2)
 
     def calculate_needed_instances(self, current_instances: int):
         avg_utilization = mean(self.utilization_readings)
