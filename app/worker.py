@@ -34,7 +34,10 @@ if sentry_dsn:
         # Set traces_sample_rate to 1.0 to capture 100%
         # of transactions for performance monitoring.
         # We recommend adjusting this value in production.
-        traces_sample_rate=float(os.getenv("SENTRY_SAMPLE_RATE", "0.1")),
+        traces_sample_rate=float(os.getenv("SENTRY_TRACE_SAMPLE_RATE", "0.1")),
+        _experiments={
+            "profiles_sample_rate": float(os.getenv("SENTRY_PROFILE_SAMPLE_RATE", "0.1")),
+        },
     )
 
 broker_url = os.getenv("CELERY_BROKER_URL")
