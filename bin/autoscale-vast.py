@@ -106,11 +106,13 @@ class Autoscaler:
         r.raise_for_status()
 
         # Filter this list to exclude any instances we're already renting
-        return [
-            offer
-            for offer in r.json()["offers"]
-            if f'{offer["host_id"]}_{offer["machine_id"]}' not in self.instances
-        ]
+        return list(
+            filter(
+                lambda offer: f'{offer["host_id"]}_{offer["machine_id"]}'
+                not in self.instances,
+                r.json()["offers"],
+            )
+        )
 
     def get_current_instances(self) -> list[dict]:
         r = requests.get(
@@ -174,17 +176,17 @@ class Autoscaler:
                 f"Started instance {instance_id}, a {instance['gpu_name']} for ${bid}/hr"
             )
 
-    def delete_instances(self, count: int):
-        if count:
+    def delete_instances(self, count: int | list[dict]):
+        if isinstance(count, int):
             logging.info(f"Scaling down by {count} instances")
-        deletable_instances = []
+            deletable_instances = []
 
-        for instance in self.get_current_instances():
-            if instance["actual_status"] == "exited":
-                deletable_instances.append(instance)
-            elif count:
-                deletable_instances.append(instance)
-                count -= 1
+            for instance in self.get_current_instances():
+                if count:
+                    deletable_instances.append(instance)
+                    count -= 1
+        else:
+            deletable_instances = count
 
         if len(deletable_instances):
             for instance in deletable_instances:
@@ -196,6 +198,12 @@ class Autoscaler:
                 r.raise_for_status()
                 logging.info(
                     f"Deleted instance {instance['id']}, had status: {instance['status_msg']}"
+                )
+                # Remove the deleted instance from our list
+                self.instances.pop(
+                    self.instances.index(
+                        f'{instance["host_id"]}_{instance["machine_id"]}'
+                    )
                 )
 
     def calculate_needed_instances(self, current_instances: int):
@@ -217,15 +225,17 @@ class Autoscaler:
             return current_instances
 
     def maybe_scale(self) -> bool:
+        instances = self.get_current_instances()
+
         # Clean up any exited instances
-        self.delete_instances(0)
+        exited_instances = list(
+            filter(lambda i: i["actual_status"] == "exited", instances)
+        )
+        if len(exited_instances):
+            self.delete_instances(exited_instances)
 
         current_instances = len(
-            [
-                instance
-                for instance in self.get_current_instances()
-                if instance["next_state"] == "running"
-            ]
+            list(filter(lambda i: i["next_state"] == "running", instances))
         )
 
         needed_instances = self.calculate_needed_instances(current_instances)
