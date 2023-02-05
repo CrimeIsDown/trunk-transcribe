@@ -48,12 +48,19 @@ class Autoscaler:
         else:
             self.image = f"crimeisdown/trunk-transcribe:main-{self.model}-cu117"
 
-    def get_worker_status(self) -> dict[str, dict]:
-        flower_baseurl = os.getenv("FLOWER_URL")
-        url = f"{flower_baseurl}/api/workers?refresh=true"
-        r = requests.get(url, timeout=5)
+    def get_worker_status(self) -> list[dict]:
+        url = f'{os.getenv("FLOWER_URL")}/api/workers'
+        # Get all workers
+        r = requests.get(url, params={"refresh": True}, timeout=5)
         r.raise_for_status()
-        return r.json()
+        workers = r.json()
+        # Get the status of each worker
+        r = requests.get(url, params={"status": True}, timeout=5)
+        r.raise_for_status()
+        # Get the names of the online workers
+        online_workers = [name for name, online in r.json().items() if online]
+        # Filter our worker data to only those that are online
+        return [worker for name, worker in workers.items() if name in online_workers]
 
     def get_queue_status(self) -> list[dict]:
         flower_baseurl = os.getenv("FLOWER_URL")
@@ -213,9 +220,9 @@ class Autoscaler:
         queues = self.get_queue_status()
 
         max_capacity = sum(
-            [worker["stats"]["pool"]["max-concurrency"] for worker in workers.values()]
+            [worker["stats"]["pool"]["max-concurrency"] for worker in workers]
         )
-        processing = sum([len(worker["active"]) for worker in workers.values()])
+        processing = sum([len(worker["active"]) for worker in workers])
         queued = queues[0]["messages"]
 
         # Use current_instances if it is higher, to account for instances that are starting up
