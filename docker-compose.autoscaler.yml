@@ -14,6 +14,7 @@ services:
       - ${AUTOSCALE_MAX_INSTANCES:-10}
     environment:
       - VAST_API_KEY
+      - SENTRY_DSN
       - FLOWER_URL=http://flower:5555
     volumes:
       - ./bin/autoscale-vast.py:/src/autoscale-vast.py
