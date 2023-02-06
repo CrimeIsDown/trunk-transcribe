@@ -126,20 +126,14 @@ class Autoscaler:
     def find_available_instances(self) -> list[dict]:
         query = {
             "rentable": {"eq": "true"},
-            "rented": {"eq": "false"},
-            "reliability": {"gt": "0.98"},
-            "reliability2": {"gt": "0.98"},
+            "reliability": {"gt": "0.90"},
+            "reliability2": {"gt": "0.90"},
             "num_gpus": {"eq": "1"},
             "gpu_ram": {"gt": "8000.0"},
             "dlperf": {"gt": "8"},
-            "dlperf_usd": {"gt": "200"},
-            "dlperf_per_dphtotal": {"gt": "200"},
-            "dph": {"lte": "0.1"},
             "dph_total": {"lte": "0.1"},
             "cuda_vers": {"gte": "11.7"},
             "cuda_max_good": {"gte": "11.7"},
-            "inet_up": {"gte": "90"},
-            "inet_down": {"gte": "90"},
             "order": [["dph_total", "asc"]],
             "type": "bid",
         }
