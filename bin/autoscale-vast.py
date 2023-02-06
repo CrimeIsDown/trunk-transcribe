@@ -271,7 +271,7 @@ class Autoscaler:
         processing = sum(
             [len(worker["active"]) for worker in workers if "active" in worker]
         )
-        queued = queues[0]["messages"] if len(queues) else 0
+        queued = sum([queue["messages"] for queue in queues])
         jobs = processing + queued
         # Use our job count if we have no capacity to determine what to do
         utilization = jobs / total_capacity if total_capacity else jobs
