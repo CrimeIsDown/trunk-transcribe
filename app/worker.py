@@ -60,7 +60,6 @@ task_counts = {}
 
 @signals.task_prerun.connect
 def task_prerun(**kwargs):
-    logging.info(task_counts)
     # If we've only had failing tasks on this worker, terminate it
     if states.SUCCESS not in task_counts and len(
         [
@@ -71,7 +70,6 @@ def task_prerun(**kwargs):
     ):
         logging.fatal("Exceeded job failure threshold, exiting...\n" + str(task_counts))
         os.kill(os.getppid(), signal.SIGQUIT)
-        sleep(9999)
 
 
 @signals.task_postrun.connect
