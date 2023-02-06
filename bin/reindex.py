@@ -100,6 +100,8 @@ def get_documents(
     index: Index, pagination: dict, search: dict | None = None
 ) -> Tuple[int, list[MeiliDocument]]:
     if search:
+        if "q" not in search:
+            search["q"] = ""
         query = search["q"]
         # Merge the two dicts via copying
         opts = {**search, **pagination}
@@ -126,7 +128,6 @@ if __name__ == "__main__":
         metavar=("SHORT_NAME", "UNIT_TAGS_FILE"),
         action="append",
         help="System short_name and the path to the corresponding unitTagsFile CSV",
-        required=True,
     )
     parser.add_argument(
         "--index",
@@ -174,13 +175,14 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO)
 
     UNIT_TAGS = {}
-    for system, file in args.unit_tags:
-        tags = []
-        with open(file, newline="") as csvfile:
-            reader = csv.reader(csvfile, escapechar="\\")
-            for row in reader:
-                tags.append(row)
-        UNIT_TAGS[system] = tags
+    if args.unit_tags:
+        for system, file in args.unit_tags:
+            tags = []
+            with open(file, newline="") as csvfile:
+                reader = csv.reader(csvfile, escapechar="\\")
+                for row in reader:
+                    tags.append(row)
+            UNIT_TAGS[system] = tags
 
     client = search.get_client()
 
@@ -238,7 +240,7 @@ if __name__ == "__main__":
                 retranscribe(index, updated_documents)
             else:
                 # Only send the updated docs to be reindexed when we have a big enough batch
-                if len(updated_documents) >= limit or offset >= total:
+                if len(updated_documents) >= 1000 or offset >= total:
                     logging.info(
                         f"Waiting for {len(updated_documents)} documents to be {action}"
                     )
