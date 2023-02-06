@@ -57,7 +57,8 @@ jobs:
         # GPU variants
         model: ["base.en", "small.en", "medium.en", "large"]
         platform: ["linux/amd64"]
-        desired_cuda: ["cu116", "cu117"]
+        desired_cuda: ["cu117"]
+        # desired_cuda: ["cu116", "cu117"]
         dockerfile: ["Dockerfile.whisper"]
         # CPU variants
         include:
