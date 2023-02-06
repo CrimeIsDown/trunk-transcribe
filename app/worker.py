@@ -2,14 +2,16 @@
 
 import logging
 import os
+import signal
 import tempfile
+from time import sleep
 
 # This is needed so all workers are synced to the same timezone
 os.environ["TZ"] = "UTC"
 
 import requests
 import sentry_sdk
-from celery import Celery
+from celery import Celery, signals, states
 from celery.exceptions import Reject
 from dotenv import load_dotenv
 from sentry_sdk.integrations.celery import CeleryIntegration
@@ -52,6 +54,28 @@ celery = Celery(
     task_acks_late=True,
     worker_prefetch_multiplier=1,
 )
+
+task_counts = {}
+
+
+@signals.task_prerun.connect
+def before_start(**kwargs):
+    logging.info(task_counts)
+    # If we've only had failing tasks on this worker, terminate it
+    if states.SUCCESS not in task_counts and (
+        (states.FAILURE in task_counts and task_counts[states.FAILURE] > 5)
+        or (states.RETRY in task_counts and task_counts[states.RETRY] > 10)
+    ):
+        logging.fatal("Exceeded job failure threshold, exiting...\n" + str(task_counts))
+        os.kill(os.getppid(), signal.SIGQUIT)
+        sleep(9999)
+
+
+@signals.task_postrun.connect
+def on_complete(**kwargs):
+    if kwargs["state"] not in task_counts:
+        task_counts[kwargs["state"]] = 0
+    task_counts[kwargs["state"]] += 1
 
 
 def transcribe(
