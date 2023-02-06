@@ -117,7 +117,7 @@ def transcribe(
     return transcript.txt
 
 
-@celery.task
+@celery.task(name="transcribe")
 def transcribe_task(
     metadata: Metadata,
     audio_url: str,
