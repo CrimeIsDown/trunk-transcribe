@@ -303,22 +303,19 @@ class Autoscaler:
                 self.utilization_readings.pop(0)
 
     def calculate_needed_instances(self, current_instances: int):
-        avg_utilization = mean(self.utilization_readings)
+        if len(self.utilization_readings):
+            avg_utilization = mean(self.utilization_readings)
 
-        logging.info(f"Current average utilization: {avg_utilization:.2f}")
+            logging.info(f"Current average utilization: {avg_utilization:.2f}")
 
-        if avg_utilization > 1.5:
-            return current_instances + 1
-        elif avg_utilization < 0.4:
-            return current_instances - 1
-        else:
-            return current_instances
+            if avg_utilization > 1.5:
+                return current_instances + 1
+            elif avg_utilization < 0.4:
+                return current_instances - 1
+
+        return current_instances
 
     def maybe_scale(self) -> bool:
-        # If we don't have any utilization readings yet, we can't make a determination
-        if not len(self.utilization_readings):
-            return False
-
         instances = self.get_current_instances()
 
         # Clean up any exited instances
@@ -333,12 +330,11 @@ class Autoscaler:
         )
 
         needed_instances = self.calculate_needed_instances(current_instances)
+        target_instances = min(max(needed_instances, self.min), self.max)
 
-        target_instances = min(needed_instances, self.max)
         if target_instances > current_instances:
             self.create_instances(target_instances - current_instances)
             return True
-        target_instances = max(needed_instances, self.min)
         if target_instances < current_instances:
             self.delete_instances(current_instances - target_instances)
             return True
