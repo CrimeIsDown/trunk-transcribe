@@ -64,7 +64,7 @@ services:
     restart: always
 
   meilisearch:
-    image: 'getmeili/meilisearch:latest'
+    image: 'getmeili/meilisearch:v0.30.5'
     ports:
       - 7700:7700
     environment:
