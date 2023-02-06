@@ -59,12 +59,15 @@ task_counts = {}
 
 
 @signals.task_prerun.connect
-def before_start(**kwargs):
+def task_prerun(**kwargs):
     logging.info(task_counts)
     # If we've only had failing tasks on this worker, terminate it
-    if states.SUCCESS not in task_counts and (
-        (states.FAILURE in task_counts and task_counts[states.FAILURE] > 5)
-        or (states.RETRY in task_counts and task_counts[states.RETRY] > 10)
+    if states.SUCCESS not in task_counts and len(
+        [
+            count
+            for state, count in task_counts.items()
+            if state in states.EXCEPTION_STATES and count > 5
+        ]
     ):
         logging.fatal("Exceeded job failure threshold, exiting...\n" + str(task_counts))
         os.kill(os.getppid(), signal.SIGQUIT)
@@ -72,10 +75,17 @@ def before_start(**kwargs):
 
 
 @signals.task_postrun.connect
-def on_complete(**kwargs):
+def task_postrun(**kwargs):
     if kwargs["state"] not in task_counts:
         task_counts[kwargs["state"]] = 0
     task_counts[kwargs["state"]] += 1
+
+
+@signals.task_unknown.connect
+def task_unknown(**kwargs):
+    logging.exception(kwargs["exc"])
+    logging.fatal("Unknown job, exiting...")
+    os.kill(os.getpid(), signal.SIGQUIT)
 
 
 def transcribe(
