@@ -43,6 +43,7 @@ class Autoscaler:
     envs: dict[str, str] = {}
     utilization_readings: list[float] = []
     pending_instances: dict[str, int] = {}
+    forbidden_instances: set[str] = set()
 
     def __init__(
         self,
@@ -218,23 +219,31 @@ class Autoscaler:
             # Add the instance to our list of pending instances so we can check when it comes online
             self.pending_instances[self.envs["CELERY_HOSTNAME"]] = concurrency
 
-    def delete_instances(self, count: int | list[dict]):
-        if isinstance(count, int):
-            logging.info(f"Scaling down by {count} instances")
-            deletable_instances = []
+    def delete_instances(self, count: int = 0, exited: bool = False, errored: bool = False):
+        instances = self.get_current_instances()
+        deletable_instances = []
 
+        if exited:
+            deletable_instances += list(filter(lambda i: i["actual_status"] == "exited", instances))
+
+        if errored:
+            bad_instances = list(filter(lambda i: "error" in i["status_msg"].lower(), instances))
+            for instance in bad_instances:
+                self.forbidden_instances.add(self._make_instance_hostname(instance))
+            deletable_instances += bad_instances
+
+        if count:
+            logging.info(f"Scaling down by {count} instances")
             # Sort instance list by most expensive first, so those get deleted first
-            instances = sorted(
-                self.get_current_instances(),
+            sorted_instances = sorted(
+                list(filter(lambda i: i not in deletable_instances, instances)),
                 key=lambda instance: instance["dph_total"],
                 reverse=True,
             )
-            for instance in instances:
+            for instance in sorted_instances:
                 if count:
                     deletable_instances.append(instance)
                     count -= 1
-        else:
-            deletable_instances = count
 
         if len(deletable_instances):
             for instance in deletable_instances:
@@ -271,7 +280,7 @@ class Autoscaler:
         processing = sum(
             [len(worker["active"]) for worker in workers if "active" in worker]
         )
-        queued = sum([queue["messages"] for queue in queues])
+        queued = sum([queue["messages"] for queue in queues if "messages" in queue])
         jobs = processing + queued
         # Use our job count if we have no capacity to determine what to do
         utilization = jobs / total_capacity if total_capacity else jobs
@@ -312,14 +321,9 @@ class Autoscaler:
         return needed_instances
 
     def maybe_scale(self) -> bool:
-        instances = self.get_current_instances()
+        self.delete_instances(exited=True, errored=True)
 
-        # Clean up any exited instances
-        exited_instances = list(
-            filter(lambda i: i["actual_status"] == "exited", instances)
-        )
-        if len(exited_instances):
-            self.delete_instances(exited_instances)
+        instances = self.get_current_instances()
 
         current_instances = len(
             list(filter(lambda i: i["next_state"] == "running", instances))

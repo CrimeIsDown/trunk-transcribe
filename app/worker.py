@@ -59,21 +59,6 @@ celery = Celery(
 task_counts = {}
 
 
-@signals.celeryd_init.connect
-def celeryd_init(**kwargs):
-    # Make sure we have access to the proper services to avoid failing jobs
-    envs_to_check = ["MEILI_URL", "API_BASE_URL", "S3_PUBLIC_URL"]
-    for env in envs_to_check:
-        url = os.getenv(env)
-        if url:
-            try:
-                requests.get(url)
-            except Exception as e:
-                logging.exception(e)
-                logging.fatal(f"Can't access {env} at {url}, exiting...")
-                sys.exit(1)
-
-
 @signals.task_prerun.connect
 def task_prerun(**kwargs):
     # If we've only had failing tasks on this worker, terminate it
@@ -119,7 +104,7 @@ def transcribe(
         else:
             raise Reject(f"Audio type {metadata['audio_type']} not supported")
     except RuntimeError as e:
-        return str(e)
+        return repr(e)
     logging.debug(transcript)
 
     index_call(metadata, raw_audio_url, transcript, id, index_name=index_name)

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -Eeo pipefail
+set -Eeou pipefail
 
 if [ "$1" = 'api' ]; then
     exec uvicorn app.api:app --host 0.0.0.0
@@ -12,6 +12,14 @@ elif [ "$1" = 'worker' ]; then
             CELERY_HOSTNAME="$CELERY_HOSTNAME@%n"
         fi
     fi
+    # Make sure we can connect to these hosts
+    if [ -f .env ]; then
+        export $(grep -E '^(MEILI_URL|API_BASE_URL|S3_ENDPOINT)' .env | xargs)
+    fi
+    curl -sS "$MEILI_URL" > /dev/null
+    curl -sS "$API_BASE_URL" > /dev/null
+    curl -sS "$S3_ENDPOINT" > /dev/null
+
     exec celery --app=app.worker.celery worker \
         -P ${CELERY_POOL:-prefork} \
         -c ${CELERY_CONCURRENCY:-2} \
