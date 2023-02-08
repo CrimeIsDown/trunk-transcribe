@@ -37,6 +37,7 @@ if sentry_dsn:
 DEFAULT_MIN_INSTANCES = 1
 DEFAULT_MAX_INSTANCES = 10
 DEFAULT_INTERVAL = 60
+FORBIDDEN_INSTANCE_CONFIG = "config/forbidden_instances.json"
 
 
 class Autoscaler:
@@ -75,6 +76,10 @@ class Autoscaler:
             self.image = image
         else:
             self.image = f"crimeisdown/trunk-transcribe:main-{self.model}-cu117"
+
+        if os.path.isfile(FORBIDDEN_INSTANCE_CONFIG):
+            with open(FORBIDDEN_INSTANCE_CONFIG) as config:
+                self.forbidden_instances = set(json.load(config))
 
     def _make_instance_hostname(self, instance: dict) -> str:
         return f'{instance["machine_id"]}.{instance["host_id"]}.vast.ai'
@@ -149,7 +154,7 @@ class Autoscaler:
         return list(
             filter(
                 lambda offer: self._make_instance_hostname(offer)
-                not in self.instance_ids,
+                not in (self.instance_ids + list(self.forbidden_instances)),
                 r.json()["offers"],
             )
         )
@@ -219,17 +224,26 @@ class Autoscaler:
             # Add the instance to our list of pending instances so we can check when it comes online
             self.pending_instances[self.envs["CELERY_HOSTNAME"]] = concurrency
 
-    def delete_instances(self, count: int = 0, exited: bool = False, errored: bool = False):
+    def delete_instances(
+        self, count: int = 0, exited: bool = False, errored: bool = False
+    ):
         instances = self.get_current_instances()
         deletable_instances = []
 
         if exited:
-            deletable_instances += list(filter(lambda i: i["actual_status"] == "exited", instances))
+            deletable_instances += list(
+                filter(lambda i: i["actual_status"] == "exited", instances)
+            )
 
         if errored:
-            bad_instances = list(filter(lambda i: "error" in i["status_msg"].lower(), instances))
+            bad_instances = list(
+                filter(lambda i: "error" in i["status_msg"].lower(), instances)
+            )
             for instance in bad_instances:
                 self.forbidden_instances.add(self._make_instance_hostname(instance))
+            if len(bad_instances):
+                with open(FORBIDDEN_INSTANCE_CONFIG, "w") as config:
+                    json.dump(list(self.forbidden_instances), config)
             deletable_instances += bad_instances
 
         if count:

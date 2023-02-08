@@ -7,7 +7,7 @@ services:
       context: .
       dockerfile: Dockerfile
     command:
-      - ./autoscale-vast.py
+      - bin/autoscale-vast.py
       - --min-instances
       - ${AUTOSCALE_MIN_INSTANCES:-1}
       - --max-instances
@@ -19,7 +19,9 @@ services:
       - SENTRY_DSN
       - FLOWER_URL=http://flower:5555
     volumes:
-      - ./bin/autoscale-vast.py:/src/autoscale-vast.py
+      - ./app:/src/app
+      - ./bin:/src/bin
+      - ./config:/src/config
       - ./.env.vast:/src/.env.vast
       - ~/.vast_api_key:/root/.vast_api_key
     restart: always
