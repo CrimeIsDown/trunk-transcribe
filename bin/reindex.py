@@ -201,11 +201,15 @@ if __name__ == "__main__":
 
     action = "re-transcribed" if args.retranscribe else "re-indexed"
 
-    while offset < total:
+    while offset < total or (args.search and total > 0):
         total, docs = get_documents(
             index, {"offset": offset, "limit": limit}, args.search
         )
-        offset += limit
+        if args.search and total == 0:
+            break
+        elif not args.search:
+            offset += limit
+
         completion = min((offset / total) * 100, 100)
         documents = [document for document in docs if eval(args.filter)]
 
@@ -240,7 +244,7 @@ if __name__ == "__main__":
                 retranscribe(index, updated_documents)
             else:
                 # Only send the updated docs to be reindexed when we have a big enough batch
-                if len(updated_documents) >= 1000 or offset >= total:
+                if len(updated_documents) >= 1000 or offset >= total or args.search:
                     logging.info(
                         f"Waiting for {len(updated_documents)} documents to be {action}"
                     )
