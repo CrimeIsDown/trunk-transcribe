@@ -24,7 +24,7 @@ def __convert_file(
         artist = ""
         if len(metadata["srcList"]):
             artist = ", ".join(
-                [src["tag"] for src in metadata["srcList"] if len(src["tag"])]
+                set([src["tag"] for src in metadata["srcList"] if len(src["tag"])])
             )
         if not len(artist):
             artist = metadata["talkgroup_description"]
