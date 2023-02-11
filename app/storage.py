@@ -6,6 +6,7 @@ from functools import lru_cache
 from mimetypes import guess_type
 
 import boto3
+import pytz
 from botocore.config import Config
 
 from app.conversion import convert_to_mp3
@@ -38,7 +39,7 @@ def upload_file(filename: str, remote_path: str | None = None) -> str:
 
 
 def upload_raw_audio(metadata: Metadata, audio_file: str) -> str:
-    start_time = datetime.fromtimestamp(metadata["start_time"])
+    start_time = datetime.fromtimestamp(metadata["start_time"], tz=pytz.UTC)
     uploaded_audio_path = (
         start_time.strftime("%Y/%m/%d/%H/%Y%m%d_%H%M%S")
         + f"_{metadata['short_name']}_{metadata['talkgroup']}.mp3"

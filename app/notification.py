@@ -1,7 +1,7 @@
 import logging
 import os
 import re
-from datetime import datetime, timezone
+from datetime import datetime
 from sys import platform
 from time import time
 
@@ -53,7 +53,7 @@ def build_suffix(metadata: Metadata, add_talkgroup: bool = False) -> str:
         linux_format = "%-m/%-d/%Y %-I:%M:%S %p %Z"
         windows_format = linux_format.replace("-", "#")
         timestamp = (
-            datetime.fromtimestamp(metadata["start_time"], tz=timezone.utc)
+            datetime.fromtimestamp(metadata["start_time"], tz=pytz.UTC)
             .astimezone(pytz.timezone(os.getenv("DISPLAY_TZ", "America/Chicago")))
             .strftime(windows_format if platform == "win32" else linux_format)
         )

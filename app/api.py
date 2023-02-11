@@ -3,8 +3,6 @@
 import json
 import os
 import tempfile
-from base64 import b64encode
-import traceback
 
 import sentry_sdk
 from celery.result import AsyncResult

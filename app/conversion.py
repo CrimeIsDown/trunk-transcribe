@@ -4,6 +4,7 @@ from datetime import datetime
 from functools import lru_cache
 from os.path import dirname
 
+import pytz
 from cachetools import cached
 from cachetools.keys import hashkey
 
@@ -18,7 +19,7 @@ def __convert_file(
 ) -> str:
     metadata_args = []
     if metadata:
-        start_time = datetime.fromtimestamp(metadata["start_time"])
+        start_time = datetime.fromtimestamp(metadata["start_time"], tz=pytz.UTC)
         date = start_time.strftime("%Y-%m-%d")
         year = start_time.strftime("%Y")
         artist = ""

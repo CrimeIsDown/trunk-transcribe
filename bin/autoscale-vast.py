@@ -86,7 +86,10 @@ class Autoscaler:
 
     def _update_running_instances(self, instances):
         self.running_instances = [
-            self._make_instance_hostname(instance) for instance in list(filter(lambda i: i["next_state"] == "running", instances))
+            self._make_instance_hostname(instance)
+            for instance in list(
+                filter(lambda i: i["next_state"] == "running", instances)
+            )
         ]
 
     def get_worker_status(self) -> list[dict]:
@@ -192,8 +195,8 @@ class Autoscaler:
             count -= 1
 
             instance_id = instance["id"]
-            # Bid 1.5x the minimum bid
-            bid = round(float(instance["dph_total"]) * 1.5, 6)
+            # Bid 1.25x the minimum bid
+            bid = round(float(instance["dph_total"]) * 1.25, 6)
 
             # Adjust concurrency based on GPU RAM
             concurrency = floor(instance["gpu_ram"] / vram_required)
@@ -202,9 +205,7 @@ class Autoscaler:
             # Set a nice hostname so we don't use a random Docker hash
             git_commit = self.get_git_commit()
             hostname = self._make_instance_hostname(instance)
-            self.envs[
-                "CELERY_HOSTNAME"
-            ] = f"celery-{git_commit}@{hostname}"
+            self.envs["CELERY_HOSTNAME"] = f"celery-{git_commit}@{hostname}"
 
             body = {
                 "client_id": "me",

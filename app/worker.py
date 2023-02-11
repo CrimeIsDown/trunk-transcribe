@@ -3,12 +3,7 @@
 import logging
 import os
 import signal
-import sys
 import tempfile
-from time import sleep
-
-# This is needed so all workers are synced to the same timezone
-os.environ["TZ"] = "UTC"
 
 import requests
 import sentry_sdk
@@ -53,7 +48,9 @@ celery = Celery(
     backend=result_backend,
     task_cls="app.whisper:WhisperTask",
     task_acks_late=True,
+    worker_cancel_long_running_tasks_on_connection_loss=True,
     worker_prefetch_multiplier=1,
+    timezone="UTC",
 )
 
 task_counts = {}

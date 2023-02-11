@@ -58,14 +58,14 @@ requests-oauthlib = "*"
 
 [[package]]
 name = "billiard"
-version = "3.6.4.0"
+version = "4.1.0"
 description = "Python multiprocessing fork with improvements and bugfixes"
 category = "main"
 optional = false
-python-versions = "*"
+python-versions = ">=3.7"
 files = [
-    {file = "billiard-3.6.4.0-py3-none-any.whl", hash = "sha256:87103ea78fa6ab4d5c751c4909bcff74617d985de7fa8b672cf8618afd5a875b"},
-    {file = "billiard-3.6.4.0.tar.gz", hash = "sha256:299de5a8da28a783d51b197d496bef4f1595dd023a93a4f59dde1886ae905547"},
+    {file = "billiard-4.1.0-py3-none-any.whl", hash = "sha256:0f50d6be051c6b2b75bfbc8bfd85af195c5739c281d3f5b86a5640c65563614a"},
+    {file = "billiard-4.1.0.tar.gz", hash = "sha256:1ad2eeae8e28053d729ba3373d34d9d6e210f6e4d8bf0a9c64f92bd053f1edf5"},
 ]
 
 [[package]]
@@ -105,18 +105,18 @@ uvloop = ["uvloop (>=0.15.2)"]
 
 [[package]]
 name = "boto3"
-version = "1.26.67"
+version = "1.26.69"
 description = "The AWS SDK for Python"
 category = "main"
 optional = false
 python-versions = ">= 3.7"
 files = [
-    {file = "boto3-1.26.67-py3-none-any.whl", hash = "sha256:159ab54ab301a213aea0dbebfe97c12909fd9180110a2b78aaa712c2d7d1a929"},
-    {file = "boto3-1.26.67.tar.gz", hash = "sha256:c2e21ac64370fee1f3dccd97b4767e89d046c45c00faec27c36405618e34c7e5"},
+    {file = "boto3-1.26.69-py3-none-any.whl", hash = "sha256:9a0a29179957cb26fa8c3c1fddf66b18efaeaf633e08db5fb53815ffb0421419"},
+    {file = "boto3-1.26.69.tar.gz", hash = "sha256:eb8cde24a4c5755c35126e8cd460e6b51c63d04292419e7e95721232720c7e5b"},
 ]
 
 [package.dependencies]
-botocore = ">=1.29.67,<1.30.0"
+botocore = ">=1.29.69,<1.30.0"
 jmespath = ">=0.7.1,<2.0.0"
 s3transfer = ">=0.6.0,<0.7.0"
 
@@ -125,14 +125,14 @@ crt = ["botocore[crt] (>=1.21.0,<2.0a0)"]
 
 [[package]]
 name = "boto3-stubs"
-version = "1.26.67"
-description = "Type annotations for boto3 1.26.67 generated with mypy-boto3-builder 7.12.3"
+version = "1.26.69"
+description = "Type annotations for boto3 1.26.69 generated with mypy-boto3-builder 7.12.3"
 category = "main"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "boto3-stubs-1.26.67.tar.gz", hash = "sha256:cae4142b1fd263d37d7b5c5cc4052fad3ab0f39edde546f3b31f260cee030ce9"},
-    {file = "boto3_stubs-1.26.67-py3-none-any.whl", hash = "sha256:3d030b3a14558917341e52a41f6d570169927f8d999786333bd0eb2a150e4f71"},
+    {file = "boto3-stubs-1.26.69.tar.gz", hash = "sha256:94edd1d802fb57e5265300b11760619ab1ba1f1aef3aa3f43ca0ca0399855ee8"},
+    {file = "boto3_stubs-1.26.69-py3-none-any.whl", hash = "sha256:b8cbdd22bea8024a1c94b16f2d1e7d0e99b83d36503ae2674dfcc752492b6847"},
 ]
 
 [package.dependencies]
@@ -175,7 +175,7 @@ backup-gateway = ["mypy-boto3-backup-gateway (>=1.26.0,<1.27.0)"]
 backupstorage = ["mypy-boto3-backupstorage (>=1.26.0,<1.27.0)"]
 batch = ["mypy-boto3-batch (>=1.26.0,<1.27.0)"]
 billingconductor = ["mypy-boto3-billingconductor (>=1.26.0,<1.27.0)"]
-boto3 = ["boto3 (==1.26.67)", "botocore (==1.29.67)"]
+boto3 = ["boto3 (==1.26.69)", "botocore (==1.29.69)"]
 braket = ["mypy-boto3-braket (>=1.26.0,<1.27.0)"]
 budgets = ["mypy-boto3-budgets (>=1.26.0,<1.27.0)"]
 ce = ["mypy-boto3-ce (>=1.26.0,<1.27.0)"]
@@ -486,14 +486,14 @@ xray = ["mypy-boto3-xray (>=1.26.0,<1.27.0)"]
 
 [[package]]
 name = "botocore"
-version = "1.29.67"
+version = "1.29.69"
 description = "Low-level, data-driven core of boto 3."
 category = "main"
 optional = false
 python-versions = ">= 3.7"
 files = [
-    {file = "botocore-1.29.67-py3-none-any.whl", hash = "sha256:424c5fa21913d85ea990928acf35622a4f2b7f0750133b96adaa8c642bb6a878"},
-    {file = "botocore-1.29.67.tar.gz", hash = "sha256:0ccec4a906b6b8c7bb6bc5226509059ee9ed94d3cf1014487ef5b8e56801e6a3"},
+    {file = "botocore-1.29.69-py3-none-any.whl", hash = "sha256:2a4ab8bcb3177daa425019e125c09996b9a6a1a62bb0baaaeeb86ffd552719cc"},
+    {file = "botocore-1.29.69.tar.gz", hash = "sha256:7e1bebca013544fbc298cb58603bfccd5f71b49c720a5c33c07cf5dfc8145a1f"},
 ]
 
 [package.dependencies]
@@ -506,14 +506,14 @@ crt = ["awscrt (==0.16.9)"]
 
 [[package]]
 name = "botocore-stubs"
-version = "1.29.67"
+version = "1.29.69"
 description = "Type annotations and code completion for botocore"
 category = "main"
 optional = false
 python-versions = ">=3.7,<4.0"
 files = [
-    {file = "botocore_stubs-1.29.67-py3-none-any.whl", hash = "sha256:26ae5135e681a3dd3500b1b1ac1969aba149ba54195f105fff4fafab943d713b"},
-    {file = "botocore_stubs-1.29.67.tar.gz", hash = "sha256:87bb60ff0b718bc9877bd0d926e5f71e2b33bb7e7e110f87ee21ccb472ff1ede"},
+    {file = "botocore_stubs-1.29.69-py3-none-any.whl", hash = "sha256:15a5160119909788a5f346db12853f6675705d9856360fed8474c45ea4f9e018"},
+    {file = "botocore_stubs-1.29.69.tar.gz", hash = "sha256:cff293f3d5418110be4966ecc58a86146cc1e000984e2ea34350f9ef8ef88dd8"},
 ]
 
 [package.dependencies]
@@ -551,58 +551,58 @@ pydantic = ["pydantic (>=1.8.2)"]
 
 [[package]]
 name = "celery"
-version = "5.2.7"
+version = "5.3.0b1"
 description = "Distributed Task Queue."
 category = "main"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "celery-5.2.7-py3-none-any.whl", hash = "sha256:138420c020cd58d6707e6257b6beda91fd39af7afde5d36c6334d175302c0e14"},
-    {file = "celery-5.2.7.tar.gz", hash = "sha256:fafbd82934d30f8a004f81e8f7a062e31413a23d444be8ee3326553915958c6d"},
+    {file = "celery-5.3.0b1-py3-none-any.whl", hash = "sha256:3d4f1c548050e81f6447c82be6fc4bc5442ab2965497bb9f75540f8d9f4fab1c"},
+    {file = "celery-5.3.0b1.tar.gz", hash = "sha256:6a0f4cd65b827a50e5d1d470f31701c27f92008770f005ea366d4921aa34b36d"},
 ]
 
 [package.dependencies]
-billiard = ">=3.6.4.0,<4.0"
-click = ">=8.0.3,<9.0"
-click-didyoumean = ">=0.0.3"
+billiard = ">=3.6.4.0,<5.0"
+click = ">=8.1.2,<9.0"
+click-didyoumean = ">=0.3.0"
 click-plugins = ">=1.1.1"
 click-repl = ">=0.2.0"
-kombu = ">=5.2.3,<6.0"
+kombu = ">=5.3.0b1,<6.0"
 pytz = ">=2021.3"
 vine = ">=5.0.0,<6.0"
 
 [package.extras]
-arangodb = ["pyArango (>=1.3.2)"]
-auth = ["cryptography"]
-azureblockblob = ["azure-storage-blob (==12.9.0)"]
+arangodb = ["pyArango (>=2.0.1)"]
+auth = ["cryptography (>=37.0.1,<37.1.0)"]
+azureblockblob = ["azure-storage-blob (>=12.11.0)"]
 brotli = ["brotli (>=1.0.0)", "brotlipy (>=0.7.0)"]
-cassandra = ["cassandra-driver (<3.21.0)"]
-consul = ["python-consul2"]
-cosmosdbsql = ["pydocumentdb (==2.3.2)"]
+cassandra = ["cassandra-driver (>=3.25.0,<4)"]
+consul = ["python-consul2 (==0.1.5)"]
+cosmosdbsql = ["pydocumentdb (==2.3.5)"]
 couchbase = ["couchbase (>=3.0.0)"]
-couchdb = ["pycouchdb"]
+couchdb = ["pycouchdb (==1.14.2)"]
 django = ["Django (>=1.11)"]
-dynamodb = ["boto3 (>=1.9.178)"]
-elasticsearch = ["elasticsearch"]
+dynamodb = ["boto3 (>=1.22.2)"]
+elasticsearch = ["elasticsearch (<8.0)"]
 eventlet = ["eventlet (>=0.32.0)"]
 gevent = ["gevent (>=1.5.0)"]
 librabbitmq = ["librabbitmq (>=1.5.0)"]
-memcache = ["pylibmc"]
-mongodb = ["pymongo[srv] (>=3.11.1)"]
-msgpack = ["msgpack"]
-pymemcache = ["python-memcached"]
-pyro = ["pyro4"]
-pytest = ["pytest-celery"]
-redis = ["redis (>=3.4.1,!=4.0.0,!=4.0.1)"]
+memcache = ["pylibmc (==1.6.1)"]
+mongodb = ["pymongo[srv] (>=4.0.2)"]
+msgpack = ["msgpack (==1.0.4)"]
+pymemcache = ["python-memcached (==1.59)"]
+pyro = ["pyro4 (==4.82)"]
+pytest = ["pytest-celery (==0.0.0)"]
+redis = ["redis (>=4.2.2)"]
 s3 = ["boto3 (>=1.9.125)"]
 slmq = ["softlayer-messaging (>=1.0.3)"]
-solar = ["ephem"]
-sqlalchemy = ["sqlalchemy"]
-sqs = ["kombu[sqs]"]
+solar = ["ephem (>=4.1.3,<4.2.0)"]
+sqlalchemy = ["sqlalchemy (>=1.4.34,<1.5.0)"]
+sqs = ["kombu[sqs] (>=5.2.4,<5.3.0)"]
 tblib = ["tblib (>=1.3.0)", "tblib (>=1.5.0)"]
 yaml = ["PyYAML (>=3.10)"]
 zookeeper = ["kazoo (>=1.3.1)"]
-zstd = ["zstandard"]
+zstd = ["zstandard (==0.18.0)"]
 
 [[package]]
 name = "certifi"
@@ -939,35 +939,36 @@ files = [
 
 [[package]]
 name = "kombu"
-version = "5.2.4"
+version = "5.3.0b2"
 description = "Messaging library for Python."
 category = "main"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "kombu-5.2.4-py3-none-any.whl", hash = "sha256:8b213b24293d3417bcf0d2f5537b7f756079e3ea232a8386dcc89a59fd2361a4"},
-    {file = "kombu-5.2.4.tar.gz", hash = "sha256:37cee3ee725f94ea8bb173eaab7c1760203ea53bbebae226328600f9d2799610"},
+    {file = "kombu-5.3.0b2-py3-none-any.whl", hash = "sha256:6a043f57eb5dc9fb412e38d3b2442f74149520cfa965be16709b6fbccbe2b60f"},
+    {file = "kombu-5.3.0b2.tar.gz", hash = "sha256:cf9e28447754db3bfda01f49177924902ae7adccfd8f3ac05c39bfed891bb8e1"},
 ]
 
 [package.dependencies]
-amqp = ">=5.0.9,<6.0.0"
+amqp = ">=5.1.1,<6.0.0"
 vine = "*"
 
 [package.extras]
-azureservicebus = ["azure-servicebus (>=7.0.0)"]
-azurestoragequeues = ["azure-storage-queue"]
-consul = ["python-consul (>=0.6.0)"]
+azureservicebus = ["azure-servicebus (>=7.6.1)"]
+azurestoragequeues = ["azure-storage-queue (>=12.2.0)"]
+confluentkafka = ["confluent-kafka (>=1.9.0,<1.10.0)"]
+consul = ["python-consul2"]
 librabbitmq = ["librabbitmq (>=2.0.0)"]
-mongodb = ["pymongo (>=3.3.0,<3.12.1)"]
+mongodb = ["pymongo (>=4.1.1)"]
 msgpack = ["msgpack"]
 pyro = ["pyro4"]
 qpid = ["qpid-python (>=0.26)", "qpid-tools (>=0.26)"]
-redis = ["redis (>=3.4.1,!=4.0.0,!=4.0.1)"]
+redis = ["redis (>=4.2.2)"]
 slmq = ["softlayer-messaging (>=1.0.3)"]
 sqlalchemy = ["sqlalchemy"]
-sqs = ["boto3 (>=1.9.12)", "pycurl (>=7.44.1,<7.45.0)", "urllib3 (>=1.26.7)"]
+sqs = ["boto3 (>=1.22.2)", "pycurl (>=7.44.1,<7.45.0)", "urllib3 (>=1.26.9)"]
 yaml = ["PyYAML (>=3.10)"]
-zookeeper = ["kazoo (>=1.3.1)"]
+zookeeper = ["kazoo (>=2.8.0)"]
 
 [[package]]
 name = "markdown"
@@ -986,14 +987,14 @@ testing = ["coverage", "pyyaml"]
 
 [[package]]
 name = "meilisearch"
-version = "0.23.0"
+version = "0.24.0"
 description = "The python client for Meilisearch API."
 category = "main"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "meilisearch-0.23.0-py3-none-any.whl", hash = "sha256:7fd7238bf5ad079a398092725e2d38f22ac3517916fe262014507bfd9b181d6a"},
-    {file = "meilisearch-0.23.0.tar.gz", hash = "sha256:2b649540b533eeb02b47f1d354c868004652886f6279ecf4d270b64290fa46c2"},
+    {file = "meilisearch-0.24.0-py3-none-any.whl", hash = "sha256:18994f7d9a13792e2211e7f043d39ef09c6e9e332fb7c92cd6f354313d01b525"},
+    {file = "meilisearch-0.24.0.tar.gz", hash = "sha256:af0a466adab7e4eecf315c4866678b7fa319a68ab310260cf3ebb37e3bc87a82"},
 ]
 
 [package.dependencies]
@@ -1684,4 +1685,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "c3fb36ab4581f83d732089712b54c69c045154f253cab29f120d1a4a80cfd0c7"
+content-hash = "c73e6af1a3c3b5f510c752ea10bf2b85daf146b69b8de983b73ecfd4aeddcdc3"
