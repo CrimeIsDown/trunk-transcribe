@@ -84,6 +84,11 @@ class Autoscaler:
     def _make_instance_hostname(self, instance: dict) -> str:
         return f'{instance["machine_id"]}.{instance["host_id"]}.vast.ai'
 
+    def _update_running_instances(self, instances):
+        self.running_instances = [
+            self._make_instance_hostname(instance) for instance in list(filter(lambda i: i["next_state"] == "running", instances))
+        ]
+
     def get_worker_status(self) -> list[dict]:
         url = f'{os.getenv("FLOWER_URL")}/api/workers'
         # Get all workers
@@ -132,8 +137,6 @@ class Autoscaler:
     def find_available_instances(self) -> list[dict]:
         query = {
             "rentable": {"eq": "true"},
-            "reliability": {"gt": "0.90"},
-            "reliability2": {"gt": "0.90"},
             "num_gpus": {"eq": "1"},
             "gpu_ram": {"gt": "8000.0"},
             "dlperf": {"gt": "8"},
@@ -154,7 +157,7 @@ class Autoscaler:
         return list(
             filter(
                 lambda offer: self._make_instance_hostname(offer)
-                not in (self.instance_ids + list(self.forbidden_instances)),
+                not in (self.running_instances + list(self.forbidden_instances)),
                 r.json()["offers"],
             )
         )
@@ -165,13 +168,11 @@ class Autoscaler:
             params={"owner": "me", "api_key": self.vast_api_key},
         )
         r.raise_for_status()
-        self.instances = r.json()["instances"]
-        self.instance_ids = [
-            self._make_instance_hostname(instance) for instance in self.instances
-        ]
-        return self.instances
+        instances = r.json()["instances"]
+        self._update_running_instances(instances)
+        return instances
 
-    def create_instances(self, count: int):
+    def create_instances(self, count: int) -> int:
         logging.info(f"Scaling up by {count} instances")
 
         vram_requirements = {
@@ -183,6 +184,8 @@ class Autoscaler:
         }
         vram_required = vram_requirements[self.model]
         instances = self.find_available_instances()
+
+        instances_created = 0
 
         while count and len(instances):
             instance = instances.pop(0)
@@ -198,9 +201,10 @@ class Autoscaler:
 
             # Set a nice hostname so we don't use a random Docker hash
             git_commit = self.get_git_commit()
+            hostname = self._make_instance_hostname(instance)
             self.envs[
                 "CELERY_HOSTNAME"
-            ] = f"celery-{git_commit}@{self._make_instance_hostname(instance)}"
+            ] = f"celery-{git_commit}@{hostname}"
 
             body = {
                 "client_id": "me",
@@ -223,41 +227,46 @@ class Autoscaler:
             )
             # Add the instance to our list of pending instances so we can check when it comes online
             self.pending_instances[self.envs["CELERY_HOSTNAME"]] = concurrency
+            # Update our other vars
+            self.running_instances.append(hostname)
+            instances_created += 1
+
+        return instances_created
 
     def delete_instances(
         self, count: int = 0, exited: bool = False, errored: bool = False
-    ):
+    ) -> int:
         instances = self.get_current_instances()
         deletable_instances = []
+        bad_instances = []
 
-        if exited:
-            deletable_instances += list(
-                filter(lambda i: i["actual_status"] == "exited", instances)
-            )
-
-        if errored:
-            bad_instances = list(
-                filter(lambda i: "error" in i["status_msg"].lower(), instances)
-            )
-            for instance in bad_instances:
+        for i in range(len(instances)):
+            if exited and instances[i]["actual_status"] == "exited":
+                deletable_instances.append(instances.pop(i))
+            if errored and "error" in instances[i]["status_msg"].lower():
+                instance = instances.pop(i)
+                deletable_instances.append(instance)
+                bad_instances.append(instance)
                 self.forbidden_instances.add(self._make_instance_hostname(instance))
-            if len(bad_instances):
-                with open(FORBIDDEN_INSTANCE_CONFIG, "w") as config:
-                    json.dump(list(self.forbidden_instances), config)
-            deletable_instances += bad_instances
+
+        if len(bad_instances):
+            with open(FORBIDDEN_INSTANCE_CONFIG, "w") as config:
+                json.dump(list(self.forbidden_instances), config)
 
         if count:
             logging.info(f"Scaling down by {count} instances")
             # Sort instance list by most expensive first, so those get deleted first
-            sorted_instances = sorted(
-                list(filter(lambda i: i not in deletable_instances, instances)),
+            instances = sorted(
+                instances,
                 key=lambda instance: instance["dph_total"],
                 reverse=True,
             )
-            for instance in sorted_instances:
+            for i in range(len(instances)):
                 if count:
-                    deletable_instances.append(instance)
+                    deletable_instances.append(instances.pop(i))
                     count -= 1
+                else:
+                    break
 
         if len(deletable_instances):
             for instance in deletable_instances:
@@ -271,10 +280,10 @@ class Autoscaler:
                 logging.info(
                     f"Deleted instance {instance['id']} (a {instance['gpu_name']} for ${instance['dph_total']:.3f}/hr), was up for {age_hrs:.2f} hours. Last status: {instance['status_msg']}"
                 )
-                # Remove the deleted instance from our list
-                self.instance_ids.pop(
-                    self.instance_ids.index(self._make_instance_hostname(instance))
-                )
+
+        self._update_running_instances(instances)
+
+        return len(deletable_instances)
 
     def calculate_utilization(self):
         workers = self.get_worker_status()
@@ -334,26 +343,20 @@ class Autoscaler:
 
         return needed_instances
 
-    def maybe_scale(self) -> bool:
+    def maybe_scale(self) -> int:
         self.delete_instances(exited=True, errored=True)
 
-        instances = self.get_current_instances()
-
-        current_instances = len(
-            list(filter(lambda i: i["next_state"] == "running", instances))
-        )
+        current_instances = len(self.running_instances)
 
         needed_instances = self.calculate_needed_instances(current_instances)
         target_instances = min(max(needed_instances, self.min), self.max)
 
         if target_instances > current_instances:
-            self.create_instances(target_instances - current_instances)
-            return True
+            return self.create_instances(target_instances - current_instances)
         if target_instances < current_instances:
-            self.delete_instances(current_instances - target_instances)
-            return True
+            return -self.delete_instances(current_instances - target_instances)
 
-        return False
+        return 0
 
     def run(self):
         logging.info(
@@ -367,7 +370,8 @@ class Autoscaler:
         while True:
             start = time.time()
             try:
-                self.maybe_scale()
+                change = self.maybe_scale()
+                logging.info(f"Ran maybe_scale, change={change}")
             except Exception as e:
                 logging.exception(e)
                 sentry_sdk.capture_exception(e)
