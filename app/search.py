@@ -4,7 +4,7 @@ import os
 from hashlib import sha256
 
 from meilisearch import Client
-from meilisearch.errors import MeiliSearchApiError
+from meilisearch.errors import MeiliSearchError, MeiliSearchApiError
 from meilisearch.index import Index
 from meilisearch.models.task import TaskInfo
 
@@ -114,7 +114,11 @@ def index_call(
     if not index_name:
         index_name = get_default_index_name()
 
-    return get_index(index_name).add_documents([doc])  # type: ignore
+    try:
+        return get_index(index_name).add_documents([doc])  # type: ignore
+    # Raise a different exception because of https://github.com/celery/celery/issues/6990
+    except MeiliSearchApiError as err:
+        raise MeiliSearchError(str(err))
 
 
 def create_or_update_index(
