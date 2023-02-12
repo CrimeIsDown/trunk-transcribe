@@ -242,7 +242,7 @@ class Autoscaler:
         bad_instances = []
 
         for i in range(len(instances)):
-            if errored and "error" in instances[i]["status_msg"].lower():
+            if errored and instances[i]["status_msg"] and "error" in instances[i]["status_msg"].lower():
                 instance = instances.pop(i)
                 deletable_instances.append(instance)
                 bad_instances.append(instance)
