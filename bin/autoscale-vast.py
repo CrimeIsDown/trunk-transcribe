@@ -242,13 +242,14 @@ class Autoscaler:
         bad_instances = []
 
         for i in range(len(instances)):
-            if exited and instances[i]["actual_status"] == "exited":
-                deletable_instances.append(instances.pop(i))
             if errored and "error" in instances[i]["status_msg"].lower():
                 instance = instances.pop(i)
                 deletable_instances.append(instance)
                 bad_instances.append(instance)
                 self.forbidden_instances.add(self._make_instance_hostname(instance))
+                continue
+            if exited and instances[i]["actual_status"] == "exited":
+                deletable_instances.append(instances.pop(i))
 
         if len(bad_instances):
             with open(FORBIDDEN_INSTANCE_CONFIG, "w") as config:
