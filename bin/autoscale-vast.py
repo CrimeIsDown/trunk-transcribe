@@ -235,21 +235,21 @@ class Autoscaler:
         return instances_created
 
     def delete_instances(
-        self, count: int = 0, exited: bool = False, errored: bool = False
+        self, count: int = 0, delete_exited: bool = False, delete_errored: bool = False
     ) -> int:
         instances = self.get_current_instances()
         deletable_instances = []
         bad_instances = []
 
-        for i in range(len(instances)):
-            if errored and instances[i]["status_msg"] and "error" in instances[i]["status_msg"].lower():
-                instance = instances.pop(i)
+        for i, instance in enumerate(instances.copy()):
+            errored = delete_errored and "error" in instance["status_msg"].lower()
+            exited = delete_exited and instance["actual_status"] == "exited"
+            if errored or exited:
+                instances.pop(i)
                 deletable_instances.append(instance)
-                bad_instances.append(instance)
-                self.forbidden_instances.add(self._make_instance_hostname(instance))
-                continue
-            if exited and instances[i]["actual_status"] == "exited":
-                deletable_instances.append(instances.pop(i))
+                if errored:
+                    bad_instances.append(instance)
+                    self.forbidden_instances.add(self._make_instance_hostname(instance))
 
         if len(bad_instances):
             with open(FORBIDDEN_INSTANCE_CONFIG, "w") as config:
@@ -346,7 +346,7 @@ class Autoscaler:
         return needed_instances
 
     def maybe_scale(self) -> int:
-        self.delete_instances(exited=True, errored=True)
+        self.delete_instances(delete_exited=True, delete_errored=True)
 
         current_instances = len(self.running_instances)
 
