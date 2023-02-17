@@ -242,7 +242,11 @@ class Autoscaler:
         bad_instances = []
 
         for i, instance in enumerate(instances.copy()):
-            errored = delete_errored and "error" in instance["status_msg"].lower()
+            errored = (
+                delete_errored
+                and instance["status_msg"]
+                and "error" in instance["status_msg"].lower()
+            )
             exited = delete_exited and instance["actual_status"] == "exited"
             if errored or exited:
                 instances.pop(i)
