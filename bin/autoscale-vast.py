@@ -342,9 +342,9 @@ class Autoscaler:
 
             logging.info(f"Current average utilization: {avg_utilization:.2f}")
 
-            if avg_utilization > 1.5:
+            if avg_utilization > 2:
                 needed_instances += 1
-            elif avg_utilization < 0.4:
+            elif avg_utilization < 0.35:
                 needed_instances -= 1
 
         return needed_instances

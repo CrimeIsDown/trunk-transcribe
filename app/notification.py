@@ -174,7 +174,7 @@ def send_alert(
         if transcript_excerpt == transcript:
             body += transcript
         else:
-            body += transcript_excerpt + "\n---\n" + transcript
+            body += transcript_excerpt + "\n&#8213;&#8213;&#8213;\n" + transcript
 
         add_channels(Apprise(), config["channels"]).notify(
             body="\n".join([body, suffix]),
