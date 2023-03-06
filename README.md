@@ -43,6 +43,20 @@ You can access a basic search page showing the calls at http://localhost:7700 (w
 
 There are numerous `docker-compose.*.yml` files in this repo for various configurations of the different components. Add `COMPOSE_FILE=` to your `.env` with the value being a list of docker-compose configurations separated by `:`, see `.env.example` for some common ones.
 
+### Running workers using OpenAI's paid Whisper API
+
+To use the paid Whisper API by OpenAI instead of running the worker on a machine with a GPU, set the following in your `.env` file:
+
+```
+# To use the paid OpenAI Whisper API instead of running the model locally
+COMPOSE_FILE=docker-compose.yml:docker-compose.openai.yml
+
+# OpenAI API key, if using the paid Whisper API
+OPENAI_API_KEY=my-api-key
+```
+
+You may also want to set `CELERY_CONCURRENCY` to a higher number since the GPU is not a limitation on concurrency anymore.
+
 ### Running workers on Windows
 
 The worker can be run on Windows if needed.

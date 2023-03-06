@@ -4,6 +4,8 @@ import os
 import subprocess
 from threading import Lock
 
+import openai
+
 from app.config import get_ttl_hash, get_whisper_config
 from app.task import Task
 
@@ -19,7 +21,9 @@ class WhisperTask(Task):
                 model_name = os.getenv("WHISPER_MODEL")
                 if not isinstance(model_name, str):
                     raise RuntimeError("WHISPER_MODEL env must be set")
-                if os.getenv("WHISPERCPP"):
+                if os.getenv("OPENAI_API_KEY"):
+                    self._model = WhisperApi()
+                elif os.getenv("WHISPERCPP"):
                     self._model = WhisperCpp(model_name, os.getenv("WHISPERCPP"))
                 else:
                     import whisper
@@ -84,6 +88,29 @@ class WhisperCpp:
             )
 
         return result
+
+
+class WhisperApi:
+    openai = None
+
+    def __init__(self):
+        openai.api_key = os.getenv("OPENAI_API_KEY")
+
+    def transcribe(
+        self,
+        audio: str,
+        language: str = "en",
+        initial_prompt: str | None = None,
+        **decode_options,
+    ):
+        audio_file = open(audio, "rb")
+        return openai.Audio.transcribe(
+            model="whisper-1",
+            file=audio_file,
+            prompt=initial_prompt,
+            response_format="verbose_json",
+            language=language,
+        )
 
 
 def transcribe(

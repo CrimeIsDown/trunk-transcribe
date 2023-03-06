@@ -167,6 +167,7 @@ def send_alert(
     )
 
     if len(matched_keywords):
+        title = ", ".join(matched_keywords) + " detected in transcript"
         body = "*" + ", ".join(matched_keywords) + "* detected in transcript\n"
 
         # Avoid duplicating the transcript if we don't have to
@@ -179,5 +180,6 @@ def send_alert(
         add_channels(Apprise(), config["channels"]).notify(
             body="\n".join([body, suffix]),
             body_format=NotifyFormat.MARKDOWN,
+            title=title,
             attach=AppriseAttachment(raw_audio_url),
         )
