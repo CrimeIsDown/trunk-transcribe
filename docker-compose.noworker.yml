@@ -3,6 +3,6 @@ version: '3.8'
 services:
 
   worker:
-    image: crimeisdown/trunk-transcribe:${VERSION:-main}
+    image: ghcr.io/crimeisdown/trunk-transcribe:${VERSION:-main}
     deploy:
       replicas: 0

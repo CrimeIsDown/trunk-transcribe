@@ -3,7 +3,7 @@ version: '3.8'
 services:
 
   api:
-    image: crimeisdown/trunk-transcribe:${VERSION:-main}
+    image: ghcr.io/crimeisdown/trunk-transcribe:${VERSION:-main}
     build:
       context: .
       dockerfile: Dockerfile
@@ -19,7 +19,7 @@ services:
     restart: always
 
   worker:
-    image: crimeisdown/trunk-transcribe:${VERSION:-main}-${WHISPER_MODEL:-small.en}-${DESIRED_CUDA:-cpu-cpp}
+    image: ghcr.io/crimeisdown/trunk-transcribe:${VERSION:-main}-${WHISPER_MODEL:-small.en}-${DESIRED_CUDA:-cpu-cpp}
     build:
       context: .
       dockerfile: Dockerfile.whispercpp
@@ -33,7 +33,7 @@ services:
     restart: always
 
   flower:
-    image: crimeisdown/trunk-transcribe:${VERSION:-main}
+    image: ghcr.io/crimeisdown/trunk-transcribe:${VERSION:-main}
     command: flower
     volumes:
       - ./bin/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh

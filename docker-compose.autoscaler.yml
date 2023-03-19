@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   autoscaler:
-    image: crimeisdown/trunk-transcribe:${VERSION:-main}
+    image: ghcr.io/crimeisdown/trunk-transcribe:${VERSION:-main}
     build:
       context: .
       dockerfile: Dockerfile

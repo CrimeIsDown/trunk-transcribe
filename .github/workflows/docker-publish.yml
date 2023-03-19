@@ -18,9 +18,8 @@ on:
       - '.github/workflows/docker-publish.yml'
 
 env:
-  DOCKER_USER: ${{secrets.DOCKER_USER}}
-  DOCKER_PASSWORD: ${{secrets.DOCKER_PASSWORD}}
-  REPO_NAME: ${{secrets.REPO_NAME}}
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
 jobs:
   build-api:
     runs-on: ubuntu-latest
@@ -37,18 +36,19 @@ jobs:
     - name: Login to DockerHub
       uses: docker/login-action@v2
       with:
-        username: ${{ secrets.DOCKER_USER }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     - name: Build and Publish the Docker image
       uses: docker/build-push-action@v3
       with:
         context: .
         push: true
-        tags: "${{ secrets.REPO_NAME }}:${{ github.ref_name }}"
+        tags: "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}"
         platforms: ${{ matrix.platform }}
         build-args: |
           GIT_COMMIT=${{ github.sha }}
-        cache-from: type=registry,ref=${{ secrets.REPO_NAME }}:${{ github.ref_name }}
+        cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
         cache-to: type=inline
   build-worker:
     runs-on: ubuntu-latest
@@ -92,19 +92,20 @@ jobs:
     - name: Login to DockerHub
       uses: docker/login-action@v2
       with:
-        username: ${{ secrets.DOCKER_USER }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     - name: Build and Publish the Docker image
       uses: docker/build-push-action@v3
       with:
         context: .
         file: ${{ matrix.dockerfile }}
         push: true
-        tags: "${{ secrets.REPO_NAME }}:${{ github.ref_name }}-${{ matrix.model }}-${{ matrix.desired_cuda }}"
+        tags: "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}-${{ matrix.model }}-${{ matrix.desired_cuda }}"
         platforms: ${{ matrix.platform }}
         build-args: |
           WHISPER_MODEL=${{ matrix.model }}
           DESIRED_CUDA=${{ matrix.desired_cuda }}
           GIT_COMMIT=${{ github.sha }}
-        cache-from: type=registry,ref=${{ secrets.REPO_NAME }}:${{ github.ref_name }}-${{ matrix.model }}-${{ matrix.desired_cuda }}
+        cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}-${{ matrix.model }}-${{ matrix.desired_cuda }}
         cache-to: type=inline
