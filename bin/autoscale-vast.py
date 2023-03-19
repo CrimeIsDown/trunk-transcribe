@@ -75,7 +75,7 @@ class Autoscaler:
         if image:
             self.image = image
         else:
-            self.image = f"crimeisdown/trunk-transcribe:main-{self.model}-cu117"
+            self.image = f"ghcr.io/crimeisdown/trunk-transcribe:main-{self.model}-cu117"
 
         if os.path.isfile(FORBIDDEN_INSTANCE_CONFIG):
             with open(FORBIDDEN_INSTANCE_CONFIG) as config:
