@@ -46,7 +46,7 @@ def add_channels(apprise: Apprise, channels: list) -> Apprise:
 def build_suffix(metadata: Metadata, add_talkgroup: bool = False) -> str:
     suffix = []
     if add_talkgroup:
-        suffix.append(f"*{metadata['talkgroup_tag']}*")
+        suffix.append(f"<b>{metadata['talkgroup_tag']}</b>")
 
     # If delayed by over DELAYED_CALL_THRESHOLD add delay warning
     if time() - metadata["stop_time"] > float(os.getenv("DELAYED_CALL_THRESHOLD", 120)):
@@ -57,9 +57,9 @@ def build_suffix(metadata: Metadata, add_talkgroup: bool = False) -> str:
             .astimezone(pytz.timezone(os.getenv("DISPLAY_TZ", "America/Chicago")))
             .strftime(windows_format if platform == "win32" else linux_format)
         )
-        suffix.append(f"\n_{timestamp} (delayed)_")
+        suffix.append(f"<br /><i>{timestamp} (delayed)</i>")
 
-    return "\n".join(suffix)
+    return "<br />".join(suffix)
 
 
 def check_transcript_for_alert_keywords(
@@ -96,15 +96,15 @@ def send_notifications(
         if re.compile(regex).search(f"{metadata['talkgroup']}@{metadata['short_name']}")
     ]
 
-    transcript_md = transcript.markdown
+    transcript_html = transcript.html
 
     for match in matches:
-        notify_channels(match, audio_file, metadata, transcript_md)
+        notify_channels(match, audio_file, metadata, transcript_html)
         for alert_config in match["alerts"]:
             send_alert(
                 alert_config,
                 metadata,
-                transcript_md,
+                transcript_html,
                 raw_audio_url,
             )
 
@@ -135,8 +135,8 @@ def notify_channels(
     NotifyTelegramBase.send_media = NotifyTelegram.send_media  # type: ignore
 
     add_channels(Apprise(), config["channels"]).notify(
-        body="\n".join([transcript, suffix]),
-        body_format=NotifyFormat.MARKDOWN,
+        body="<br />".join([transcript, suffix]),
+        body_format=NotifyFormat.HTML,
         attach=voice_file,
     )
 
@@ -168,18 +168,17 @@ def send_alert(
 
     if len(matched_keywords):
         title = ", ".join(matched_keywords) + " detected in transcript"
-        body = "*" + ", ".join(matched_keywords) + "* detected in transcript\n"
 
         # Avoid duplicating the transcript if we don't have to
-        transcript_excerpt = "\n".join(matched_lines)
+        transcript_excerpt = "<br />".join(matched_lines)
         if transcript_excerpt == transcript:
-            body += transcript
+            body = transcript
         else:
-            body += transcript_excerpt + "\n&#8213;&#8213;&#8213;\n" + transcript
+            body = transcript_excerpt + "<br />&#8213;&#8213;&#8213;<br />" + transcript
 
         add_channels(Apprise(), config["channels"]).notify(
-            body="\n".join([body, suffix]),
-            body_format=NotifyFormat.MARKDOWN,
+            body="<br />".join([body, suffix]),
+            body_format=NotifyFormat.HTML,
             title=title,
             attach=AppriseAttachment(raw_audio_url),
         )
