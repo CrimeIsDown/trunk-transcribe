@@ -18,17 +18,18 @@ class WhisperTask(Task):
     def model(self):
         with self.model_lock:
             if self._model is None:
-                model_name = os.getenv("WHISPER_MODEL")
-                if not isinstance(model_name, str):
-                    raise RuntimeError("WHISPER_MODEL env must be set")
                 if os.getenv("OPENAI_API_KEY"):
                     self._model = WhisperApi()
-                elif os.getenv("WHISPERCPP"):
-                    self._model = WhisperCpp(model_name, os.getenv("WHISPERCPP"))
                 else:
-                    import whisper
+                    model_name = os.getenv("WHISPER_MODEL")
+                    if not isinstance(model_name, str):
+                        raise RuntimeError("WHISPER_MODEL env must be set")
+                    if os.getenv("WHISPERCPP"):
+                        self._model = WhisperCpp(model_name, os.getenv("WHISPERCPP"))
+                    else:
+                        import whisper
 
-                    self._model = whisper.load_model(model_name)
+                        self._model = whisper.load_model(model_name)
             return self._model
 
 
@@ -104,6 +105,9 @@ class WhisperApi:
         **decode_options,
     ):
         audio_file = open(audio, "rb")
+        prompt = "This is a Chicago Police radio 911 transcript."
+        if initial_prompt:
+            prompt += "The following words may appear: " + initial_prompt
         return openai.Audio.transcribe(
             model="whisper-1",
             file=audio_file,

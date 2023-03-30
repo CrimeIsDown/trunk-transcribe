@@ -89,6 +89,7 @@ def transcribe(
     model_lock,
     metadata: Metadata,
     audio_file: str,
+    mp3_file: str,
     raw_audio_url: str,
     id: str | None = None,
     index_name: str | None = None,
@@ -108,7 +109,7 @@ def transcribe(
 
     # Do not send Telegram messages for calls we already have transcribed previously
     if not id:
-        send_notifications(audio_file, metadata, transcript, raw_audio_url)
+        send_notifications(audio_file, metadata, transcript, mp3_file)
 
     return transcript.txt
 
@@ -137,6 +138,7 @@ def transcribe_task(
             transcribe_task.model_lock,
             metadata,
             audio_file,
+            mp3_file.name,
             audio_url,
             id,
             index_name,

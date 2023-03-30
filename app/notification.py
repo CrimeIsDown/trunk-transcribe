@@ -80,7 +80,7 @@ def check_transcript_for_alert_keywords(
 
 
 def send_notifications(
-    audio_file: str, metadata: Metadata, transcript: Transcript, raw_audio_url: str
+    audio_file: str, metadata: Metadata, transcript: Transcript, mp3_file: str
 ):
     # If delayed over our MAX_CALL_AGE, don't bother sending to Telegram
     max_age = float(os.getenv("MAX_CALL_AGE", 1200))
@@ -105,7 +105,7 @@ def send_notifications(
                 alert_config,
                 metadata,
                 transcript_html,
-                raw_audio_url,
+                mp3_file,
             )
 
 
@@ -149,7 +149,7 @@ def send_alert(
     config: AlertConfig,
     metadata: Metadata,
     transcript: str,
-    raw_audio_url: str,
+    mp3_file: str,
 ):
     # Validate we actually have somewhere to send the notification
     if not len(config["channels"]):
@@ -180,5 +180,5 @@ def send_alert(
             body="<br />".join([body, suffix]),
             body_format=NotifyFormat.HTML,
             title=title,
-            attach=AppriseAttachment(raw_audio_url),
+            attach=AppriseAttachment(mp3_file),
         )
