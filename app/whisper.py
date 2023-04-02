@@ -105,7 +105,7 @@ class WhisperApi:
         **decode_options,
     ):
         audio_file = open(audio, "rb")
-        prompt = "This is a Chicago Police radio 911 transcript."
+        prompt = "This is a police radio dispatch transcript."
         if initial_prompt:
             prompt += "The following words may appear: " + initial_prompt
         return openai.Audio.transcribe(
