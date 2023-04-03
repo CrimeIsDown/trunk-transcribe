@@ -30,7 +30,7 @@ class SearchableMetadata(TypedDict):
     talkgroup_description: str
     talkgroup_group_tag: str
     talkgroup_group: str
-    audio_type: Literal["analog", "digital"]
+    audio_type: Literal["analog", "digital", "digital tdma"]
     short_name: str
 
 
