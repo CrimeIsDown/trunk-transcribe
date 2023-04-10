@@ -110,6 +110,7 @@ class Autoscaler:
                     del self.pending_instances[name]
                 # Assuming we have the corresponding worker details, add the worker to our list
                 if name in workers:
+                    workers[name]["name"] = name
                     online_workers.append(workers[name])
         # Return info for only the workers that are online
         return online_workers
@@ -238,14 +239,23 @@ class Autoscaler:
         self, count: int = 0, delete_exited: bool = False, delete_errored: bool = False
     ) -> int:
         instances = self.get_current_instances()
+        online_workers = " ".join([worker["name"] for worker in self.get_worker_status()])
         deletable_instances = []
         bad_instances = []
 
         for i, instance in enumerate(instances.copy()):
+            is_disconnected = (
+                instance["actual_status"] == "running"
+                and time.time() - instance["start_date"] > 300
+                and self._make_instance_hostname(instance) not in online_workers
+            )
+            is_errored = (
+                instance["status_msg"]
+                and "error" in instance["status_msg"].lower()
+            )
             errored = (
                 delete_errored
-                and instance["status_msg"]
-                and "error" in instance["status_msg"].lower()
+                and (is_disconnected or is_errored)
             )
             exited = delete_exited and instance["actual_status"] == "exited"
             if errored or exited:
