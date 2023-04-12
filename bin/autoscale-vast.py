@@ -249,13 +249,17 @@ class Autoscaler:
                 and time.time() - instance["start_date"] > 300
                 and self._make_instance_hostname(instance) not in online_workers
             )
+            is_stuck = (
+                instance["actual_status"] == "loading"
+                and time.time() - instance["start_date"] > 300
+            )
             is_errored = (
                 instance["status_msg"]
                 and "error" in instance["status_msg"].lower()
             )
             errored = (
                 delete_errored
-                and (is_disconnected or is_errored)
+                and (is_stuck or is_disconnected or is_errored)
             )
             exited = delete_exited and instance["actual_status"] == "exited"
             if errored or exited:
