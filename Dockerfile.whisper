@@ -23,6 +23,7 @@ RUN pip3 install poetry>=1.3.2
 ARG DESIRED_CUDA
 ARG TARGETPLATFORM
 COPY bin/install-whisper.sh /usr/local/bin/install-whisper.sh
+ARG WHISPER_VERSION=c09a7ae299c4c34c5839a76380ae407e7d785914
 RUN install-whisper.sh
 
 ARG WHISPER_MODEL=base.en
