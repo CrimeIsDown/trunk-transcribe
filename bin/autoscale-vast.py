@@ -84,11 +84,11 @@ class Autoscaler:
     def _make_instance_hostname(self, instance: dict) -> str:
         return f'{instance["machine_id"]}.{instance["host_id"]}.vast.ai'
 
-    def _update_running_instances(self, instances):
+    def _update_running_instances(self, instances: list[dict]):
         self.running_instances = [
             self._make_instance_hostname(instance)
             for instance in list(
-                filter(lambda i: i["next_state"] == "running", instances)
+                filter(lambda i: i["next_state"] == "running" and "deletion_reason" not in i, instances)
             )
         ]
 
@@ -243,15 +243,15 @@ class Autoscaler:
         deletable_instances = []
         bad_instances = []
 
-        for i, instance in enumerate(instances.copy()):
+        for instance in instances:
             is_disconnected = (
                 instance["actual_status"] == "running"
-                and time.time() - instance["start_date"] > 300
+                and time.time() - instance["start_date"] > 1200
                 and self._make_instance_hostname(instance) not in online_workers
             )
             is_stuck = (
                 instance["actual_status"] == "loading"
-                and time.time() - instance["start_date"] > 300
+                and time.time() - instance["start_date"] > 600
             )
             is_errored = (
                 instance["status_msg"]
@@ -263,9 +263,16 @@ class Autoscaler:
             )
             exited = delete_exited and instance["actual_status"] == "exited"
             if errored or exited:
-                instances.pop(i)
+                if is_disconnected:
+                    instance["deletion_reason"] = "disconnected"
+                if is_stuck:
+                    instance["deletion_reason"] = "stuck_loading"
+                if is_errored:
+                    instance["deletion_reason"] = "error"
+                if exited:
+                    instance["deletion_reason"] = "exited"
                 deletable_instances.append(instance)
-                if errored:
+                if is_stuck or is_errored:
                     bad_instances.append(instance)
                     self.forbidden_instances.add(self._make_instance_hostname(instance))
 
@@ -283,7 +290,9 @@ class Autoscaler:
             )
             for i in range(len(instances)):
                 if count:
-                    deletable_instances.append(instances.pop(i))
+                    instance = instances.pop(i)
+                    instance["deletion_reason"] = "reduce_replicas"
+                    deletable_instances.append(instance)
                     count -= 1
                 else:
                     break
@@ -298,7 +307,7 @@ class Autoscaler:
                 r.raise_for_status()
                 age_hrs = (time.time() - instance["start_date"]) / (60 * 60)
                 logging.info(
-                    f"Deleted instance {instance['id']} (a {instance['gpu_name']} for ${instance['dph_total']:.3f}/hr), was up for {age_hrs:.2f} hours. Last status: {instance['status_msg']}"
+                    f"[reason: {instance['deletion_reason']}] Deleted instance {instance['id']} (a {instance['gpu_name']} for ${instance['dph_total']:.3f}/hr), was up for {age_hrs:.2f} hours. Last status: {instance['status_msg']}"
                 )
 
         self._update_running_instances(instances)
