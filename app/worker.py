@@ -95,7 +95,10 @@ def transcribe(
     index_name: str | None = None,
 ) -> str:
     try:
-        if metadata["audio_type"] == "digital" or metadata["audio_type"] == "digital tdma":
+        if (
+            metadata["audio_type"] == "digital"
+            or metadata["audio_type"] == "digital tdma"
+        ):
             transcript = transcribe_digital(model, model_lock, audio_file, metadata)
         elif metadata["audio_type"] == "analog":
             transcript = transcribe_analog(model, model_lock, audio_file)

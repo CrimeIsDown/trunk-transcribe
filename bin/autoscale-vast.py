@@ -88,7 +88,11 @@ class Autoscaler:
         self.running_instances = [
             self._make_instance_hostname(instance)
             for instance in list(
-                filter(lambda i: i["next_state"] == "running" and "deletion_reason" not in i, instances)
+                filter(
+                    lambda i: i["next_state"] == "running"
+                    and "deletion_reason" not in i,
+                    instances,
+                )
             )
         ]
 
@@ -239,7 +243,9 @@ class Autoscaler:
         self, count: int = 0, delete_exited: bool = False, delete_errored: bool = False
     ) -> int:
         instances = self.get_current_instances()
-        online_workers = " ".join([worker["name"] for worker in self.get_worker_status()])
+        online_workers = " ".join(
+            [worker["name"] for worker in self.get_worker_status()]
+        )
         deletable_instances = []
         bad_instances = []
 
@@ -254,14 +260,13 @@ class Autoscaler:
                 and time.time() - instance["start_date"] > 600
             )
             is_errored = (
-                instance["status_msg"]
-                and "error" in instance["status_msg"].lower()
+                instance["status_msg"] and "error" in instance["status_msg"].lower()
             )
-            errored = (
-                delete_errored
-                and (is_stuck or is_disconnected or is_errored)
+            errored = delete_errored and (is_stuck or is_disconnected or is_errored)
+            exited = delete_exited and (
+                instance["actual_status"] == "exited"
+                or instance["cur_state"] == "stopped"
             )
-            exited = delete_exited and instance["actual_status"] == "exited"
             if errored or exited:
                 if is_disconnected:
                     instance["deletion_reason"] = "disconnected"
