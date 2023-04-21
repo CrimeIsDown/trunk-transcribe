@@ -20,6 +20,7 @@ def __convert_file(
     metadata_args = []
     if metadata:
         start_time = datetime.fromtimestamp(metadata["start_time"], tz=pytz.UTC)
+        creation_time = start_time.strftime("%Y-%m-%d %H:%M:%S")
         date = start_time.strftime("%Y-%m-%d")
         year = start_time.strftime("%Y")
         artist = ""
@@ -32,6 +33,8 @@ def __convert_file(
         metadata_args = [
             "-metadata",
             "composer=trunk-recorder",
+            "-metadata",
+            f"creation_time={creation_time}",
             "-metadata",
             f"date={date}",
             "-metadata",
