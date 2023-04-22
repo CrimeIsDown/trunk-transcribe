@@ -26,11 +26,78 @@ class WhisperTask(Task):
                         raise RuntimeError("WHISPER_MODEL env must be set")
                     if os.getenv("WHISPERCPP"):
                         self._model = WhisperCpp(model_name, os.getenv("WHISPERCPP"))
+                    elif os.getenv("FASTERWHISPER"):
+                        self._model = FasterWhisper(model_name)
                     else:
-                        import whisper
-
-                        self._model = whisper.load_model(model_name)
+                        self._model = Whisper(model_name)
             return self._model
+
+
+class Whisper:
+    def __init__(self, model_name):
+        import whisper
+
+        self.model = whisper.load_model(model_name)
+
+    def transcribe(
+        self,
+        audio: str,
+        language: str = "en",
+        initial_prompt: str | None = None,
+        **decode_options,
+    ) -> dict:
+        return self.model.transcribe(
+            audio=audio,
+            language=language,
+            initial_prompt=initial_prompt,
+            **decode_options,
+        )
+
+
+class FasterWhisper:
+    vad_filter = False
+
+    def __init__(self, model_name):
+        if "cpu" in os.getenv("DESIRED_CUDA", ""):
+            device = "cpu"
+            compute_type = "int8"
+        else:
+            device = "cuda"
+            compute_type = "float16"
+
+        from faster_whisper import WhisperModel
+
+        self.model = WhisperModel(model_name, device=device, compute_type=compute_type)
+
+        if os.getenv("FASTER_WHISPER_VAD_FILTER"):
+            self.vad_filter = True
+
+    def transcribe(
+        self,
+        audio: str,
+        language: str = "en",
+        initial_prompt: str | None = None,
+        **decode_options,
+    ):
+        segments, _ = self.model.transcribe(
+            audio=audio,
+            language=language,
+            initial_prompt=initial_prompt,
+            vad_filter=self.vad_filter,
+            **decode_options,
+        )
+        segments = list(segments)  # The transcription will actually run here.
+
+        result = {
+            "segments": [],
+            "text": None,
+        }
+        if len(segments):
+            result["segments"] = [dict(segment._asdict()) for segment in segments]
+            result["text"] = "\n".join(
+                [segment["text"] for segment in result["segments"]]
+            )
+        return result
 
 
 class WhisperCpp:
@@ -84,7 +151,7 @@ class WhisperCpp:
                     result["segments"].append({"text": segment})
 
         if len(result["segments"]):
-            result["text"] = " ".join(
+            result["text"] = "\n".join(
                 [segment["text"] for segment in result["segments"]]
             )
 

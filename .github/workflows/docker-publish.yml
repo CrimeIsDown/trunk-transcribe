@@ -82,6 +82,14 @@ jobs:
             platform: linux/amd64
             desired_cuda: cpu-cpp
             dockerfile: Dockerfile.whispercpp
+          - model: medium.en
+            platform: linux/amd64
+            desired_cuda: fw
+            dockerfile: Dockerfile.fasterwhisper
+          - model: large
+            platform: linux/amd64
+            desired_cuda: fw
+            dockerfile: Dockerfile.fasterwhisper
     steps:
     - name: Checkout
       uses: actions/checkout@v3

@@ -22,7 +22,7 @@ services:
     image: ghcr.io/crimeisdown/trunk-transcribe:${VERSION:-main}-${WHISPER_MODEL:-small.en}-${DESIRED_CUDA:-cpu-cpp}
     build:
       context: .
-      dockerfile: Dockerfile.whispercpp
+      dockerfile: ${WORKER_DOCKERFILE:-Dockerfile.whispercpp}
       args:
         WHISPER_MODEL: ${WHISPER_MODEL:-small.en}
     volumes:
