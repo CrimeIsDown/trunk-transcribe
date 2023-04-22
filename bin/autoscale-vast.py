@@ -142,11 +142,11 @@ class Autoscaler:
         p.check_returncode()
         return p.stdout.decode("utf-8").strip()
 
-    def find_available_instances(self) -> list[dict]:
+    def find_available_instances(self, vram_needed: float) -> list[dict]:
         query = {
             "rentable": {"eq": "true"},
             "num_gpus": {"eq": "1"},
-            "gpu_ram": {"gt": "8000.0"},
+            "gpu_ram": {"gte": f"{vram_needed:.1f}"},
             "dlperf": {"gt": "8"},
             "dph_total": {"lte": "0.1"},
             "cuda_vers": {"gte": "11.7"},
@@ -192,7 +192,7 @@ class Autoscaler:
             "large-v2": 12 * 1024,
         }
         vram_required = vram_requirements[self.model]
-        instances = self.find_available_instances()
+        instances = self.find_available_instances(vram_required)
 
         instances_created = 0
 
@@ -206,7 +206,7 @@ class Autoscaler:
 
             # Adjust concurrency based on GPU RAM
             concurrency = floor(instance["gpu_ram"] / vram_required)
-            self.envs["CELERY_CONCURRENCY"] = str(concurrency)
+            self.envs["CELERY_CONCURRENCY"] = str(max(1, concurrency))
 
             # Set a nice hostname so we don't use a random Docker hash
             git_commit = self.get_git_commit()
