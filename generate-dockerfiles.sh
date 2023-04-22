@@ -40,7 +40,7 @@ ENV FASTERWHISPER=true"
 
 envsubst '$WHISPER_INSTALL_INSTRUCTIONS' < Dockerfile >> Dockerfile.fasterwhisper
 
-sed -i 's#FROM ubuntu:22.04#FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04#g' Dockerfile.fasterwhisper
+sed -i 's#FROM ubuntu:22.04#FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04#g' Dockerfile.fasterwhisper
 
 sed -i 's#CMD \["api"\]#CMD ["worker"]#g' Dockerfile.fasterwhisper
 
