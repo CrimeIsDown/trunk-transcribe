@@ -11,10 +11,11 @@ on:
       - 'config/**'
       - 'Dockerfile'
       - 'Dockerfile.whisper'
+      - 'Dockerfile.fasterwhisper'
       - 'Dockerfile.whispercpp'
       - 'install-whisper.sh'
-      - 'requirements.txt'
-      - 'requirements-dev.txt'
+      - 'pyproject.toml'
+      - 'poetry.lock'
       - '.github/workflows/docker-publish.yml'
 
 env:
