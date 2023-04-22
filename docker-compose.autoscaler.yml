@@ -14,6 +14,8 @@ services:
       - ${AUTOSCALE_MAX_INSTANCES:-10}
       - --interval
       - ${AUTOSCALE_INTERVAL:-60}
+      - --image
+      - ghcr.io/crimeisdown/trunk-transcribe:main-${WHISPER_MODEL:-medium.en}-${DESIRED_CUDA:-cu117}
     environment:
       - VAST_API_KEY
       - SENTRY_DSN
