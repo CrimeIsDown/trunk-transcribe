@@ -189,6 +189,7 @@ class Autoscaler:
             "small.en": 3.5 * 1024,
             "medium.en": 6.5 * 1024,
             "large": 12 * 1024,
+            "large-v2": 12 * 1024,
         }
         vram_required = vram_requirements[self.model]
         instances = self.find_available_instances()
@@ -257,7 +258,7 @@ class Autoscaler:
             )
             is_stuck = (
                 instance["actual_status"] == "loading"
-                and time.time() - instance["start_date"] > 600
+                and time.time() - instance["start_date"] > 900
             )
             is_errored = (
                 instance["status_msg"] and "error" in instance["status_msg"].lower()
