@@ -86,7 +86,7 @@ jobs:
             platform: linux/amd64
             desired_cuda: fw
             dockerfile: Dockerfile.fasterwhisper
-          - model: large
+          - model: large-v2
             platform: linux/amd64
             desired_cuda: fw
             dockerfile: Dockerfile.fasterwhisper
