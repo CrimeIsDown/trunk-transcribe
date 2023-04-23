@@ -17,6 +17,7 @@ services:
       - --image
       - ghcr.io/crimeisdown/trunk-transcribe:main-${WHISPER_MODEL:-medium.en}-${DESIRED_CUDA:-cu117}
     environment:
+      - DESIRED_CUDA
       - VAST_API_KEY
       - SENTRY_DSN
       - FLOWER_URL=http://flower:5555
