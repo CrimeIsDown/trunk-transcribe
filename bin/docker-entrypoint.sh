@@ -15,7 +15,7 @@ elif [ "$1" = 'worker' ]; then
 
     exec celery --app=app.worker.celery worker \
         -P ${CELERY_POOL:-prefork} \
-        -c ${CELERY_CONCURRENCY:-2} \
+        -c ${CELERY_CONCURRENCY:-1} \
         -l ${CELERY_LOGLEVEL:-info} \
         -n $CELERY_HOSTNAME \
         -Q ${CELERY_QUEUES:-transcribe}
