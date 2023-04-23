@@ -186,7 +186,7 @@ class Autoscaler:
         utilization_factor = 1
         # Decrease the memory needed for certain forks
         if os.getenv("DESIRED_CUDA") == "fw" or os.getenv("DESIRED_CUDA") == "cpu-cpp":
-            utilization_factor = 0.6
+            utilization_factor = 0.48
 
         vram_requirements = {
             "tiny.en": 1.5 * 1024 * utilization_factor,
