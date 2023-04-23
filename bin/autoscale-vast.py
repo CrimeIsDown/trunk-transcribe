@@ -183,14 +183,20 @@ class Autoscaler:
     def create_instances(self, count: int) -> int:
         logging.info(f"Scaling up by {count} instances")
 
+        utilization_factor = 1
+        # Decrease the memory needed for certain forks
+        if os.getenv("DESIRED_CUDA") == "fw" or os.getenv("DESIRED_CUDA") == "cpu-cpp":
+            utilization_factor = 0.6
+
         vram_requirements = {
-            "tiny.en": 1.5 * 1024,
-            "base.en": 2 * 1024,
-            "small.en": 3.5 * 1024,
-            "medium.en": 6.5 * 1024,
-            "large": 12 * 1024,
-            "large-v2": 12 * 1024,
+            "tiny.en": 1.5 * 1024 * utilization_factor,
+            "base.en": 2 * 1024 * utilization_factor,
+            "small.en": 3.5 * 1024 * utilization_factor,
+            "medium.en": 6.5 * 1024 * utilization_factor,
+            "large": 12 * 1024 * utilization_factor,
+            "large-v2": 12 * 1024 * utilization_factor,
         }
+
         vram_required = vram_requirements[self.model]
         instances = self.find_available_instances(vram_required)
 
