@@ -2,11 +2,12 @@ import json
 import logging
 import os
 from hashlib import sha256
+from itertools import chain, starmap
+from urllib.parse import urlencode
 
 from meilisearch import Client
-from meilisearch.errors import MeilisearchError, MeilisearchApiError
+from meilisearch.errors import MeilisearchApiError, MeilisearchError
 from meilisearch.index import Index
-from meilisearch.models.task import TaskInfo
 
 from app.metadata import Metadata, SearchableMetadata
 from app.transcript import Transcript
@@ -100,13 +101,36 @@ def build_document(
     }
 
 
+def build_search_url(document: Document, index_name: str) -> str:
+    base_url = os.getenv("SEARCH_UI_URL")
+    if not base_url:
+        return ""
+    params = {
+        index_name: {
+            "sortBy": index_name + ":start_time:desc",
+            "hitsPerPage": 60,
+            "refinementList": {"talkgroup_tag": [document["talkgroup_tag"]]},
+            "range": {
+                "start_time": str(document["start_time"] - 60 * 20)
+                + ":"
+                + str(document["start_time"] + 60 * 10)
+            },
+        }
+    }
+    hash = "hit-" + document["id"]
+
+    encoded_params = urlencode(flatten_dict(params))
+
+    return f"{base_url}?{encoded_params}#{hash}"
+
+
 def index_call(
     metadata: Metadata,
     raw_audio_url: str,
     transcript: Transcript,
     id: str | None = None,
     index_name: str | None = None,
-) -> TaskInfo:
+) -> str:
     doc = build_document(metadata, raw_audio_url, transcript, id)
 
     logging.debug(f"Sending document to be indexed: {str(doc)}")
@@ -115,10 +139,12 @@ def index_call(
         index_name = get_default_index_name()
 
     try:
-        return get_index(index_name).add_documents([doc])  # type: ignore
+        get_index(index_name).add_documents([doc])  # type: ignore
     # Raise a different exception because of https://github.com/celery/celery/issues/6990
     except MeilisearchApiError as err:
         raise MeilisearchError(str(err))
+
+    return build_search_url(doc, index_name)
 
 
 def create_or_update_index(
@@ -161,3 +187,29 @@ def create_or_update_index(
     )
 
     return index
+
+
+def flatten_dict(dictionary):
+    """Flatten a nested dictionary structure"""
+
+    def unpack(parent_key, parent_value):
+        """Unpack one level of nesting in a dictionary"""
+        try:
+            items = parent_value.items()
+        except AttributeError:
+            # parent_value was not a dict, no need to flatten
+            yield (parent_key, parent_value)
+        else:
+            for key, value in items:
+                if type(value) == list:
+                    for k, v in enumerate(value):
+                        yield (parent_key + "[" + key + "]" + "[" + str(k) + "]", v)
+                else:
+                    yield (parent_key + "[" + key + "]", value)
+
+    while True:
+        # Keep unpacking the dictionary until all value's are not dictionary's
+        dictionary = dict(chain.from_iterable(starmap(unpack, dictionary.items())))
+        if not any(isinstance(value, dict) for value in dictionary.values()):
+            break
+    return dictionary

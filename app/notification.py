@@ -43,7 +43,9 @@ def add_channels(apprise: Apprise, channels: list) -> Apprise:
     return apprise
 
 
-def build_suffix(metadata: Metadata, add_talkgroup: bool = False) -> str:
+def build_suffix(
+    metadata: Metadata, add_talkgroup: bool = False, search_url: str = ""
+) -> str:
     suffix = []
     if add_talkgroup:
         suffix.append(f"<b>{metadata['talkgroup_tag']}</b>")
@@ -58,6 +60,9 @@ def build_suffix(metadata: Metadata, add_talkgroup: bool = False) -> str:
             .strftime(windows_format if platform == "win32" else linux_format)
         )
         suffix.append(f"<br /><i>{timestamp} (delayed)</i>")
+
+    if len(search_url):
+        suffix.append(f'<br /><a href="{search_url}">View in search</a>')
 
     return "<br />".join(suffix)
 
@@ -80,7 +85,11 @@ def check_transcript_for_alert_keywords(
 
 
 def send_notifications(
-    audio_file: str, metadata: Metadata, transcript: Transcript, mp3_file: str
+    audio_file: str,
+    metadata: Metadata,
+    transcript: Transcript,
+    mp3_file: str,
+    search_url: str,
 ):
     # If delayed over our MAX_CALL_AGE, don't bother sending to Telegram
     max_age = float(os.getenv("MAX_CALL_AGE", 1200))
@@ -101,12 +110,7 @@ def send_notifications(
     for match in matches:
         notify_channels(match, audio_file, metadata, transcript_html)
         for alert_config in match["alerts"]:
-            send_alert(
-                alert_config,
-                metadata,
-                transcript_html,
-                mp3_file,
-            )
+            send_alert(alert_config, metadata, transcript_html, mp3_file, search_url)
 
 
 def notify_channels(
@@ -150,6 +154,7 @@ def send_alert(
     metadata: Metadata,
     transcript: str,
     mp3_file: str,
+    search_url: str,
 ):
     # Validate we actually have somewhere to send the notification
     if not len(config["channels"]):
@@ -160,7 +165,7 @@ def send_alert(
         transcript = truncate_transcript(transcript)
 
     # If we haven't already appended the talkgroup, do it for the alert
-    suffix = build_suffix(metadata, add_talkgroup=True)
+    suffix = build_suffix(metadata, add_talkgroup=True, search_url=search_url)
 
     matched_keywords, matched_lines = check_transcript_for_alert_keywords(
         transcript, config["keywords"]

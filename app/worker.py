@@ -108,11 +108,13 @@ def transcribe(
         return repr(e)
     logging.debug(transcript)
 
-    index_call(metadata, raw_audio_url, transcript, id, index_name=index_name)
+    search_url = index_call(
+        metadata, raw_audio_url, transcript, id, index_name=index_name
+    )
 
     # Do not send Telegram messages for calls we already have transcribed previously
     if not id:
-        send_notifications(audio_file, metadata, transcript, mp3_file)
+        send_notifications(audio_file, metadata, transcript, mp3_file, search_url)
 
     return transcript.txt
 
