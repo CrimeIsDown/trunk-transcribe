@@ -223,7 +223,9 @@ if __name__ == "__main__":
                     indent=4,
                 ),
             )
-            updated_documents += list(map(update_document, documents))
+            docs_to_add = list(filter(lambda doc: doc is not None, map(update_document, documents)))
+            updated_documents += docs_to_add
+            logging.info(f"Added {len(docs_to_add)} documents to be indexed")
             total_processed += len(updated_documents)
             logging.log(
                 logging.INFO if args.dry_run else logging.DEBUG,
@@ -237,26 +239,27 @@ if __name__ == "__main__":
                 )
                 break
 
-            if args.retranscribe:
-                logging.info(
-                    f"Queueing {len(updated_documents)} documents to be {action}"
-                )
-                retranscribe(index, updated_documents)
-            else:
-                # Only send the updated docs to be reindexed when we have a big enough batch
-                if len(updated_documents) >= 1000 or offset >= total or args.search:
+            if len(updated_documents):
+                if args.retranscribe:
                     logging.info(
-                        f"Waiting for {len(updated_documents)} documents to be {action}"
+                        f"Queueing {len(updated_documents)} documents to be {action}"
                     )
-                    task = reindex(index, updated_documents)
-                    while client.get_task(task.task_uid)["status"] not in [
-                        "succeeded",
-                        "failed",
-                        "canceled",
-                    ]:
-                        sleep(2)
-                    # Reset the list of updated documents
-                    updated_documents = []
+                    retranscribe(index, updated_documents)
+                else:
+                    # Only send the updated docs to be reindexed when we have a big enough batch
+                    if len(updated_documents) >= 1000 or offset >= total or args.search:
+                        logging.info(
+                            f"Waiting for {len(updated_documents)} documents to be {action}"
+                        )
+                        task = reindex(index, updated_documents)
+                        while client.get_task(task.task_uid)["status"] not in [
+                            "succeeded",
+                            "failed",
+                            "canceled",
+                        ]:
+                            sleep(2)
+                        # Reset the list of updated documents
+                        updated_documents = []
 
         logging.info(f"{completion:.2f}% complete ({min(offset, total)}/{total})")
 

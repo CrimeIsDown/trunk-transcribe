@@ -1,10 +1,14 @@
 import json
 import logging
 import os
+import re
 from hashlib import sha256
 from itertools import chain, starmap
+from time import sleep
 from urllib.parse import urlencode
 
+import googlemaps
+import sentry_sdk
 from meilisearch import Client
 from meilisearch.errors import MeilisearchApiError, MeilisearchError
 from meilisearch.index import Index
@@ -12,7 +16,18 @@ from meilisearch.index import Index
 from app.metadata import Metadata, SearchableMetadata
 from app.transcript import Transcript
 
+
+def build_address_regex():
+    street_name = r"((?:[A-Z]\w+ )?[A-Z]\w+|[0-9]+(?:st|th|rd|nd))"
+    address = rf"([0-9\-]+) (?:block of )?(North|West|East|South) {street_name}"
+    regex = rf"({street_name} and {street_name}|{address})"
+    return regex
+
+
 client = None
+gmaps = None
+ADDRESS_REGEX = build_address_regex()
+ADDRESS_SUFFIX = os.getenv("GEOCODING_ADDRESS_SUFFIX")
 
 
 class Document(SearchableMetadata):
@@ -25,6 +40,8 @@ class Document(SearchableMetadata):
     raw_metadata: str
     raw_audio_url: str
     id: str
+    _geo: dict[str, float]
+    geo_formatted_address: str
 
 
 def get_client() -> Client:
@@ -34,6 +51,14 @@ def get_client() -> Client:
         api_key = os.getenv("MEILI_MASTER_KEY")
         client = Client(url=url, api_key=api_key)
     return client
+
+
+def get_gmaps() -> googlemaps.Client:
+    global gmaps
+    if not gmaps:
+        api_key = os.getenv("GOOGLE_MAPS_API_KEY")
+        gmaps = googlemaps.Client(key=api_key)
+    return gmaps
 
 
 def get_default_index_name() -> str:
@@ -77,7 +102,7 @@ def build_document(
     if not id:
         id = sha256(raw_metadata.encode("utf-8")).hexdigest()
 
-    return {
+    doc = {
         "freq": metadata["freq"],
         "start_time": metadata["start_time"],
         "stop_time": metadata["stop_time"],
@@ -99,6 +124,21 @@ def build_document(
         "raw_audio_url": raw_audio_url,
         "id": id,
     }
+
+    if metadata["short_name"] in filter(lambda name: len(name), os.getenv("GEOCODING_ENABLED_SYSTEMS", "").split(",")):
+        try:
+            geo = extract_geo(transcript)
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            logging.error(
+                f"Got exception while geocoding: {repr(e)}", exc_info=e
+            )
+            geo = None
+        if geo:
+            doc["_geo"] = geo["geometry"]["location"]
+            doc["geo_formatted_address"] = geo["formatted_address"]
+
+    return doc  # type: ignore
 
 
 def build_search_url(document: Document, index_name: str) -> str:
@@ -152,39 +192,56 @@ def create_or_update_index(
 ) -> Index:
     if create:
         client.create_index(index_name)
+        sleep(1) # Wait for index to be created
     index = client.index(index_name)
 
-    index.update_settings(
-        {
-            "searchableAttributes": [
-                "transcript_plaintext",
-            ],
-            "filterableAttributes": [
-                "start_time",
-                "talkgroup",
-                "talkgroup_tag",
-                "talkgroup_description",
-                "talkgroup_group_tag",
-                "talkgroup_group",
-                "audio_type",
-                "short_name",
-                "units",
-                "radios",
-                "srcList",
-            ],
-            "sortableAttributes": [
-                "start_time",
-            ],
-            "rankingRules": [
-                "sort",
-                "words",
-                "typo",
-                "proximity",
-                "attribute",
-                "exactness",
-            ],
-        }
-    )
+    current_settings = index.get_settings()
+
+    desired_settings = {
+        "searchableAttributes": [
+            "transcript_plaintext",
+        ],
+        "filterableAttributes": [
+            "start_time",
+            "talkgroup",
+            "talkgroup_tag",
+            "talkgroup_description",
+            "talkgroup_group_tag",
+            "talkgroup_group",
+            "audio_type",
+            "short_name",
+            "units",
+            "radios",
+            "srcList",
+            "_geo",
+        ],
+        "sortableAttributes": [
+            "start_time",
+            "_geo",
+        ],
+        "rankingRules": [
+            "sort",
+            "words",
+            "typo",
+            "proximity",
+            "attribute",
+            "exactness",
+        ],
+    }
+
+    for key, value in desired_settings.copy().items():
+        if current_settings[key] == value:
+            del desired_settings[key]
+
+    logging.info(f"Updating settings: {str(desired_settings)}")
+    task = index.update_settings(desired_settings)
+    logging.info(f"Waiting for settings update task {task.task_uid} to complete...")
+    while client.get_task(task.task_uid)["status"] not in [
+        "succeeded",
+        "failed",
+        "canceled",
+    ]:
+        sleep(2)
 
     return index
 
@@ -213,3 +270,14 @@ def flatten_dict(dictionary):
         if not any(isinstance(value, dict) for value in dictionary.values()):
             break
     return dictionary
+
+
+def extract_geo(transcript: Transcript) -> dict | None:
+    for segment in transcript.transcript:
+        match = re.search(ADDRESS_REGEX, segment[1])
+        if match:
+            address = match.group().replace("-", "")
+            geocode_result = get_gmaps().geocode(address=f"{address}{ADDRESS_SUFFIX}", bounds=os.getenv("GEOCODING_BOUNDS"))
+            if len(geocode_result) and geocode_result[0]["geometry"]["location_type"] not in ["APPROXIMATE", "GEOMETRIC_CENTER"]:
+                return geocode_result[0]
+    return None

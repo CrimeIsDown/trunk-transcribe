@@ -14,8 +14,10 @@ load_dotenv()
 class TestEndToEnd(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        index = search.get_index(search.get_default_index_name())
+        index_name = search.get_default_index_name()
+        index = search.get_index(index_name)
         index.delete()
+        search.get_index(index_name)
 
         show_success = False
         while True:
