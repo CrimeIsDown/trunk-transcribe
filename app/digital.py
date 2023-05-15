@@ -67,6 +67,7 @@ def transcribe_call(
             initial_prompt=prev_transcript,
         )
 
+        # TODO: use segments instead
         text = response["text"].strip() if response["text"] else ""
 
         transcript.append(text, src)

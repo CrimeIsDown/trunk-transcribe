@@ -142,6 +142,7 @@ class WhisperCpp:
         for line in output:
             if line.startswith("[") and " --> " in line:
                 segment = line[line.find("]") + 1 :].strip().replace(">> ", "")
+                # TODO: include start and end time
                 # Handle quirks of whisper.cpp
                 if (
                     len(segment)

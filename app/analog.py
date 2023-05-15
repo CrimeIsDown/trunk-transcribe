@@ -56,6 +56,7 @@ def transcribe_call(model, model_lock: Lock, audio_file: str) -> Transcript:
     for segment in response["segments"]:
         text = segment["text"].strip()
         if len(text):
+            # TODO: use segment["start"] and segment["end"] as well
             transcript.append(text)
 
     return transcript.validate()
