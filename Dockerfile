@@ -26,6 +26,8 @@ COPY config config
 COPY bin/*.py ./
 COPY bin/*.sh /usr/local/bin/
 
+ENV PYTHONPATH=/src
+
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["api"]
 
