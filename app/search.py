@@ -19,7 +19,7 @@ from app.transcript import Transcript
 
 def build_address_regex():
     street_name = r"((?:[A-Z]\w+ )?[A-Z]\w+|[0-9]+(?:st|th|rd|nd))"
-    address = rf"([0-9\-]+) (?:block of )?(North|West|East|South) {street_name}"
+    address = rf"([0-9\.\-]+),? (?:block of )?(North|West|East|South) {street_name}"
     regex = rf"({street_name} and {street_name}|{address})"
     return regex
 
@@ -276,7 +276,7 @@ def extract_geo(transcript: Transcript) -> dict | None:
     for segment in transcript.transcript:
         match = re.search(ADDRESS_REGEX, segment[1])
         if match:
-            address = match.group().replace("-", "")
+            address = re.sub(r"[-.,]", "", match.group())
             geocode_result = get_gmaps().geocode(
                 address=f"{address}{ADDRESS_SUFFIX}",
                 bounds=os.getenv("GEOCODING_BOUNDS"),

@@ -223,7 +223,9 @@ if __name__ == "__main__":
                     indent=4,
                 ),
             )
-            docs_to_add = list(filter(lambda doc: doc is not None, map(update_document, documents)))
+            docs_to_add = list(
+                filter(lambda doc: doc is not None, map(update_document, documents))
+            )
             updated_documents += docs_to_add
             logging.info(f"Added {len(docs_to_add)} documents to be indexed")
             total_processed += len(updated_documents)
