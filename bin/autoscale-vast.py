@@ -162,11 +162,12 @@ class Autoscaler:
         )
         r.raise_for_status()
 
-        # Filter this list to exclude any instances we're already renting
+        # Filter this list to exclude any instances we're already renting, and exclude non-RTX GPUs
         return list(
             filter(
                 lambda offer: self._make_instance_hostname(offer)
-                not in (self.running_instances + list(self.forbidden_instances)),
+                not in (self.running_instances + list(self.forbidden_instances))
+                and "RTX" in offer["gpu_name"],
                 r.json()["offers"],
             )
         )
