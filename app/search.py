@@ -125,14 +125,14 @@ def build_document(
         "id": id,
     }
 
-    if metadata["short_name"] in filter(lambda name: len(name), os.getenv("GEOCODING_ENABLED_SYSTEMS", "").split(",")):
+    if metadata["short_name"] in filter(
+        lambda name: len(name), os.getenv("GEOCODING_ENABLED_SYSTEMS", "").split(",")
+    ):
         try:
             geo = extract_geo(transcript)
         except Exception as e:
             sentry_sdk.capture_exception(e)
-            logging.error(
-                f"Got exception while geocoding: {repr(e)}", exc_info=e
-            )
+            logging.error(f"Got exception while geocoding: {repr(e)}", exc_info=e)
             geo = None
         if geo:
             doc["_geo"] = geo["geometry"]["location"]
@@ -192,7 +192,7 @@ def create_or_update_index(
 ) -> Index:
     if create:
         client.create_index(index_name)
-        sleep(1) # Wait for index to be created
+        sleep(1)  # Wait for index to be created
     index = client.index(index_name)
 
     current_settings = index.get_settings()
@@ -277,7 +277,12 @@ def extract_geo(transcript: Transcript) -> dict | None:
         match = re.search(ADDRESS_REGEX, segment[1])
         if match:
             address = match.group().replace("-", "")
-            geocode_result = get_gmaps().geocode(address=f"{address}{ADDRESS_SUFFIX}", bounds=os.getenv("GEOCODING_BOUNDS"))
-            if len(geocode_result) and geocode_result[0]["geometry"]["location_type"] not in ["APPROXIMATE", "GEOMETRIC_CENTER"]:
+            geocode_result = get_gmaps().geocode(
+                address=f"{address}{ADDRESS_SUFFIX}",
+                bounds=os.getenv("GEOCODING_BOUNDS"),
+            )
+            if len(geocode_result) and geocode_result[0]["geometry"][
+                "location_type"
+            ] not in ["APPROXIMATE", "GEOMETRIC_CENTER"]:
                 return geocode_result[0]
     return None
