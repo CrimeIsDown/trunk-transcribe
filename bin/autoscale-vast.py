@@ -143,11 +143,12 @@ class Autoscaler:
         return p.stdout.decode("utf-8").strip()
 
     def find_available_instances(self, vram_needed: float) -> list[dict]:
+        vram_needed = max(10 * 1024, vram_needed)
         query = {
             "rentable": {"eq": "true"},
             "num_gpus": {"eq": "1"},
             "gpu_ram": {"gte": f"{vram_needed:.1f}"},
-            "dlperf": {"gt": "8"},
+            "dlperf": {"gt": "5"},
             "dph_total": {"lte": "0.1"},
             "cuda_vers": {"gte": "11.7"},
             "cuda_max_good": {"gte": "11.7"},
@@ -186,7 +187,7 @@ class Autoscaler:
         utilization_factor = 1
         # Decrease the memory needed for certain forks
         if os.getenv("DESIRED_CUDA") == "fw" or os.getenv("DESIRED_CUDA") == "cpu-cpp":
-            utilization_factor = 0.48
+            utilization_factor = 0.4
 
         vram_requirements = {
             "tiny.en": 1.5 * 1024 * utilization_factor,
