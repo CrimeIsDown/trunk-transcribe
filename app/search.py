@@ -1,33 +1,21 @@
 import json
 import logging
 import os
-import re
 from hashlib import sha256
 from itertools import chain, starmap
 from time import sleep
 from urllib.parse import urlencode
 
-import googlemaps
-import sentry_sdk
 from meilisearch import Client
 from meilisearch.errors import MeilisearchApiError, MeilisearchError
 from meilisearch.index import Index
 
 from app.metadata import Metadata, SearchableMetadata
 from app.transcript import Transcript
-
-
-def build_address_regex():
-    street_name = r"((?:[A-Z]\w+ )?[A-Z]\w+|[0-9]+(?:st|th|rd|nd))"
-    address = rf"([0-9\.\-]+),? (?:block of )?(North|West|East|South) {street_name}"
-    regex = rf"({street_name} and {street_name}|{address})"
-    return regex
+from app.geocoding import add_geo
 
 
 client = None
-gmaps = None
-ADDRESS_REGEX = build_address_regex()
-ADDRESS_SUFFIX = os.getenv("GEOCODING_ADDRESS_SUFFIX")
 
 
 class Document(SearchableMetadata):
@@ -51,14 +39,6 @@ def get_client() -> Client:
         api_key = os.getenv("MEILI_MASTER_KEY")
         client = Client(url=url, api_key=api_key)
     return client
-
-
-def get_gmaps() -> googlemaps.Client:
-    global gmaps
-    if not gmaps:
-        api_key = os.getenv("GOOGLE_MAPS_API_KEY")
-        gmaps = googlemaps.Client(key=api_key)
-    return gmaps
 
 
 def get_default_index_name() -> str:
@@ -125,18 +105,7 @@ def build_document(
         "id": id,
     }
 
-    if metadata["short_name"] in filter(
-        lambda name: len(name), os.getenv("GEOCODING_ENABLED_SYSTEMS", "").split(",")
-    ):
-        try:
-            geo = extract_geo(transcript)
-        except Exception as e:
-            sentry_sdk.capture_exception(e)
-            logging.error(f"Got exception while geocoding: {repr(e)}", exc_info=e)
-            geo = None
-        if geo:
-            doc["_geo"] = geo["geometry"]["location"]
-            doc["geo_formatted_address"] = geo["formatted_address"]
+    doc = add_geo(doc, metadata, transcript)
 
     return doc  # type: ignore
 
@@ -270,19 +239,3 @@ def flatten_dict(dictionary):
         if not any(isinstance(value, dict) for value in dictionary.values()):
             break
     return dictionary
-
-
-def extract_geo(transcript: Transcript) -> dict | None:
-    for segment in transcript.transcript:
-        match = re.search(ADDRESS_REGEX, segment[1])
-        if match:
-            address = re.sub(r"[-.,]", "", match.group())
-            geocode_result = get_gmaps().geocode(
-                address=f"{address}{ADDRESS_SUFFIX}",
-                bounds=os.getenv("GEOCODING_BOUNDS"),
-            )
-            if len(geocode_result) and geocode_result[0]["geometry"][
-                "location_type"
-            ] not in ["APPROXIMATE", "GEOMETRIC_CENTER"]:
-                return geocode_result[0]
-    return None

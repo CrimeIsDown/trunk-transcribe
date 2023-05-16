@@ -1492,6 +1492,21 @@ dotenv = ["python-dotenv (>=0.10.4)"]
 email = ["email-validator (>=1.0.3)"]
 
 [[package]]
+name = "pygeocodio"
+version = "1.2.0"
+description = "Python wrapper for Geocod.io API"
+category = "main"
+optional = false
+python-versions = "*"
+files = [
+    {file = "pygeocodio-1.2.0-py3-none-any.whl", hash = "sha256:22df0ff2c9a7c9de347e324443c67e2e24727d73947b2b9e11be0181c520cff0"},
+    {file = "pygeocodio-1.2.0.tar.gz", hash = "sha256:80de4aabefa9d9d101624024c72e78966f70d546f6afa5983f5e5e87cc38b462"},
+]
+
+[package.dependencies]
+requests = ">=1.0.0"
+
+[[package]]
 name = "python-dateutil"
 version = "2.8.2"
 description = "Extensions to the standard Python datetime module"
@@ -2152,4 +2167,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "7108265c9e5804c20dc80a6697cdfb67e97c2554c47bf3dbf62f8b95be176329"
+content-hash = "ec3c32f13270e38af161a57e727aa9f42507abee81329be3ea6c7d5649d33597"
