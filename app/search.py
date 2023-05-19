@@ -161,7 +161,7 @@ def create_or_update_index(
 ) -> Index:
     if create:
         client.create_index(index_name)
-        sleep(1)  # Wait for index to be created
+        sleep(2)  # Wait for index to be created
     index = client.index(index_name)
 
     current_settings = index.get_settings()

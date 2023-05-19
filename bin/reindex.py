@@ -136,6 +136,12 @@ if __name__ == "__main__":
         help="Meilisearch index to use",
     )
     parser.add_argument(
+        "--copy-from-index",
+        type=str,
+        metavar="INDEX",
+        help="Meilisearch index to read from, will write to the index specified by --index",
+    )
+    parser.add_argument(
         "--filter",
         type=str,
         default="True",
@@ -191,8 +197,11 @@ if __name__ == "__main__":
         search.create_or_update_index(client, args.index, create=False)
 
     index = search.get_index(args.index)
+    source_index = None
+    if args.copy_from_index:
+        source_index = search.get_index(args.copy_from_index)
 
-    total, _ = get_documents(index, {"limit": 1}, args.search)
+    total, _ = get_documents(source_index or index, {"limit": 1}, args.search)
     logging.info(f"Found {total} total documents")
     limit = 2000
     offset = 0
@@ -203,7 +212,7 @@ if __name__ == "__main__":
 
     while offset < total or (args.search and total > 0):
         total, docs = get_documents(
-            index, {"offset": offset, "limit": limit}, args.search
+            source_index or index, {"offset": offset, "limit": limit}, args.search
         )
         if args.search and total == 0:
             break

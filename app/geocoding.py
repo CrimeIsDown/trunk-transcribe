@@ -46,7 +46,6 @@ def extract_address(transcript: str) -> Tuple[str | None, bool]:
     if match:
         if match.group(1) and match.group(2):
             return f"{match.group(2)} and {match.group(3)}", True
-        print(match.groups())
         return (
             re.sub(
                 r"[-.,]",
@@ -114,7 +113,9 @@ def geocodio_geocode(address: str) -> GeoResponse | None:
     except GeocodioDataError:
         return None
 
-    if geocode_result.best_match["accuracy_type"] not in [
+    if "accuracy_type" in geocode_result.best_match and geocode_result.best_match[
+        "accuracy_type"
+    ] not in [
         "street_center",
         "place",
         "county",
