@@ -3,7 +3,7 @@
 #
 # PLEASE DO NOT EDIT IT DIRECTLY.
 #
-FROM ubuntu:22.04
+FROM nvidia/cuda:11.7.1-base-ubuntu22.04
 
 RUN apt-get update && \
     apt-get -y upgrade && \
@@ -39,6 +39,8 @@ COPY app app
 COPY config config
 COPY bin/*.py ./
 COPY bin/*.sh /usr/local/bin/
+
+ENV PYTHONPATH=/src
 
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["worker"]

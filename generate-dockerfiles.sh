@@ -25,6 +25,8 @@ RUN python3 -c \"import whisper; import os; whisper.load_model(os.getenv('WHISPE
 
 envsubst '$WHISPER_INSTALL_INSTRUCTIONS' < Dockerfile >> Dockerfile.whisper
 
+sed -i 's#FROM ubuntu:22.04#FROM nvidia/cuda:11.7.1-base-ubuntu22.04#g' Dockerfile.whisper
+
 sed -i 's#CMD \["api"\]#CMD ["worker"]#g' Dockerfile.whisper
 
 # Setup Dockerfile.fasterwhisper
