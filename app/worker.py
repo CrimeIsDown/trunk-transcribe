@@ -9,6 +9,7 @@ import requests
 import sentry_sdk
 from celery import Celery, signals, states
 from celery.exceptions import Reject
+from datauri import DataURI
 from dotenv import load_dotenv
 from sentry_sdk.integrations.celery import CeleryIntegration
 
@@ -127,14 +128,19 @@ def transcribe_task(
     index_name: str | None = None,
 ) -> str:
     with tempfile.TemporaryDirectory() as tempdir:
-        with requests.get(audio_url, stream=True) as r:
-            r.raise_for_status()
-            mp3_file = tempfile.NamedTemporaryFile(
-                delete=False, dir=tempdir, suffix=".mp3"
-            )
-            for chunk in r.iter_content(chunk_size=1024 * 1024):
-                mp3_file.write(chunk)
+        mp3_file = tempfile.NamedTemporaryFile(
+            delete=False, dir=tempdir, suffix=".mp3"
+        )
+        if audio_url.startswith("data:"):
+            uri = DataURI(audio_url)
+            mp3_file.write(uri.data) # type: ignore
             mp3_file.close()
+        else:
+            with requests.get(audio_url, stream=True) as r:
+                r.raise_for_status()
+                for chunk in r.iter_content(chunk_size=1024 * 1024):
+                    mp3_file.write(chunk)
+                mp3_file.close()
 
         audio_file = convert_to_wav(mp3_file.name)
 

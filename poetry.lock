@@ -1507,6 +1507,18 @@ files = [
 requests = ">=1.0.0"
 
 [[package]]
+name = "python-datauri"
+version = "1.1.0"
+description = "A li'l class for data URI manipulation in Python"
+category = "main"
+optional = false
+python-versions = "*"
+files = [
+    {file = "python-datauri-1.1.0.tar.gz", hash = "sha256:247504b30f719136f0e563fa73ba5e22a6f555db2797db1c00c112e12d4927a5"},
+    {file = "python_datauri-1.1.0-py2.py3-none-any.whl", hash = "sha256:fbbc34fd934e4d225b8ebcd176fbc4a850b70ef37e8717f12186ec43bb7f5e68"},
+]
+
+[[package]]
 name = "python-dateutil"
 version = "2.8.2"
 description = "Extensions to the standard Python datetime module"
@@ -2167,4 +2179,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "ec3c32f13270e38af161a57e727aa9f42507abee81329be3ea6c7d5649d33597"
+content-hash = "bc5299873331f2bbb2e57d8fd529ad1680e93350cd7f7b8e518060babda2c28b"
