@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 
 from app import search
 
+load_dotenv(".env.testing")
 load_dotenv()
 
 

@@ -107,7 +107,7 @@ def transcribe(
             raise Reject(f"Audio type {metadata['audio_type']} not supported")
     except RuntimeError as e:
         return repr(e)
-    logging.debug(transcript)
+    logging.debug(transcript.json)
 
     search_url = index_call(
         metadata, raw_audio_url, transcript, id, index_name=index_name
@@ -128,12 +128,10 @@ def transcribe_task(
     index_name: str | None = None,
 ) -> str:
     with tempfile.TemporaryDirectory() as tempdir:
-        mp3_file = tempfile.NamedTemporaryFile(
-            delete=False, dir=tempdir, suffix=".mp3"
-        )
+        mp3_file = tempfile.NamedTemporaryFile(delete=False, dir=tempdir, suffix=".mp3")
         if audio_url.startswith("data:"):
             uri = DataURI(audio_url)
-            mp3_file.write(uri.data) # type: ignore
+            mp3_file.write(uri.data)  # type: ignore
             mp3_file.close()
         else:
             with requests.get(audio_url, stream=True) as r:

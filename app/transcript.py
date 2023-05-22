@@ -1,5 +1,4 @@
 import json
-import re
 from typing import Tuple, TypeAlias, Union
 
 from app.metadata import SrcListItem
@@ -11,15 +10,11 @@ class Transcript:
     transcript: RawTranscript
 
     banned_keywords = ["urn.com", "urn.schemas"]
+    invalid_segments = ["Thank you.", "(unintelligible)"]
     unintelligible = "(unintelligible)"
 
-    def __init__(self, transcript: RawTranscript | str | None = None):
-        self.transcript = []
-
-        if isinstance(transcript, list):
-            self.transcript = transcript
-        elif isinstance(transcript, str):
-            self.load_html_transcript(transcript)
+    def __init__(self, transcript: RawTranscript | None = None):
+        self.transcript = transcript if transcript else []
 
     @property
     def json(self):
@@ -65,7 +60,7 @@ class Transcript:
         if len(transcript) <= 1 or True in [
             keyword in transcript for keyword in Transcript.banned_keywords
         ]:
-            transcript = Transcript.unintelligible
+            transcript = self.unintelligible
         self.transcript.append((src, transcript))
         return self
 
@@ -76,10 +71,7 @@ class Transcript:
         if self.empty():
             raise RuntimeError("Transcript empty/null")
         first_segment = self.transcript[0][1]
-        if len(self.transcript) == 1 and first_segment in [
-            "Thank you.",
-            Transcript.unintelligible,
-        ]:
+        if len(self.transcript) == 1 and first_segment in self.invalid_segments:
             raise RuntimeError("No speech found")
         return self
 
@@ -88,59 +80,3 @@ class Transcript:
             src = self.transcript[i][0]
             if src and src["src"] == newSrc["src"]:
                 self.transcript[i] = (newSrc, self.transcript[i][1])
-
-    def load_html_transcript(self, html_transcript: str):
-        html_transcript = html_transcript.replace("<br>", "\n")
-        html_transcript_lines = html_transcript.splitlines()
-        for line in html_transcript_lines:
-            line = line.strip()
-            if line.startswith("<i data-src="):
-                html_match = re.compile(
-                    r"<i data-src=\"(-?[0-9]+)\">(.*?):</i> (.*)"
-                ).fullmatch(line)
-                if not html_match:
-                    raise RuntimeError("Cannot parse HTML: " + line)
-                src = int(html_match.group(1))
-                tag = (
-                    html_match.group(2)
-                    if html_match.group(2) != html_match.group(1)
-                    else ""
-                )
-                segment = html_match.group(3)
-                self.transcript.append(
-                    (
-                        {
-                            "src": src,
-                            "time": -1,
-                            "pos": -1,
-                            "emergency": 0,
-                            "signal_system": "",
-                            "tag": tag,
-                            "transcript_prompt": "",
-                        },
-                        segment,
-                    )
-                )
-            elif line.startswith("<i>"):
-                html_match = re.compile(r"<i>(-?[0-9]+):</i> (.*)").fullmatch(line)
-                if not html_match:
-                    raise RuntimeError("Cannot parse HTML: " + line)
-                src = int(html_match.group(1))
-                tag = ""
-                segment = html_match.group(2)
-                self.transcript.append(
-                    (
-                        {
-                            "src": src,
-                            "time": -1,
-                            "pos": -1,
-                            "emergency": 0,
-                            "signal_system": "",
-                            "tag": tag,
-                            "transcript_prompt": "",
-                        },
-                        segment,
-                    )
-                )
-            else:
-                self.transcript.append((None, line))

@@ -30,6 +30,7 @@ python-datauri = "^1.1.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^22.12"
+coverage = "^7.2.5"
 
 [build-system]
 requires = ["poetry-core"]

@@ -23,7 +23,11 @@ restart:
 
 test: start
 	@diff config/whisper.json config/whisper.json.testing
-	$(DOCKER_COMPOSE) exec api python3 -m unittest
+	python3 -m unittest
+
+coverage: start
+	@diff config/whisper.json config/whisper.json.testing
+	coverage run -m unittest
 
 retest: restart test
 

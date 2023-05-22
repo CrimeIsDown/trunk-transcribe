@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import subprocess
+from csv import DictReader
 from threading import Lock
 
 import openai
@@ -17,19 +18,23 @@ class WhisperTask(Task):
     @property
     def model(self):
         with self.model_lock:
-            if self._model is None:
+            if self._model is not None:
+                return self._model
+
+            model_name = os.getenv("WHISPER_MODEL")
+            if model_name:
+                if os.getenv("WHISPERCPP"):
+                    self._model = WhisperCpp(model_name, os.getenv("WHISPERCPP"))
+                elif os.getenv("FASTERWHISPER"):
+                    self._model = FasterWhisper(model_name)
+                else:
+                    self._model = Whisper(model_name)
+            else:
                 if os.getenv("OPENAI_API_KEY"):
                     self._model = WhisperApi()
                 else:
-                    model_name = os.getenv("WHISPER_MODEL")
-                    if not isinstance(model_name, str):
-                        raise RuntimeError("WHISPER_MODEL env must be set")
-                    if os.getenv("WHISPERCPP"):
-                        self._model = WhisperCpp(model_name, os.getenv("WHISPERCPP"))
-                    elif os.getenv("FASTERWHISPER"):
-                        self._model = FasterWhisper(model_name)
-                    else:
-                        self._model = Whisper(model_name)
+                    raise RuntimeError("WHISPER_MODEL env must be set")
+
             return self._model
 
 
@@ -119,6 +124,7 @@ class WhisperCpp:
             self.model_path,
             "--language",
             language,
+            "--output-csv",
         ]
 
         if initial_prompt:
@@ -132,24 +138,27 @@ class WhisperCpp:
 
         args.append(audio)
 
-        p = subprocess.run(args, capture_output=True)
+        p = subprocess.run(args)
         p.check_returncode()
-
-        output = p.stdout.decode("utf-8").splitlines()
 
         result = {"segments": [], "text": None}
 
-        for line in output:
-            if line.startswith("[") and " --> " in line:
-                segment = line[line.find("]") + 1 :].strip().replace(">> ", "")
-                # TODO: include start and end time
+        with open(f"{audio}.csv", newline="") as csvfile:
+            transcript = DictReader(csvfile)
+            for line in transcript:
                 # Handle quirks of whisper.cpp
                 if (
-                    len(segment)
-                    and "[BLANK_AUDIO]" not in segment
-                    and "[SOUND]" not in segment
+                    len(line["text"])
+                    and "[BLANK_AUDIO]" not in line["text"]
+                    and "[SOUND]" not in line["text"]
                 ):
-                    result["segments"].append({"text": segment})
+                    result["segments"].append(
+                        {
+                            "start": float(line["start"]) / 1000,
+                            "end": float(line["end"]) / 1000,
+                            "text": line["text"],
+                        }
+                    )
 
         if len(result["segments"]):
             result["text"] = "\n".join(

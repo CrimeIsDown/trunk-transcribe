@@ -62,11 +62,7 @@ def update_srclist(
 
 def update_document(document: MeiliDocument) -> search.Document:
     metadata: Metadata = json.loads(document.raw_metadata)
-    transcript: Transcript = (
-        Transcript(json.loads(document.raw_transcript))
-        if hasattr(document, "raw_transcript")
-        else Transcript(document.transcript)
-    )
+    transcript = Transcript(json.loads(document.raw_transcript))
     if UNIT_TAGS.get(metadata["short_name"]):
         metadata, transcript = update_srclist(metadata, transcript)
     return search.build_document(
