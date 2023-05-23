@@ -41,6 +41,7 @@ ADDRESS_REGEX = build_address_regex(
 )
 
 
+# TODO: write tests
 def extract_address(transcript: str) -> Tuple[str | None, bool]:
     match = re.search(ADDRESS_REGEX, transcript)
     if match:
@@ -57,7 +58,7 @@ def extract_address(transcript: str) -> Tuple[str | None, bool]:
     return None, False
 
 
-def get_google_maps_client() -> googlemaps.Client | None:
+def get_google_maps_client() -> googlemaps.Client | None:  # pragma: no cover
     global google_maps_client
     api_key = os.getenv("GOOGLE_MAPS_API_KEY")
     if not google_maps_client and api_key:
@@ -65,7 +66,7 @@ def get_google_maps_client() -> googlemaps.Client | None:
     return google_maps_client
 
 
-def get_geocodio_client() -> GeocodioClient | None:
+def get_geocodio_client() -> GeocodioClient | None:  # pragma: no cover
     global geocodio_client
     api_key = os.getenv("GEOCODIO_API_KEY")
     if not geocodio_client and api_key:
@@ -73,7 +74,7 @@ def get_geocodio_client() -> GeocodioClient | None:
     return geocodio_client
 
 
-def google_geocode(address: str) -> GeoResponse | None:
+def google_geocode(address: str) -> GeoResponse | None:  # pragma: no cover
     client = get_google_maps_client()
     if not client:
         return None
@@ -97,7 +98,7 @@ def google_geocode(address: str) -> GeoResponse | None:
     return None
 
 
-def geocodio_geocode(address: str) -> GeoResponse | None:
+def geocodio_geocode(address: str) -> GeoResponse | None:  # pragma: no cover
     client = get_geocodio_client()
     if not client:
         return None
@@ -129,7 +130,7 @@ def geocodio_geocode(address: str) -> GeoResponse | None:
     return None
 
 
-def geocode(address: str) -> GeoResponse | None:
+def geocode(address: str) -> GeoResponse | None:  # pragma: no cover
     if get_geocodio_client():
         return geocodio_geocode(address)
     elif get_google_maps_client():

@@ -21,6 +21,7 @@ from app.notification_plugins.NotifyTelegram import NotifyTelegram
 from app.transcript import Transcript
 
 
+# TODO: write tests
 def truncate_transcript(transcript: str) -> str:
     # Telegram has a 1024 char max for the caption, so truncate long ones
     # (we use less than 1024 to account for long URLs and what we will add next)
@@ -30,7 +31,7 @@ def truncate_transcript(transcript: str) -> str:
     return transcript
 
 
-def add_channels(apprise: Apprise, channels: list) -> Apprise:
+def add_channels(apprise: Apprise, channels: list) -> Apprise:  # pragma: no cover
     for channel in channels:
         if channel.startswith("tgram://"):
             channel = channel.replace(
@@ -43,6 +44,7 @@ def add_channels(apprise: Apprise, channels: list) -> Apprise:
     return apprise
 
 
+# TODO: write tests
 def build_suffix(
     metadata: Metadata, add_talkgroup: bool = False, search_url: str = ""
 ) -> str:
@@ -67,6 +69,7 @@ def build_suffix(
     return "<br />".join(suffix)
 
 
+# TODO: write tests
 def check_transcript_for_alert_keywords(
     transcript: str, keywords: list[str]
 ) -> tuple[list[str], list[str]]:
@@ -84,13 +87,24 @@ def check_transcript_for_alert_keywords(
     return list(set(matched_keywords)), matched_lines
 
 
+# TODO: write tests
+def get_matching_config(
+    metadata: Metadata, config: dict[str, NotificationConfig]
+) -> list[NotificationConfig]:
+    return [
+        c
+        for regex, c in config.items()
+        if re.compile(regex).search(f"{metadata['talkgroup']}@{metadata['short_name']}")
+    ]
+
+
 def send_notifications(
     audio_file: str,
     metadata: Metadata,
     transcript: Transcript,
     mp3_file: str,
     search_url: str,
-):
+):  # pragma: no cover
     # If delayed over our MAX_CALL_AGE, don't bother sending to Telegram
     max_age = float(os.getenv("MAX_CALL_AGE", 1200))
     if max_age > 0 and time() - metadata["stop_time"] > max_age:
@@ -99,15 +113,9 @@ def send_notifications(
 
     config = get_notifications_config(get_ttl_hash(cache_seconds=60))
 
-    matches = [
-        c
-        for regex, c in config.items()
-        if re.compile(regex).search(f"{metadata['talkgroup']}@{metadata['short_name']}")
-    ]
-
     transcript_html = transcript.html
 
-    for match in matches:
+    for match in get_matching_config(metadata, config):
         notify_channels(match, audio_file, metadata, transcript_html)
         for alert_config in match["alerts"]:
             send_alert(alert_config, metadata, transcript_html, mp3_file, search_url)
@@ -118,7 +126,7 @@ def notify_channels(
     audio_file: str,
     metadata: Metadata,
     transcript: str,
-):
+):  # pragma: no cover
     # Validate we actually have somewhere to send the notification
     if not len(config["channels"]):
         return
@@ -155,7 +163,7 @@ def send_alert(
     transcript: str,
     mp3_file: str,
     search_url: str,
-):
+):  # pragma: no cover
     # Validate we actually have somewhere to send the notification
     if not len(config["channels"]):
         return

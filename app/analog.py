@@ -7,7 +7,7 @@ from app.transcript import Transcript
 from app.whisper import transcribe
 
 
-def pad_silence(audio_file: str):
+def pad_silence(audio_file: str):  # pragma: no cover
     basename = os.path.splitext(audio_file)[0]
     p = subprocess.run(
         [
@@ -42,6 +42,7 @@ def pad_silence(audio_file: str):
     return whisper_file
 
 
+# TODO: write tests
 def transcribe_call(model, model_lock: Lock, audio_file: str) -> Transcript:
     audio_file = pad_silence(audio_file)
 

@@ -32,6 +32,20 @@ python-datauri = "^1.1.0"
 black = "^22.12"
 coverage = "^7.2.5"
 
+[tool.coverage.run]
+branch = true
+source = ["app"]
+omit = [
+    "app/api.py",
+    "app/storage.py",
+    "app/whisper.py",
+    "app/worker.py"
+]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 90
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

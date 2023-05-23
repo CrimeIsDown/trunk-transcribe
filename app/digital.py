@@ -7,6 +7,7 @@ from app.transcript import Transcript
 from app.whisper import transcribe
 
 
+# TODO: write tests
 def dedupe_srclist(srclist: list[SrcListItem]) -> list[SrcListItem]:
     prev_src = None
     new_srclist = []
@@ -19,7 +20,7 @@ def dedupe_srclist(srclist: list[SrcListItem]) -> list[SrcListItem]:
 
 def extract_src_audio(
     audio_file: str, src: SrcListItem, nextSrc: SrcListItem | None
-) -> str | None:
+) -> str | None:  # pragma: no cover
     src_file = f"{os.path.splitext(audio_file)[0]}-{src['src']}.wav"
     start = src["pos"]
     trim_args = ["sox", audio_file, src_file, "trim", f"={start}"]
@@ -40,6 +41,7 @@ def extract_src_audio(
     return src_file
 
 
+# TODO: write tests
 def transcribe_call(
     model, model_lock: Lock, audio_file: str, metadata: Metadata
 ) -> Transcript:

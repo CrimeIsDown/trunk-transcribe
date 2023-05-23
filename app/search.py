@@ -32,7 +32,7 @@ class Document(SearchableMetadata):
     geo_formatted_address: str
 
 
-def get_client() -> Client:
+def get_client() -> Client:  # pragma: no cover
     global client
     if not client:
         url = os.getenv("MEILI_URL", "http://127.0.0.1:7700")
@@ -41,11 +41,11 @@ def get_client() -> Client:
     return client
 
 
-def get_default_index_name() -> str:
+def get_default_index_name() -> str:  # pragma: no cover
     return os.getenv("MEILI_INDEX", "calls")
 
 
-def get_index(index_name: str) -> Index:
+def get_index(index_name: str) -> Index:  # pragma: no cover
     client = get_client()
     index = client.index(index_name)
     try:
@@ -59,6 +59,7 @@ def get_index(index_name: str) -> Index:
     return index
 
 
+# TODO: write tests
 def build_document(
     metadata: Metadata,
     raw_audio_url: str,
@@ -139,7 +140,7 @@ def index_call(
     transcript: Transcript,
     id: str | None = None,
     index_name: str | None = None,
-) -> str:
+) -> str:  # pragma: no cover
     doc = build_document(metadata, raw_audio_url, transcript, id)
 
     logging.debug(f"Sending document to be indexed: {str(doc)}")
@@ -158,7 +159,7 @@ def index_call(
 
 def create_or_update_index(
     client: Client, index_name: str, create: bool = True
-) -> Index:
+) -> Index:  # pragma: no cover
     if create:
         client.create_index(index_name)
         sleep(2)  # Wait for index to be created

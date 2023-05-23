@@ -19,7 +19,9 @@ class NotificationConfig(TypedDict):
 
 
 @lru_cache()
-def get_notifications_config(ttl_hash=None) -> dict[str, NotificationConfig]:
+def get_notifications_config(
+    ttl_hash=None,
+) -> dict[str, NotificationConfig]:  # pragma: no cover
     del ttl_hash
 
     path = "config/notifications.json"
@@ -46,7 +48,7 @@ def get_notifications_config(ttl_hash=None) -> dict[str, NotificationConfig]:
 
 
 @lru_cache()
-def get_whisper_config(ttl_hash=None) -> dict:
+def get_whisper_config(ttl_hash=None) -> dict:  # pragma: no cover
     del ttl_hash
 
     whisper_kwargs = {}
@@ -57,6 +59,6 @@ def get_whisper_config(ttl_hash=None) -> dict:
     return whisper_kwargs
 
 
-def get_ttl_hash(cache_seconds=3600):
+def get_ttl_hash(cache_seconds=3600):  # pragma: no cover
     """Return the same value within `cache_seconds` time period"""
     return round(time() / cache_seconds)
