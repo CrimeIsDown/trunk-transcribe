@@ -48,7 +48,7 @@ jobs:
       with:
         context: .
         load: true
-        tags: "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref }}"
+        tags: "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
         platforms: ${{ matrix.platform }}
         build-args: |
           GIT_COMMIT=${{ github.sha }}
@@ -60,6 +60,7 @@ jobs:
         sed -i 's/^COMPOSE_FILE=docker-compose.yml:docker-compose.gpu.yml$/COMPOSE_FILE=docker-compose.yml/g' .env
         sed -i 's/^WHISPER_MODEL=small.en$/WHISPER_MODEL=tiny.en/g' .env
         sed -i 's/^DESIRED_CUDA=cu117$/DESIRED_CUDA=cpu/g' .env
+        echo "VERSION=${{ github.sha }}" >> .env
         cp config/whisper.json.testing config/whisper.json
         make test
     - name: Build and push
@@ -135,7 +136,7 @@ jobs:
         context: .
         file: ${{ matrix.dockerfile }}
         load: true
-        tags: "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref }}-${{ matrix.model }}-${{ matrix.desired_cuda }}"
+        tags: "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}-${{ matrix.model }}-${{ matrix.desired_cuda }}"
         platforms: ${{ matrix.platform }}
         build-args: |
           WHISPER_MODEL=${{ matrix.model }}
@@ -149,6 +150,7 @@ jobs:
         sed -i 's/^COMPOSE_FILE=docker-compose.yml:docker-compose.gpu.yml$/COMPOSE_FILE=docker-compose.yml/g' .env
         sed -i 's/^WHISPER_MODEL=small.en$/WHISPER_MODEL=${{ matrix.model }}/g' .env
         sed -i 's/^DESIRED_CUDA=cu117$/DESIRED_CUDA=${{ matrix.desired_cuda }}/g' .env
+        echo "VERSION=${{ github.sha }}" >> .env
         cp config/whisper.json.testing config/whisper.json
         make test
     - name: Build and push
