@@ -43,8 +43,20 @@ jobs:
         registry: ${{ env.REGISTRY }}
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
-    - name: Build and Publish the Docker image
-      uses: docker/build-push-action@v3
+    - name: Build and export to Docker
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        load: true
+        tags: "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}"
+        platforms: ${{ matrix.platform }}
+        build-args: |
+          GIT_COMMIT=${{ github.sha }}
+        cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+        cache-to: type=inline
+    - name: Build and push
+      if: github.ref == 'refs/heads/main'
+      uses: docker/build-push-action@v4
       with:
         context: .
         push: true
@@ -54,6 +66,7 @@ jobs:
           GIT_COMMIT=${{ github.sha }}
         cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
         cache-to: type=inline
+
   build-worker:
     runs-on: ubuntu-latest
     strategy:
