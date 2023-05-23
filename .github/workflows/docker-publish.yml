@@ -48,11 +48,11 @@ jobs:
       with:
         context: .
         load: true
-        tags: "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}"
+        tags: "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref }}"
         platforms: ${{ matrix.platform }}
         build-args: |
           GIT_COMMIT=${{ github.sha }}
-        cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+        cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:main
         cache-to: type=inline
     - name: Test image
       run: |
@@ -135,13 +135,13 @@ jobs:
         context: .
         file: ${{ matrix.dockerfile }}
         load: true
-        tags: "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}-${{ matrix.model }}-${{ matrix.desired_cuda }}"
+        tags: "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref }}-${{ matrix.model }}-${{ matrix.desired_cuda }}"
         platforms: ${{ matrix.platform }}
         build-args: |
           WHISPER_MODEL=${{ matrix.model }}
           DESIRED_CUDA=${{ matrix.desired_cuda }}
           GIT_COMMIT=${{ github.sha }}
-        cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}-${{ matrix.model }}-${{ matrix.desired_cuda }}
+        cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:main-${{ matrix.model }}-${{ matrix.desired_cuda }}
         cache-to: type=inline
     - name: Test image
       run: |
