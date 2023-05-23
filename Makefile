@@ -23,11 +23,10 @@ restart:
 
 test: start
 	@diff config/whisper.json config/whisper.json.testing
-	python3 -m unittest
+	python3 -m unittest -k tests.integration
 
-coverage: start
-	@diff config/whisper.json config/whisper.json.testing
-	coverage run -m unittest
+coverage:
+	coverage run -m unittest -k tests.unit
 
 retest: restart test
 
