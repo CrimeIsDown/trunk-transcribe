@@ -124,7 +124,7 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
     - name: Build and test image
       # Only test the small.en model, and do not run builds where we expect a GPU
-      if: matrix.model != 'small.en' && matrix.desired_cuda != 'cu117'
+      if: matrix.model == 'small.en' && matrix.desired_cuda != 'cu117'
       run: |
         cp .env.example .env
         sed -i 's/^COMPOSE_FILE=docker-compose.yml:docker-compose.gpu.yml$/COMPOSE_FILE=docker-compose.yml/g' .env
