@@ -11,7 +11,6 @@ from cachetools.keys import hashkey
 from app.metadata import Metadata
 
 
-# TODO: write tests
 def _convert_file(
     audio_file: str,
     format: str,

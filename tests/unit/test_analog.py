@@ -6,7 +6,7 @@ from app.analog import transcribe_call
 from app.transcript import Transcript
 
 
-class TestAnalogTranscribeCall(unittest.TestCase):
+class TestAnalog(unittest.TestCase):
     def setUp(self):
         self.model = Mock()
         self.model_lock = Lock()

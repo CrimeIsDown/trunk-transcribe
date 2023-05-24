@@ -7,13 +7,13 @@ from app.conversion import _convert_file
 from app.metadata import Metadata
 
 
-class TestConversionConvertFile(unittest.TestCase):
+class TestConversion(unittest.TestCase):
     def setUp(self):
         self.audio_file = "test_audio.wav"
         self.format = "mp3"
         self.ffmpeg_args = ["-codec:a", "libmp3lame"]
         self.metadata = Metadata(
-            {
+            {  # type: ignore
                 "freq": 477787500,
                 "start_time": 1673118015,
                 "stop_time": 1673118023,
@@ -66,7 +66,7 @@ class TestConversionConvertFile(unittest.TestCase):
                     },
                 ],
             }
-        )  # type: ignore
+        )
 
     @patch("subprocess.run")
     def test_convert_file(self, mock_subprocess_run):

@@ -42,7 +42,6 @@ def pad_silence(audio_file: str):  # pragma: no cover
     return whisper_file
 
 
-# TODO: write tests
 def transcribe_call(model, model_lock: Lock, audio_file: str) -> Transcript:
     audio_file = pad_silence(audio_file)
 
