@@ -7,6 +7,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      cache_from:
+        - ghcr.io/crimeisdown/trunk-transcribe:main
     ports:
       - 8000:8000
     command: api
@@ -23,6 +25,8 @@ services:
     build:
       context: .
       dockerfile: ${WORKER_DOCKERFILE:-Dockerfile.whispercpp}
+      cache_from:
+        - ghcr.io/crimeisdown/trunk-transcribe:main-${WHISPER_MODEL:-small.en}-${DESIRED_CUDA:-cpu-cpp}
       args:
         WHISPER_MODEL: ${WHISPER_MODEL:-small.en}
     volumes:

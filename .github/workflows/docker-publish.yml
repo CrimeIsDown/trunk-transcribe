@@ -1,10 +1,10 @@
 name: Publish Docker Image
 on:
+  release:
+    types: [created]
   push:
     branches:
       - main
-    tags:
-      - '*'
     paths:
       - 'app/**'
       - 'bin/*.sh'
@@ -17,6 +17,9 @@ on:
       - 'pyproject.toml'
       - 'poetry.lock'
       - '.github/workflows/docker-publish.yml'
+  pull_request:
+    branches:
+      - main
 
 env:
   REGISTRY: ghcr.io
@@ -40,8 +43,21 @@ jobs:
         registry: ${{ env.REGISTRY }}
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
-    - name: Build and Publish the Docker image
-      uses: docker/build-push-action@v3
+    - name: Build image
+      if: github.ref != 'refs/heads/main' && github.event_name != 'release'
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        load: true
+        tags: "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+        platforms: ${{ matrix.platform }}
+        build-args: |
+          GIT_COMMIT=${{ github.sha }}
+        cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+        cache-to: type=inline
+    - name: Build and push
+      if: github.ref == 'refs/heads/main' || github.event_name == 'release'
+      uses: docker/build-push-action@v4
       with:
         context: .
         push: true
@@ -51,26 +67,23 @@ jobs:
           GIT_COMMIT=${{ github.sha }}
         cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
         cache-to: type=inline
+
   build-worker:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         # GPU variants
-        model: ["base.en", "small.en", "medium.en", "large"]
+        model: ["small.en", "medium.en", "large"]
         platform: ["linux/amd64"]
         desired_cuda: ["cu117"]
         # desired_cuda: ["cu116", "cu117"]
         dockerfile: ["Dockerfile.whisper"]
         # CPU variants
         include:
-          - model: tiny.en
+          - model: small.en
             platform: linux/amd64
             desired_cuda: cpu
             dockerfile: Dockerfile.whisper
-          - model: base.en
-            platform: linux/amd64
-            desired_cuda: cpu-cpp
-            dockerfile: Dockerfile.whispercpp
           - model: small.en
             platform: linux/amd64
             desired_cuda: cpu-cpp
@@ -83,6 +96,10 @@ jobs:
             platform: linux/amd64
             desired_cuda: cpu-cpp
             dockerfile: Dockerfile.whispercpp
+          - model: small.en
+            platform: linux/amd64
+            desired_cuda: fw
+            dockerfile: Dockerfile.fasterwhisper
           - model: medium.en
             platform: linux/amd64
             desired_cuda: fw
@@ -100,12 +117,29 @@ jobs:
       uses: docker/setup-buildx-action@v2
     - name: Login to DockerHub
       uses: docker/login-action@v2
+      if: github.ref == 'refs/heads/main'
       with:
         registry: ${{ env.REGISTRY }}
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
-    - name: Build and Publish the Docker image
-      uses: docker/build-push-action@v3
+    - name: Build and test image
+      # Only test the small.en model, and do not run builds where we expect a GPU
+      if: matrix.model == 'small.en' && matrix.desired_cuda != 'cu117' && github.event_name != 'release'
+      run: |
+        cp .env.example .env
+        sed -i 's/^COMPOSE_FILE=docker-compose.yml:docker-compose.gpu.yml$/COMPOSE_FILE=docker-compose.yml/g' .env
+        sed -i 's/^WHISPER_MODEL=small.en$/WHISPER_MODEL=${{ matrix.model }}/g' .env
+        sed -i 's/^DESIRED_CUDA=cu117$/DESIRED_CUDA=${{ matrix.desired_cuda }}/g' .env
+        sed -i 's/^# WORKER_DOCKERFILE=Dockerfile.whispercpp$/WORKER_DOCKERFILE=${{ matrix.dockerfile }}/g' .env
+        echo "VERSION=${{ github.sha }}" >> .env
+        cp config/whisper.json.testing config/whisper.json
+        echo "{}" > config/notifications.json
+        docker compose --ansi never build
+        docker compose --ansi never up -d --quiet-pull
+        docker compose exec api python3 -m unittest -k tests.integration
+    - name: Build and push
+      uses: docker/build-push-action@v4
+      if: github.ref == 'refs/heads/main' || github.event_name == 'release'
       with:
         context: .
         file: ${{ matrix.dockerfile }}

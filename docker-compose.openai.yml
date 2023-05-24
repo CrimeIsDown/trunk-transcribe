@@ -7,5 +7,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      cache_from:
+        - ghcr.io/crimeisdown/trunk-transcribe:main
       args: []
     command: worker
