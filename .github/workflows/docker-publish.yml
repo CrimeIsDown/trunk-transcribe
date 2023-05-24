@@ -47,14 +47,13 @@ jobs:
       run: |
         cp .env.example .env
         sed -i 's/^COMPOSE_FILE=docker-compose.yml:docker-compose.gpu.yml$/COMPOSE_FILE=docker-compose.yml/g' .env
-        sed -i 's/^WHISPER_MODEL=small.en$/WHISPER_MODEL=tiny.en/g' .env
-        sed -i 's/^DESIRED_CUDA=cu117$/DESIRED_CUDA=cpu/g' .env
-        sed -i 's/^# WORKER_DOCKERFILE=Dockerfile.whispercpp$/WORKER_DOCKERFILE=Dockerfile.whisper/g' .env
+        sed -i 's/^DESIRED_CUDA=cu117$/DESIRED_CUDA=cpu-cpp/g' .env
+        sed -i 's/^# WORKER_DOCKERFILE=Dockerfile.whispercpp$/WORKER_DOCKERFILE=Dockerfile.whispercpp/g' .env
         echo "VERSION=${{ github.sha }}" >> .env
         cp config/whisper.json.testing config/whisper.json
         echo "{}" > config/notifications.json
         docker compose build
-        docker compose up -d --quiet-pull
+        docker compose up -d --quiet-pull --ansi never
         docker compose exec api python3 -m unittest -k tests.integration
     - name: Build and push
       if: github.ref == 'refs/heads/main'
@@ -74,21 +73,17 @@ jobs:
     strategy:
       matrix:
         # GPU variants
-        model: ["base.en", "small.en", "medium.en", "large"]
+        model: ["small.en", "medium.en", "large"]
         platform: ["linux/amd64"]
         desired_cuda: ["cu117"]
         # desired_cuda: ["cu116", "cu117"]
         dockerfile: ["Dockerfile.whisper"]
         # CPU variants
         include:
-          - model: tiny.en
+          - model: small.en
             platform: linux/amd64
             desired_cuda: cpu
             dockerfile: Dockerfile.whisper
-          - model: base.en
-            platform: linux/amd64
-            desired_cuda: cpu-cpp
-            dockerfile: Dockerfile.whispercpp
           - model: small.en
             platform: linux/amd64
             desired_cuda: cpu-cpp
@@ -101,6 +96,10 @@ jobs:
             platform: linux/amd64
             desired_cuda: cpu-cpp
             dockerfile: Dockerfile.whispercpp
+          - model: small.en
+            platform: linux/amd64
+            desired_cuda: fw
+            dockerfile: Dockerfile.fasterwhisper
           - model: medium.en
             platform: linux/amd64
             desired_cuda: fw
@@ -124,7 +123,8 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
     - name: Build and test image
-      if: matrix.model != 'large' && matrix.model != 'large-v2'
+      # Only test the small.en model, and do not run builds where we expect a GPU
+      if: matrix.model != 'small.en' && matrix.desired_cuda != 'cu117'
       run: |
         cp .env.example .env
         sed -i 's/^COMPOSE_FILE=docker-compose.yml:docker-compose.gpu.yml$/COMPOSE_FILE=docker-compose.yml/g' .env
@@ -135,7 +135,7 @@ jobs:
         cp config/whisper.json.testing config/whisper.json
         echo "{}" > config/notifications.json
         docker compose build
-        docker compose up -d --quiet-pull
+        docker compose up -d --quiet-pull --ansi never
         docker compose exec api python3 -m unittest -k tests.integration
     - name: Build and push
       uses: docker/build-push-action@v4
