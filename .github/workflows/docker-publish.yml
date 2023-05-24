@@ -43,18 +43,18 @@ jobs:
         registry: ${{ env.REGISTRY }}
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
-    - name: Build and test image
-      run: |
-        cp .env.example .env
-        sed -i 's/^COMPOSE_FILE=docker-compose.yml:docker-compose.gpu.yml$/COMPOSE_FILE=docker-compose.yml/g' .env
-        sed -i 's/^DESIRED_CUDA=cu117$/DESIRED_CUDA=cpu-cpp/g' .env
-        sed -i 's/^# WORKER_DOCKERFILE=Dockerfile.whispercpp$/WORKER_DOCKERFILE=Dockerfile.whispercpp/g' .env
-        echo "VERSION=${{ github.sha }}" >> .env
-        cp config/whisper.json.testing config/whisper.json
-        echo "{}" > config/notifications.json
-        docker compose build
-        docker compose up -d --quiet-pull --ansi never
-        docker compose exec api python3 -m unittest -k tests.integration
+    - name: Build image
+      if: github.ref != 'refs/heads/main'
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        load: true
+        tags: "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+        platforms: ${{ matrix.platform }}
+        build-args: |
+          GIT_COMMIT=${{ github.sha }}
+        cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+        cache-to: type=inline
     - name: Build and push
       if: github.ref == 'refs/heads/main'
       uses: docker/build-push-action@v4
@@ -134,8 +134,8 @@ jobs:
         echo "VERSION=${{ github.sha }}" >> .env
         cp config/whisper.json.testing config/whisper.json
         echo "{}" > config/notifications.json
-        docker compose build
-        docker compose up -d --quiet-pull --ansi never
+        docker compose --ansi never build
+        docker compose --ansi never up -d --quiet-pull
         docker compose exec api python3 -m unittest -k tests.integration
     - name: Build and push
       uses: docker/build-push-action@v4
