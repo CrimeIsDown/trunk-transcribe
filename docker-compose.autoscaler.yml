@@ -6,6 +6,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      cache_from:
+        - ghcr.io/crimeisdown/trunk-transcribe:main
     command:
       - bin/autoscale-vast.py
       - --min-instances

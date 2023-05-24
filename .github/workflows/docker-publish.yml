@@ -43,18 +43,7 @@ jobs:
         registry: ${{ env.REGISTRY }}
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
-    - name: Build and export to Docker
-      uses: docker/build-push-action@v4
-      with:
-        context: .
-        load: true
-        tags: "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
-        platforms: ${{ matrix.platform }}
-        build-args: |
-          GIT_COMMIT=${{ github.sha }}
-        cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:main
-        cache-to: type=inline
-    - name: Test image
+    - name: Build and test image
       run: |
         cp .env.example .env
         sed -i 's/^COMPOSE_FILE=docker-compose.yml:docker-compose.gpu.yml$/COMPOSE_FILE=docker-compose.yml/g' .env
@@ -63,6 +52,7 @@ jobs:
         echo "VERSION=${{ github.sha }}" >> .env
         cp config/whisper.json.testing config/whisper.json
         echo "{}" > config/notifications.json
+        docker compose build
         docker compose up -d
         docker compose exec api python3 -m unittest -k tests.integration
     - name: Build and push
@@ -132,29 +122,17 @@ jobs:
         registry: ${{ env.REGISTRY }}
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
-    - name: Build and export to Docker
-      uses: docker/build-push-action@v4
-      with:
-        context: .
-        file: ${{ matrix.dockerfile }}
-        load: true
-        tags: "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}-${{ matrix.model }}-${{ matrix.desired_cuda }}"
-        platforms: ${{ matrix.platform }}
-        build-args: |
-          WHISPER_MODEL=${{ matrix.model }}
-          DESIRED_CUDA=${{ matrix.desired_cuda }}
-          GIT_COMMIT=${{ github.sha }}
-        cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:main-${{ matrix.model }}-${{ matrix.desired_cuda }}
-        cache-to: type=inline
-    - name: Test image
+    - name: Build and test image
       run: |
         cp .env.example .env
         sed -i 's/^COMPOSE_FILE=docker-compose.yml:docker-compose.gpu.yml$/COMPOSE_FILE=docker-compose.yml/g' .env
         sed -i 's/^WHISPER_MODEL=small.en$/WHISPER_MODEL=${{ matrix.model }}/g' .env
         sed -i 's/^DESIRED_CUDA=cu117$/DESIRED_CUDA=${{ matrix.desired_cuda }}/g' .env
+        sed -i 's/^# WORKER_DOCKERFILE=Dockerfile.whisper$/WORKER_DOCKERFILE=${{ matrix.dockerfile }}/g' .env
         echo "VERSION=${{ github.sha }}" >> .env
         cp config/whisper.json.testing config/whisper.json
         echo "{}" > config/notifications.json
+        docker compose build
         docker compose up -d
         docker compose exec api python3 -m unittest -k tests.integration
     - name: Build and push
