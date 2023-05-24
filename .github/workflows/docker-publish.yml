@@ -63,7 +63,8 @@ jobs:
         echo "VERSION=${{ github.sha }}" >> .env
         cp config/whisper.json.testing config/whisper.json
         echo "{}" > config/notifications.json
-        make test
+        docker compose up -d
+        docker compose exec api python3 -m unittest -k tests.integration
     - name: Build and push
       if: github.ref == 'refs/heads/main'
       uses: docker/build-push-action@v4
@@ -154,7 +155,8 @@ jobs:
         echo "VERSION=${{ github.sha }}" >> .env
         cp config/whisper.json.testing config/whisper.json
         echo "{}" > config/notifications.json
-        make test
+        docker compose up -d
+        docker compose exec api python3 -m unittest -k tests.integration
     - name: Build and push
       uses: docker/build-push-action@v4
       if: github.ref == 'refs/heads/main'
