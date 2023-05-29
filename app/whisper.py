@@ -130,10 +130,10 @@ class WhisperCpp:
         if initial_prompt:
             args += ["--prompt", initial_prompt]
 
-        if decode_options["best_of"]:
+        if "best_of" in decode_options and decode_options["best_of"]:
             args += ["--best-of", str(decode_options["best_of"])]
 
-        if decode_options["beam_size"]:
+        if "beam_size" in decode_options and decode_options["beam_size"]:
             args += ["--beam-size", str(decode_options["beam_size"])]
 
         args.append(audio)
