@@ -4,6 +4,7 @@ import re
 from datetime import datetime
 from sys import platform
 from time import time
+import requests
 
 import pytz
 from apprise import Apprise, AppriseAttachment, NotifyFormat
