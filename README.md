@@ -20,7 +20,13 @@ This is experimental alpha-version software, use at your own risk. Expect breaki
 
 ## Getting Started
 
-Prerequsites: You should have Docker and Docker Compose installed, as well as the appropriate CUDA drivers if using a GPU for OpenAI Whisper.
+*Prerequsites:*
+
+- Docker and Docker Compose should be installed
+- If using a GPU for OpenAI Whisper, also install the appropriate CUDA drivers (CUDA 11.7 currently supported)
+- For Windows users running the worker: install [ffmpeg](https://www.gyan.dev/ffmpeg/builds/) and [sox](https://sourceforge.net/projects/sox/). Make sure these are added to your Windows PATH so they can be called directly from Python.
+
+*Setup process:*
 
 1. Clone repo
 1. Copy `.env.example` to `.env` and set values
@@ -40,6 +46,8 @@ Prerequsites: You should have Docker and Docker Compose installed, as well as th
     Additionally, make sure the systems are configured with a `talkgroupsFile`/`channelFile` and `unitTagsFile` so that the metadata sent to trunk-transcribe is complete with talkgroup/channel and unit names. You will be able to search on this metadata.
 
 You can access a basic search page showing the calls at http://localhost:7700 (when prompted for an API key, enter the value of MEILI_MASTER_KEY in your .env). A custom search interface can also be built using the [Meilisearch API](https://docs.meilisearch.com/learn/getting_started/quick_start.html) and/or [InstantSearch.js](https://github.com/meilisearch/instant-meilisearch). This software may come with a customized search interface at a later date.
+
+**To use the same interface as on [CrimeIsDown.com](https://crimeisdown.com/transcripts/search):** Go to [crimeisdown.com/settings](https://crimeisdown.com/settings) and update the `MEILISEARCH_URL` to http://localhost:7700 or whatever your publicly accessible URL is. Next, update `MEILISEARCH_KEY` to match the key in your `.env` file. Third, if using a different index name, update `MEILISEARCH_INDEX` to that index name. After doing all those updates, you should be able to return to the transcript search page and have it talk to your local copy instead.
 
 There are numerous `docker-compose.*.yml` files in this repo for various configurations of the different components. Add `COMPOSE_FILE=` to your `.env` with the value being a list of docker-compose configurations separated by `:`, see `.env.example` for some common ones.
 
@@ -61,6 +69,7 @@ You may also want to set `CELERY_CONCURRENCY` to a higher number since the GPU i
 
 The worker can be run on Windows if needed.
 
+1. Make sure you have the ffmpeg and sox prerequisites installed, per the getting started section.
 1. Follow steps 1-3 in the earlier getting started section to setup the repo and configuration.
 1. Make a Python virtualenv in the repo:
 

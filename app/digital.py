@@ -32,7 +32,7 @@ def extract_src_audio(
     trim_call.check_returncode()
 
     length_call = subprocess.run(
-        ["soxi", "-D", src_file], text=True, stdout=subprocess.PIPE
+        ["sox", "--i", "-D", src_file], text=True, stdout=subprocess.PIPE
     )
     length_call.check_returncode()
     if float(length_call.stdout) < 1:
