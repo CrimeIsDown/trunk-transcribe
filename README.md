@@ -20,7 +20,13 @@ This is experimental alpha-version software, use at your own risk. Expect breaki
 
 ## Getting Started
 
-Prerequsites: You should have Docker and Docker Compose installed, as well as the appropriate CUDA drivers if using a GPU for OpenAI Whisper.
+*Prerequsites:*
+
+- Docker and Docker Compose should be installed
+- If using a GPU for OpenAI Whisper, also install the appropriate CUDA drivers (CUDA 11.7 currently supported)
+- For Windows users running the worker: install [ffmpeg](https://www.gyan.dev/ffmpeg/builds/) and [sox](https://sourceforge.net/projects/sox/). Make sure these are added to your Windows PATH so they can be called directly from Python.
+
+*Setup process:*
 
 1. Clone repo
 1. Copy `.env.example` to `.env` and set values
@@ -61,6 +67,7 @@ You may also want to set `CELERY_CONCURRENCY` to a higher number since the GPU i
 
 The worker can be run on Windows if needed.
 
+1. Make sure you have the ffmpeg and sox prerequisites installed, per the getting started section.
 1. Follow steps 1-3 in the earlier getting started section to setup the repo and configuration.
 1. Make a Python virtualenv in the repo:
 
