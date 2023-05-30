@@ -5,6 +5,7 @@ from app.metadata import SrcListItem
 
 RawTranscript: TypeAlias = list[Tuple[Union[None, SrcListItem], str]]
 
+
 # TODO: write tests
 class Transcript:
     transcript: RawTranscript

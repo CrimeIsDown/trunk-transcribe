@@ -180,11 +180,9 @@ class NotifyTelegram(NotifyTelegramBase):
             payload["text"] = body
 
         else:  # HTML
-
             # Use Telegram's HTML mode
             payload["parse_mode"] = "HTML"
             for r, v, m in self.__telegram_escape_html_entries:
-
                 if "html" in m:
                     # Handle special cases where we need to alter new lines
                     # for presentation purposes
@@ -234,7 +232,6 @@ class NotifyTelegram(NotifyTelegramBase):
                 # Send our attachments now (if specified and if it exists)
                 for attachment in attach:
                     if not self.send_media(payload, notify_type, attach=attachment):
-
                         # We failed; don't continue
                         has_error = True
                         break
