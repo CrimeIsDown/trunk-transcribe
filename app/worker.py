@@ -68,7 +68,10 @@ def task_prerun(**kwargs):
         ]
     ):
         logging.fatal("Exceeded job failure threshold, exiting...\n" + str(task_counts))
-        os.kill(os.getppid(), signal.SIGQUIT if hasattr(signal, "SIGQUIT") else signal.SIGTERM)
+        os.kill(
+            os.getppid(),
+            signal.SIGQUIT if hasattr(signal, "SIGQUIT") else signal.SIGTERM,
+        )
 
 
 @signals.task_postrun.connect
