@@ -206,7 +206,7 @@ def create_or_update_index(
     logging.info(f"Updating settings: {str(desired_settings)}")
     task = index.update_settings(desired_settings)
     logging.info(f"Waiting for settings update task {task.task_uid} to complete...")
-    while client.get_task(task.task_uid)["status"] not in [
+    while client.get_task(task.task_uid).status not in [
         "succeeded",
         "failed",
         "canceled",

@@ -10,9 +10,9 @@ packages = [{include = "app"}]
 python = "^3.10"
 boto3 = "^1.26"
 boto3-stubs = "^1.26"
-celery = {version = "^5.3b1", allow-prereleases = true}
+celery = "^5.3"
 fastapi = "^0.89"
-flower = "^1.2"
+flower = "^2.0"
 meilisearch = "^0"
 python-dotenv = "^0"
 python-multipart = "^0"
