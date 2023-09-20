@@ -183,7 +183,7 @@ def process_call(call: dict, short_name: str, jar):
     logging.debug(metadata)
 
     extension = call["enc"] if call["enc"] else "m4a"
-    url = f"https://calls.broadcastify.com/{call['systemId']}/{call['filename']}.{extension}"
+    url = f"https://calls.broadcastify.com/{call['hash']}/{call['systemId']}/{call['filename']}.{extension}"
     logging.debug(f"Downloading {url}")
     with requests.get(url, cookies=jar, stream=True, timeout=10) as r:
         r.raise_for_status()
