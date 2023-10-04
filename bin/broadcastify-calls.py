@@ -82,7 +82,9 @@ def bcfy_login(redirect_path: str):
     return r.cookies
 
 
-def process_calls(short_name: str, systemId: int = 0, sid: int = 0, onlyTalkgroups: list[int] = []):
+def process_calls(
+    short_name: str, systemId: int = 0, sid: int = 0, onlyTalkgroups: list[int] = []
+):
     request_time = time.time()
     pos = request_time - GET_NEW_CALLS_INTERVAL
     sessionKey = str(uuid4())[:13]
@@ -125,7 +127,8 @@ def process_calls(short_name: str, systemId: int = 0, sid: int = 0, onlyTalkgrou
                     process_call(call, short_name, jar)
                 except Exception as e:
                     logging.error(
-                        f"Got exception while trying to process call: {repr(e)}", exc_info=e
+                        f"Got exception while trying to process call: {repr(e)}",
+                        exc_info=e,
                     )
 
         # If it took less than 5s to process calls, wait up to 5s
@@ -256,9 +259,14 @@ if __name__ == "__main__":
         for item in args.talkgroups.split(","):
             if "-" in item:
                 bounds = item.split("-")
-                for i in range(int(bounds[0]), int(bounds[1])+1):
+                for i in range(int(bounds[0]), int(bounds[1]) + 1):
                     onlyTalkgroups.append(i)
             else:
                 onlyTalkgroups.append(int(item))
 
-    process_calls(short_name=args.short_name, systemId=args.node_id, sid=args.system_id, onlyTalkgroups=onlyTalkgroups)
+    process_calls(
+        short_name=args.short_name,
+        systemId=args.node_id,
+        sid=args.system_id,
+        onlyTalkgroups=onlyTalkgroups,
+    )

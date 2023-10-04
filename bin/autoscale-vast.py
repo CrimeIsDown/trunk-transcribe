@@ -11,27 +11,29 @@ from math import floor
 from statistics import mean
 from threading import Thread
 
+from celery import Celery
+from flower.utils.broker import Broker
 import requests
 import sentry_sdk
 from dotenv import dotenv_values, load_dotenv
 
 load_dotenv()
 
-sentry_dsn = os.getenv("SENTRY_DSN")
-if sentry_dsn:
-    sentry_sdk.init(
-        dsn=sentry_dsn,
-        release=os.getenv("GIT_COMMIT"),
-        # Set traces_sample_rate to 1.0 to capture 100%
-        # of transactions for performance monitoring.
-        # We recommend adjusting this value in production.
-        traces_sample_rate=float(os.getenv("SENTRY_TRACE_SAMPLE_RATE", "0.1")),
-        _experiments={
-            "profiles_sample_rate": float(
-                os.getenv("SENTRY_PROFILE_SAMPLE_RATE", "0.1")
-            ),
-        },
-    )
+# sentry_dsn = os.getenv("SENTRY_DSN")
+# if sentry_dsn:
+#     sentry_sdk.init(
+#         dsn=sentry_dsn,
+#         release=os.getenv("GIT_COMMIT"),
+#         # Set traces_sample_rate to 1.0 to capture 100%
+#         # of transactions for performance monitoring.
+#         # We recommend adjusting this value in production.
+#         traces_sample_rate=float(os.getenv("SENTRY_TRACE_SAMPLE_RATE", "0.1")),
+#         _experiments={
+#             "profiles_sample_rate": float(
+#                 os.getenv("SENTRY_PROFILE_SAMPLE_RATE", "0.1")
+#             ),
+#         },
+#     )
 
 
 DEFAULT_MIN_INSTANCES = 1
@@ -96,35 +98,38 @@ class Autoscaler:
             )
         ]
 
+    def _get_celery_client(self) -> Celery:
+        broker_url = os.getenv("CELERY_BROKER_URL")
+        result_backend = os.getenv("CELERY_RESULT_BACKEND")
+        return Celery(
+            "worker",
+            broker=broker_url,
+            backend=result_backend,
+            task_cls="app.whisper:WhisperTask",
+            task_acks_late=True,
+            worker_cancel_long_running_tasks_on_connection_loss=True,
+            worker_prefetch_multiplier=1,
+            timezone="UTC",
+        )
+
     def get_worker_status(self) -> list[dict]:
-        url = f'{os.getenv("FLOWER_URL")}/api/workers'
-        # Get all workers
-        r = requests.get(url, params={"refresh": True}, timeout=5)
-        r.raise_for_status()
-        workers = r.json()
-        # Get the status of each worker
-        r = requests.get(url, params={"status": True}, timeout=5)
-        r.raise_for_status()
+        workers = []
+        for name, stats in (
+            self._get_celery_client().control.inspect(timeout=10).stats().items()
+        ):
+            # If this was one of our pending instances, remove it from the list
+            if name in self.pending_instances:
+                del self.pending_instances[name]
+            worker = {"name": name, "stats": stats}
+            workers.append(worker)
+        return workers
 
-        online_workers = []
-        for name, online in r.json().items():
-            if online:
-                # If this was one of our pending instances, remove it from the list
-                if name in self.pending_instances:
-                    del self.pending_instances[name]
-                # Assuming we have the corresponding worker details, add the worker to our list
-                if name in workers:
-                    workers[name]["name"] = name
-                    online_workers.append(workers[name])
-        # Return info for only the workers that are online
-        return online_workers
-
-    def get_queue_status(self) -> list[dict]:
-        flower_baseurl = os.getenv("FLOWER_URL")
-        url = f"{flower_baseurl}/api/queues/length"
+    def get_queue_status(self) -> dict:
+        broker_api = os.getenv("FLOWER_BROKER_API")
+        url = f"{broker_api}queues/%2F/transcribe"
         r = requests.get(url, timeout=5)
         r.raise_for_status()
-        return r.json()["active_queues"]
+        return r.json()
 
     @lru_cache()
     def get_git_commit(self) -> str:
@@ -330,7 +335,7 @@ class Autoscaler:
 
     def calculate_utilization(self):
         workers = self.get_worker_status()
-        queues = self.get_queue_status()
+        queue = self.get_queue_status()
 
         # Calculate the total number of worker processes online
         max_capacity = sum(
@@ -343,16 +348,12 @@ class Autoscaler:
         # Calculate the total number of worker processes we will be creating
         pending_capacity = sum(self.pending_instances.values())
         total_capacity = max_capacity + pending_capacity
-        processing = sum(
-            [len(worker["active"]) for worker in workers if "active" in worker]
-        )
-        queued = sum([queue["messages"] for queue in queues if "messages" in queue])
-        jobs = processing + queued
+        queued = queue["messages"] if "messages" in queue else 0
         # Use our job count if we have no capacity to determine what to do
-        utilization = jobs / total_capacity if total_capacity else jobs
+        utilization = queued / total_capacity if total_capacity else queued
 
         logging.debug(
-            f"Calculated utilization {utilization:.2f} = {processing} active jobs + {queued} queued jobs / {max_capacity} processes + {pending_capacity} pending processes"
+            f"Calculated utilization {utilization:.2f} = {queued} queued jobs / {max_capacity} processes + {pending_capacity} pending processes"
         )
 
         return utilization
