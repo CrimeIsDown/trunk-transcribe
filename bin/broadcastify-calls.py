@@ -82,7 +82,7 @@ def bcfy_login(redirect_path: str):
     return r.cookies
 
 
-def process_calls(short_name: str, systemId: int = 0, sid: int = 0):
+def process_calls(short_name: str, systemId: int = 0, sid: int = 0, onlyTalkgroups: list[int] = []):
     request_time = time.time()
     pos = request_time - GET_NEW_CALLS_INTERVAL
     sessionKey = str(uuid4())[:13]
@@ -120,12 +120,13 @@ def process_calls(short_name: str, systemId: int = 0, sid: int = 0):
 
         logging.debug(f"Processing {len(calls)} calls")
         for call in calls:
-            try:
-                process_call(call, short_name, jar)
-            except Exception as e:
-                logging.error(
-                    f"Got exception while trying to process call: {repr(e)}", exc_info=e
-                )
+            if len(onlyTalkgroups) == 0 or call["call_tg"] in onlyTalkgroups:
+                try:
+                    process_call(call, short_name, jar)
+                except Exception as e:
+                    logging.error(
+                        f"Got exception while trying to process call: {repr(e)}", exc_info=e
+                    )
 
         # If it took less than 5s to process calls, wait up to 5s
         execution_time = time.time() - request_time
@@ -235,6 +236,12 @@ if __name__ == "__main__":
         required=True,
         help="Short name to use",
     )
+    parser.add_argument(
+        "--talkgroups",
+        type=str,
+        metavar="TGIDS",
+        help="Comma seperated list or range of talkgroups to limit uploads to",
+    )
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO)
@@ -243,4 +250,14 @@ if __name__ == "__main__":
         logging.error("You must specify either a node ID or a system ID")
         sys.exit(1)
 
-    process_calls(short_name=args.short_name, systemId=args.node_id, sid=args.system_id)
+    onlyTalkgroups = []
+    if args.talkgroups:
+        for item in args.talkgroups.split(","):
+            if "-" in item:
+                bounds = item.split("-")
+                for i in range(int(bounds[0]), int(bounds[1])+1):
+                    onlyTalkgroups.append(i)
+            else:
+                onlyTalkgroups.append(int(item))
+
+    process_calls(short_name=args.short_name, systemId=args.node_id, sid=args.system_id, onlyTalkgroups=onlyTalkgroups)
