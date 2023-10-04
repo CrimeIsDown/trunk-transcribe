@@ -142,6 +142,7 @@ def process_calls(short_name: str, systemId: int = 0, sid: int = 0, onlyTalkgrou
 def process_call(call: dict, short_name: str, jar):
     if "metadata" in call:
         metadata = call["metadata"]
+        metadata["short_name"] = short_name
     else:
         freq = int(call["call_freq"] * 1e6)
 
