@@ -60,7 +60,9 @@ def update_srclist(
     return metadata, transcript
 
 
-def update_document(document: MeiliDocument) -> search.Document:
+def update_document(document: MeiliDocument, reuse: bool = False) -> search.Document:
+    if reuse:
+        return dict(document)["_Document__doc"]
     metadata: Metadata = json.loads(document.raw_metadata)
     transcript = Transcript(json.loads(document.raw_transcript))
     if UNIT_TAGS.get(metadata["short_name"]):
@@ -95,22 +97,23 @@ def retranscribe(index: Index, documents: list[search.Document]) -> list[AsyncRe
 def get_documents(
     index: Index, pagination: dict, search: dict | None = None
 ) -> Tuple[int, list[MeiliDocument]]:
+    opts = pagination
     if search:
-        if "q" not in search:
-            search["q"] = ""
-        query = search["q"]
-        # Merge the two dicts via copying
-        opts = {**search, **pagination}
-        # Delete it from opts, not search, so we don't modify the original dict
-        del opts["q"]
-        # Perform the search and process results into the same format as index.get_documents()
-        results = index.search(query, opts)
-        return results["estimatedTotalHits"], [
-            MeiliDocument(hit) for hit in results["hits"]
-        ]
-    else:
-        results = index.get_documents(pagination)
-        return results.total, results.results
+        opts.update(search)
+
+        if "q" in search:
+            query = search["q"]
+            # Delete it from opts, not search, so we don't modify the original dict which gets reused
+            del opts["q"]
+
+            # Perform the search and process results into the same format as index.get_documents()
+            results = index.search(query, opts)
+            return results["estimatedTotalHits"], [
+                MeiliDocument(hit) for hit in results["hits"]
+            ]
+
+    results = index.get_documents(opts)
+    return results.total, results.results
 
 
 if __name__ == "__main__":
@@ -138,6 +141,11 @@ if __name__ == "__main__":
         help="Meilisearch index to read from, will write to the index specified by --index",
     )
     parser.add_argument(
+        "--no-rebuild",
+        action="store_true",
+        help="Use existing documents in the index instead of rebuilding them",
+    )
+    parser.add_argument(
         "--filter",
         type=str,
         default="True",
@@ -150,7 +158,7 @@ if __name__ == "__main__":
         type=json.loads,
         help="JSON string representing the search query to perform to find matching documents, instead of fetching all"
         + "\n"
-        + 'Examples: `{ "q": "some search" }`, `{"q": "", "filter": [["talkgroup = 1", "talkgroup = 2"], "radios = 12345"]}`',
+        + 'Examples: `{ "q": "some search" }`, `{"filter": [["talkgroup = 1", "talkgroup = 2"], "radios = 12345"]}`',
     )
     parser.add_argument(
         "--retranscribe",
@@ -206,13 +214,13 @@ if __name__ == "__main__":
 
     action = "re-transcribed" if args.retranscribe else "re-indexed"
 
-    while offset < total or (args.search and total > 0):
+    while offset < total or ("q" in args.search and total > 0):
         total, docs = get_documents(
             source_index or index, {"offset": offset, "limit": limit}, args.search
         )
-        if args.search and total == 0:
+        if "q" in args.search and total == 0:
             break
-        elif not args.search:
+        elif not "q" in args.search:
             offset += limit
 
         completion = min((offset / total) * 100, 100)
@@ -229,7 +237,10 @@ if __name__ == "__main__":
                 ),
             )
             docs_to_add = list(
-                filter(lambda doc: doc is not None, map(update_document, documents))
+                filter(
+                    lambda doc: doc is not None,
+                    map(lambda d: update_document(d, reuse=args.no_rebuild), documents),
+                )
             )
             updated_documents += docs_to_add
             logging.info(f"Added {len(docs_to_add)} documents to be indexed")
@@ -254,12 +265,16 @@ if __name__ == "__main__":
                     retranscribe(index, updated_documents)
                 else:
                     # Only send the updated docs to be reindexed when we have a big enough batch
-                    if len(updated_documents) >= 1000 or offset >= total or args.search:
+                    if (
+                        len(updated_documents) >= 1000
+                        or offset >= total
+                        or "q" in args.search
+                    ):
                         logging.info(
                             f"Waiting for {len(updated_documents)} documents to be {action}"
                         )
                         task = reindex(index, updated_documents)
-                        while client.get_task(task.task_uid)["status"] not in [
+                        while client.get_task(task.task_uid).status not in [
                             "succeeded",
                             "failed",
                             "canceled",

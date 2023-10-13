@@ -32,13 +32,14 @@ class Document(SearchableMetadata):
     geo_formatted_address: str
 
 
-def get_client() -> Client:  # pragma: no cover
-    global client
-    if not client:
+def get_client(
+    url: str | None = None, api_key: str | None = None
+) -> Client:  # pragma: no cover
+    if not url:
         url = os.getenv("MEILI_URL", "http://127.0.0.1:7700")
+    if not api_key:
         api_key = os.getenv("MEILI_MASTER_KEY")
-        client = Client(url=url, api_key=api_key)
-    return client
+    return Client(url=url, api_key=api_key)
 
 
 def get_default_index_name() -> str:  # pragma: no cover
@@ -46,7 +47,13 @@ def get_default_index_name() -> str:  # pragma: no cover
 
 
 def get_index(index_name: str) -> Index:  # pragma: no cover
-    client = get_client()
+    if "@" in index_name:
+        parts = index_name.split("@")
+        index_name = parts[0]
+        url = parts[1]
+        client = get_client(url)
+    else:
+        client = get_client()
     index = client.index(index_name)
     try:
         index.fetch_info()
