@@ -114,14 +114,14 @@ class Autoscaler:
 
     def get_worker_status(self) -> list[dict]:
         workers = []
-        for name, stats in (
-            self._get_celery_client().control.inspect(timeout=10).stats().items()
-        ):
-            # If this was one of our pending instances, remove it from the list
-            if name in self.pending_instances:
-                del self.pending_instances[name]
-            worker = {"name": name, "stats": stats}
-            workers.append(worker)
+        result = self._get_celery_client().control.inspect(timeout=10).stats().items()
+        if result:
+            for name, stats in result.items():
+                # If this was one of our pending instances, remove it from the list
+                if name in self.pending_instances:
+                    del self.pending_instances[name]
+                worker = {"name": name, "stats": stats}
+                workers.append(worker)
         return workers
 
     def get_queue_status(self) -> dict:
