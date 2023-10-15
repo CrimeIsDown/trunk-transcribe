@@ -13,6 +13,15 @@ from app.conversion import convert_to_mp3
 from app.metadata import Metadata
 
 
+def should_use_base64() -> bool:
+    return not (
+        os.getenv("S3_ENDPOINT")
+        and os.getenv("AWS_ACCESS_KEY_ID")
+        and os.getenv("AWS_SECRET_ACCESS_KEY")
+        and os.getenv("S3_BUCKET")
+    )
+
+
 @lru_cache()
 def get_storage_client():
     return boto3.resource(
@@ -46,12 +55,7 @@ def upload_raw_audio(metadata: Metadata, audio_file: str) -> str:
     )
 
     mp3 = convert_to_mp3(audio_file, metadata)
-    if not (
-        os.getenv("S3_ENDPOINT")
-        and os.getenv("AWS_ACCESS_KEY_ID")
-        and os.getenv("AWS_SECRET_ACCESS_KEY")
-        and os.getenv("S3_BUCKET")
-    ):
+    if should_use_base64():
         logging.error(
             "Not all S3 bucket environment variables defined, cannot upload audio. Returning base64 instead."
         )

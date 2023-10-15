@@ -134,3 +134,4 @@ dmypy.json
 # Custom
 docker-compose.override.yml
 config/*.json
+bin/scratch

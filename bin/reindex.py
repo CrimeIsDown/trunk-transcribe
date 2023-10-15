@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 
 import argparse
+from base64 import b64decode
 import csv
 import json
 import logging
 import os
 import re
 from functools import lru_cache
+import tempfile
 from time import sleep
 from typing import Tuple, TypedDict
 
@@ -15,6 +17,8 @@ from dotenv import load_dotenv
 from meilisearch.index import Index
 from meilisearch.models.document import Document as MeiliDocument
 from meilisearch.models.task import TaskInfo
+
+from app import storage
 
 # Load the .env file of our choice if specified before the regular .env can load
 load_dotenv(os.getenv("ENV"))
@@ -60,16 +64,30 @@ def update_srclist(
     return metadata, transcript
 
 
+def update_audio_url(metadata: Metadata, raw_audio_url: str) -> str:
+    b64_prefix = "data:audio/mpeg;base64,"
+    if raw_audio_url.startswith(b64_prefix) and not storage.should_use_base64():
+        with tempfile.NamedTemporaryFile(suffix=f".mp3") as mp3file:
+            mp3file.write(b64decode(raw_audio_url[len(b64_prefix) :]))
+            return storage.upload_raw_audio(metadata, mp3file.name)
+    return raw_audio_url
+
+
 def update_document(document: MeiliDocument, reuse: bool = False) -> search.Document:
     if reuse:
         return dict(document)["_Document__doc"]
+
     metadata: Metadata = json.loads(document.raw_metadata)
     transcript = Transcript(json.loads(document.raw_transcript))
+
     if UNIT_TAGS.get(metadata["short_name"]):
         metadata, transcript = update_srclist(metadata, transcript)
+
+    raw_audio_url = update_audio_url(metadata, document.raw_audio_url)
+
     return search.build_document(
         metadata,
-        document.raw_audio_url,
+        raw_audio_url,
         transcript,
         id=document.id,
     )
@@ -214,13 +232,13 @@ if __name__ == "__main__":
 
     action = "re-transcribed" if args.retranscribe else "re-indexed"
 
-    while offset < total or ("q" in args.search and total > 0):
+    while offset < total or (args.search and "q" in args.search and total > 0):
         total, docs = get_documents(
             source_index or index, {"offset": offset, "limit": limit}, args.search
         )
-        if "q" in args.search and total == 0:
+        if args.search and "q" in args.search and total == 0:
             break
-        elif not "q" in args.search:
+        elif not args.search or not "q" in args.search:
             offset += limit
 
         completion = min((offset / total) * 100, 100)
