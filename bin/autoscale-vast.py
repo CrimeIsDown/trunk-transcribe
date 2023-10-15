@@ -114,7 +114,7 @@ class Autoscaler:
 
     def get_worker_status(self) -> list[dict]:
         workers = []
-        result = self._get_celery_client().control.inspect(timeout=10).stats().items()
+        result = self._get_celery_client().control.inspect(timeout=10).stats()
         if result:
             for name, stats in result.items():
                 # If this was one of our pending instances, remove it from the list
