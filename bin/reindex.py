@@ -286,7 +286,7 @@ if __name__ == "__main__":
                     if (
                         len(updated_documents) >= 1000
                         or offset >= total
-                        or "q" in args.search
+                        or (args.search and "q" in args.search)
                     ):
                         logging.info(
                             f"Waiting for {len(updated_documents)} documents to be {action}"
