@@ -179,6 +179,12 @@ if __name__ == "__main__":
         + 'Examples: `{ "q": "some search" }`, `{"filter": [["talkgroup = 1", "talkgroup = 2"], "radios = 12345"]}`',
     )
     parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=2000,
+        help="How many documents to fetch and update in a single request, defaults to 2000",
+    )
+    parser.add_argument(
         "--retranscribe",
         action="store_true",
         help="Re-transcribe the matching calls instead of just rebuilding the metadata and reindexing",
@@ -225,7 +231,7 @@ if __name__ == "__main__":
 
     total, _ = get_documents(source_index or index, {"limit": 1}, args.search)
     logging.info(f"Found {total} total documents")
-    limit = 2000
+    limit = args.batch_size
     offset = 0
     total_processed = 0
     updated_documents = []
@@ -284,7 +290,7 @@ if __name__ == "__main__":
                 else:
                     # Only send the updated docs to be reindexed when we have a big enough batch
                     if (
-                        len(updated_documents) >= 1000
+                        len(updated_documents) >= limit
                         or offset >= total
                         or (args.search and "q" in args.search)
                     ):
