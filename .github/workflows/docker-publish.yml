@@ -31,6 +31,9 @@ jobs:
       matrix:
         platform: ["linux/amd64"]
     steps:
+    # https://github.com/orgs/community/discussions/25678#discussioncomment-5242449
+    - name: Delete huge unnecessary tools folder
+      run: rm -rf /opt/hostedtoolcache
     - name: Checkout
       uses: actions/checkout@v3
     - name: Set up QEMU
