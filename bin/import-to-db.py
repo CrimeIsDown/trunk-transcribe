@@ -12,6 +12,8 @@ from dotenv import load_dotenv
 from meilisearch.index import Index
 from meilisearch.models.document import Document as MeiliDocument
 
+from app import db
+
 # Load the .env file of our choice if specified before the regular .env can load
 load_dotenv(os.getenv("ENV"))
 
@@ -41,7 +43,8 @@ def get_documents(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Transfer calls from Meilisearch to Postgres.", formatter_class=argparse.RawTextHelpFormatter
+        description="Transfer calls from Meilisearch to Postgres.",
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     parser.add_argument(
         "--index",
@@ -82,9 +85,11 @@ if __name__ == "__main__":
     limit = 2000
     offset = 0
 
-    with psycopg.connect(f"host={os.getenv('POSTGRES_HOST')} dbname={os.getenv('POSTGRES_DB')} user={os.getenv('POSTGRES_USER')} password={os.getenv('POSTGRES_PASSWORD')}") as conn:
+    with db.connect() as conn:
         with conn.cursor() as cursor:
-            with cursor.copy("COPY calls (raw_metadata, raw_audio_url, raw_transcript) FROM STDIN") as copy:
+            with cursor.copy(
+                "COPY calls (raw_metadata, raw_audio_url, raw_transcript) FROM STDIN"
+            ) as copy:
                 while offset < total or (args.search and total > 0):
                     try:
                         total, docs = get_documents(
@@ -103,6 +108,14 @@ if __name__ == "__main__":
                     if len(documents):
                         for doc in documents:
                             d = dict(doc)["_Document__doc"]
-                            copy.write_row((d["raw_metadata"], d["raw_audio_url"], d["raw_transcript"]))
+                            copy.write_row(
+                                (
+                                    d["raw_metadata"],
+                                    d["raw_audio_url"],
+                                    d["raw_transcript"],
+                                )
+                            )
 
-                    logging.info(f"{completion:.2f}% complete ({min(offset, total)}/{total})")
+                    logging.info(
+                        f"{completion:.2f}% complete ({min(offset, total)}/{total})"
+                    )

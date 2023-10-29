@@ -13,6 +13,7 @@ from datauri import DataURI
 from dotenv import load_dotenv
 from sentry_sdk.integrations.celery import CeleryIntegration
 
+from app import db
 from app.analog import transcribe_call as transcribe_analog
 from app.conversion import convert_to_wav
 from app.digital import transcribe_call as transcribe_digital
@@ -91,6 +92,7 @@ def task_unknown(**kwargs):
 def transcribe(
     model,
     model_lock,
+    db_conn,
     metadata: Metadata,
     audio_file: str,
     mp3_file: str,
@@ -111,6 +113,8 @@ def transcribe(
     except RuntimeError as e:
         return repr(e)
     logging.debug(transcript.json)
+
+    db.insert(db_conn, metadata, raw_audio_url, transcript)
 
     search_url = index_call(
         metadata, raw_audio_url, transcript, id, index_name=index_name
@@ -145,13 +149,15 @@ def transcribe_task(
 
         audio_file = convert_to_wav(mp3_file.name)
 
-        return transcribe(
-            transcribe_task.model,
-            transcribe_task.model_lock,
-            metadata,
-            audio_file,
-            mp3_file.name,
-            audio_url,
-            id,
-            index_name,
-        )
+        with transcribe_task.db_conn_pool.connection() as db_conn:
+            return transcribe(
+                transcribe_task.model,
+                transcribe_task.model_lock,
+                db_conn,
+                metadata,
+                audio_file,
+                mp3_file.name,
+                audio_url,
+                id,
+                index_name,
+            )
