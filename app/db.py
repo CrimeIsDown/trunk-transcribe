@@ -8,15 +8,19 @@ from app.metadata import Metadata
 from app.transcript import Transcript
 
 
+def is_setup() -> bool:
+    return build_connection_string() != "host= dbname= user= password="
+
+
 def build_connection_string() -> str:
     return " ".join(
         [
             f"{k}={v}"
             for k, v in {
-                "host": os.getenv("POSTGRES_HOST"),
-                "dbname": os.getenv("POSTGRES_DB"),
-                "user": os.getenv("POSTGRES_USER"),
-                "password": os.getenv("POSTGRES_PASSWORD"),
+                "host": os.getenv("POSTGRES_HOST", ""),
+                "dbname": os.getenv("POSTGRES_DB", ""),
+                "user": os.getenv("POSTGRES_USER", ""),
+                "password": os.getenv("POSTGRES_PASSWORD", ""),
             }.items()
         ]
     )

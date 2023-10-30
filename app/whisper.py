@@ -19,7 +19,7 @@ class WhisperTask(Task):
 
     @property
     def db_conn_pool(self):
-        if not self._db_conn_pool:
+        if not self._db_conn_pool and db.is_setup():
             self._db_conn_pool = db.create_pool()
         return self._db_conn_pool
 

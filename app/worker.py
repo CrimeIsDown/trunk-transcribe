@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from contextlib import contextmanager
 import logging
 import os
 import signal
@@ -114,7 +115,8 @@ def transcribe(
         return repr(e)
     logging.debug(transcript.json)
 
-    db.insert(db_conn, metadata, raw_audio_url, transcript)
+    if db_conn:
+        db.insert(db_conn, metadata, raw_audio_url, transcript)
 
     search_url = index_call(
         metadata, raw_audio_url, transcript, id, index_name=index_name
@@ -149,7 +151,12 @@ def transcribe_task(
 
         audio_file = convert_to_wav(mp3_file.name)
 
-        with transcribe_task.db_conn_pool.connection() as db_conn:
+        # Handle both cases where we may or may not have a DB connected
+        with (
+            transcribe_task.db_conn_pool.connection()
+            if transcribe_task.db_conn_pool
+            else contextmanager(lambda: iter([None]))()
+        ) as db_conn:
             return transcribe(
                 transcribe_task.model,
                 transcribe_task.model_lock,
