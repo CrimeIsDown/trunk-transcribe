@@ -7,13 +7,21 @@ from threading import Lock
 
 import openai
 
+import app.db as db
 from app.config import get_ttl_hash, get_whisper_config
 from app.task import Task
 
 
 class WhisperTask(Task):
+    _db_conn_pool = None
     _model = None
     model_lock = Lock()
+
+    @property
+    def db_conn_pool(self):
+        if not self._db_conn_pool and db.is_setup():
+            self._db_conn_pool = db.create_pool()
+        return self._db_conn_pool
 
     @property
     def model(self):

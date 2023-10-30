@@ -137,11 +137,14 @@ jobs:
         sed -i 's/^WHISPER_MODEL=small.en$/WHISPER_MODEL=${{ matrix.model }}/g' .env
         sed -i 's/^DESIRED_CUDA=cu117$/DESIRED_CUDA=${{ matrix.desired_cuda }}/g' .env
         sed -i 's/^# WORKER_DOCKERFILE=Dockerfile.whispercpp$/WORKER_DOCKERFILE=${{ matrix.dockerfile }}/g' .env
+        sed -i 's/^# POSTGRES/POSTGRES/g' .env
+        sed -i 's/^POSTGRES_PASSWORD=$/POSTGRES_PASSWORD=password/g' .env
         echo "VERSION=${{ github.sha }}" >> .env
         cp config/whisper.json.testing config/whisper.json
         echo "{}" > config/notifications.json
         docker compose --ansi never build
         docker compose --ansi never up -d --quiet-pull
+        docker compose --ansi never logs worker --no-log-prefix -f &
         docker compose exec api python3 -m unittest -k tests.integration
     - name: Build and push
       uses: docker/build-push-action@v4
