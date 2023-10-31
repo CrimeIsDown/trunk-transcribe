@@ -27,6 +27,7 @@ googlemaps = "^4.10.0"
 pygeocodio = "^1.2.0"
 python-datauri = "^1.1.0"
 psycopg = {extras = ["binary", "pool"], version = "^3.1.12"}
+sqlalchemy = "^2.0.22"
 
 
 [tool.poetry.group.dev.dependencies]

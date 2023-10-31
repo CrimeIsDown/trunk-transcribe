@@ -41,7 +41,7 @@ class TestEndToEnd(unittest.TestCase):
             call_json_path, "r"
         ) as call_json:
             r = requests.post(
-                url=f"{api_base_url}/tasks",
+                url=f"{api_base_url}/calls",
                 files={"call_audio": call_audio, "call_json": call_json},
                 timeout=5,
                 headers=headers,

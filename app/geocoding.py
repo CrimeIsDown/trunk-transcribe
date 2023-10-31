@@ -8,8 +8,8 @@ import sentry_sdk
 from geocodio import GeocodioClient
 from geocodio.exceptions import GeocodioDataError
 
-from app.metadata import Metadata
-from app.transcript import Transcript
+from .metadata import Metadata
+from .transcript import Transcript
 
 
 class Geo(TypedDict):
@@ -139,7 +139,7 @@ def geocode(address: str) -> GeoResponse | None:  # pragma: no cover
         return None
 
 
-def add_geo(doc: dict, metadata: Metadata, transcript: Transcript) -> dict:
+def lookup_geo(metadata: Metadata, transcript: Transcript) -> GeoResponse | None:
     if metadata["short_name"] in filter(
         lambda name: len(name), os.getenv("GEOCODING_ENABLED_SYSTEMS", "").split(",")
     ):
@@ -155,8 +155,4 @@ def add_geo(doc: dict, metadata: Metadata, transcript: Transcript) -> dict:
                         f"Got exception while geocoding: {repr(e)}", exc_info=e
                     )
                 if geo:
-                    break
-
-        if geo:
-            doc.update(geo)
-    return doc
+                    return geo

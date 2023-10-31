@@ -9,8 +9,8 @@ import boto3
 import pytz
 from botocore.config import Config
 
-from app.conversion import convert_to_mp3
-from app.metadata import Metadata
+from .conversion import convert_to_mp3
+from .metadata import Metadata
 
 
 def should_use_base64() -> bool:
