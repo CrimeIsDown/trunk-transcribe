@@ -66,7 +66,7 @@ def update_srclist(
 
 def update_audio_url(metadata: Metadata, raw_audio_url: str) -> str:
     b64_prefix = "data:audio/mpeg;base64,"
-    if raw_audio_url.startswith(b64_prefix) and not storage.should_use_base64():
+    if raw_audio_url.startswith(b64_prefix):
         with tempfile.NamedTemporaryFile(suffix=f".mp3") as mp3file:
             mp3file.write(b64decode(raw_audio_url[len(b64_prefix) :]))
             return storage.upload_raw_audio(metadata, mp3file.name)
