@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 from contextlib import contextmanager
+from hashlib import sha256
+import json
 import logging
 import os
 import signal
@@ -15,6 +17,7 @@ from datauri import DataURI
 from dotenv import load_dotenv
 from sentry_sdk.integrations.celery import CeleryIntegration
 
+
 load_dotenv()
 
 from . import api_client, schemas
@@ -23,6 +26,8 @@ from .conversion import convert_to_wav
 from .digital import transcribe_call as transcribe_digital
 from .geocoding import GeoResponse, lookup_geo
 from .metadata import Metadata
+from .notification import send_notifications
+from .search import index_call
 from .transcript import Transcript
 
 sentry_dsn = os.getenv("SENTRY_DSN")
@@ -117,8 +122,81 @@ def transcribe(
     return transcript, geo
 
 
+def transcribe_and_index(
+    model,
+    model_lock,
+    metadata: Metadata,
+    audio_file: str,
+    raw_audio_url: str,
+    id: str | None = None,
+    index_name: str | None = None,
+) -> str:
+    try:
+        if (
+            metadata["audio_type"] == "digital"
+            or metadata["audio_type"] == "digital tdma"
+        ):
+            transcript = transcribe_digital(model, model_lock, audio_file, metadata)
+        elif metadata["audio_type"] == "analog":
+            transcript = transcribe_analog(model, model_lock, audio_file)
+        else:
+            raise Reject(f"Audio type {metadata['audio_type']} not supported")
+    except RuntimeError as e:
+        return repr(e)
+    logging.debug(transcript.json)
+
+    geo = lookup_geo(metadata, transcript)
+
+    new_call = False
+    if not id:
+        raw_metadata = json.dumps(metadata)
+        id = sha256(raw_metadata.encode("utf-8")).hexdigest()
+        new_call = True
+
+    search_url = index_call(id, metadata, raw_audio_url, transcript, geo, index_name)
+
+    # Do not send Telegram messages for calls we already have transcribed previously
+    if new_call:
+        send_notifications(raw_audio_url, metadata, transcript, search_url)
+
+    return transcript.txt
+
+
 @celery.task(name="transcribe")
 def transcribe_task(
+    metadata: Metadata,
+    audio_url: str,
+    id: str | None = None,
+    index_name: str | None = None,
+) -> str:
+    with tempfile.TemporaryDirectory() as tempdir:
+        mp3_file = tempfile.NamedTemporaryFile(delete=False, dir=tempdir, suffix=".mp3")
+        if audio_url.startswith("data:"):
+            uri = DataURI(audio_url)
+            mp3_file.write(uri.data)  # type: ignore
+            mp3_file.close()
+        else:
+            with requests.get(audio_url, stream=True) as r:
+                r.raise_for_status()
+                for chunk in r.iter_content(chunk_size=1024 * 1024):
+                    mp3_file.write(chunk)
+                mp3_file.close()
+
+        audio_file = convert_to_wav(mp3_file.name)
+
+        return transcribe_and_index(
+            transcribe_task.model,
+            transcribe_task.model_lock,
+            metadata,
+            audio_file,
+            audio_url,
+            id,
+            index_name,
+        )
+
+
+@celery.task(name="transcribe_db")
+def transcribe_from_db_task(
     id: int,
 ) -> str | None:
     call = api_client.call("get", f"calls/{id}")

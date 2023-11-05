@@ -32,7 +32,9 @@ class TestEndToEnd(unittest.TestCase):
                 show_success = True
                 sleep(1)
 
-    def transcribe(self, call_audio_path: str, call_json_path: str) -> dict:
+    def transcribe(
+        self, call_audio_path: str, call_json_path: str, endpoint: str = "calls"
+    ) -> dict:
         api_base_url = os.getenv("API_BASE_URL")
         api_key = os.getenv("API_KEY")
         headers = {"Authorization": f"Bearer {api_key}"}
@@ -41,11 +43,16 @@ class TestEndToEnd(unittest.TestCase):
             call_json_path, "r"
         ) as call_json:
             r = requests.post(
-                url=f"{api_base_url}/calls",
+                url=f"{api_base_url}/{endpoint}",
                 files={"call_audio": call_audio, "call_json": call_json},
                 timeout=5,
                 headers=headers,
             )
+        if r.status_code >= 300:
+            try:
+                print(r.json())
+            except:
+                print(r.text)
         r.raise_for_status()
         result = r.json()
         pending_status = "PENDING"
@@ -89,10 +96,11 @@ class TestEndToEnd(unittest.TestCase):
             isinstance(json.loads(result["hits"][0]["raw_transcript"]), list)
         )
 
-        if not result["hits"][0]["raw_audio_url"].startswith("data:"):
-            r = requests.get(result["hits"][0]["raw_audio_url"])
-            self.assertEqual(200, r.status_code)
-            self.assertEqual("audio/mpeg", r.headers.get("content-type"))
+        r = requests.get(
+            result["hits"][0]["raw_audio_url"].replace("minio", "127.0.0.1")
+        )
+        self.assertEqual(200, r.status_code)
+        self.assertEqual("audio/mpeg", r.headers.get("content-type"))
 
     def test_transcribes_analog(self):
         result = self.transcribe(
@@ -119,10 +127,42 @@ class TestEndToEnd(unittest.TestCase):
             isinstance(json.loads(result["hits"][0]["raw_transcript"]), list)
         )
 
-        if not result["hits"][0]["raw_audio_url"].startswith("data:"):
-            r = requests.get(result["hits"][0]["raw_audio_url"])
-            self.assertEqual(200, r.status_code)
-            self.assertEqual("audio/mpeg", r.headers.get("content-type"))
+        r = requests.get(
+            result["hits"][0]["raw_audio_url"].replace("minio", "127.0.0.1")
+        )
+        self.assertEqual(200, r.status_code)
+        self.assertEqual("audio/mpeg", r.headers.get("content-type"))
+
+    def test_transcribes_without_db(self):
+        result = self.transcribe(
+            "tests/data/9051-1699224861_773043750.0-call_20452.wav",
+            "tests/data/9051-1699224861_773043750.0-call_20452.json",
+            endpoint="tasks",
+        )
+
+        self.assertEqual("SUCCESS", result["task_status"])
+        self.assertTrue("1904399: " in result["task_result"])
+
+        result = self.search(
+            "additional information",
+            {"filter": ['talkgroup_group = "ISP Troop 3 - Chicago"']},
+        )
+
+        self.assertEqual(1, len(result["hits"]))
+        self.assertTrue(
+            '<i data-src="1904399">1904399:</i> ' in result["hits"][0]["transcript"]
+        )
+
+        self.assertTrue(isinstance(json.loads(result["hits"][0]["raw_metadata"]), dict))
+        self.assertTrue(
+            isinstance(json.loads(result["hits"][0]["raw_transcript"]), list)
+        )
+
+        r = requests.get(
+            result["hits"][0]["raw_audio_url"].replace("minio", "127.0.0.1")
+        )
+        self.assertEqual(200, r.status_code)
+        self.assertEqual("audio/mpeg", r.headers.get("content-type"))
 
 
 if __name__ == "__main__":

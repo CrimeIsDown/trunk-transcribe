@@ -18,7 +18,7 @@ from .database import SessionLocal, engine
 from .metadata import Metadata
 from .transcript import Transcript
 from .worker import celery as celery_app
-from .worker import transcribe_task
+from .worker import transcribe_task, transcribe_from_db_task
 
 sentry_dsn = os.getenv("SENTRY_DSN")
 if sentry_dsn:
@@ -36,7 +36,8 @@ if sentry_dsn:
         },
     )
 
-models.Base.metadata.create_all(bind=engine)
+if os.getenv("POSTGRES_DB") is not None:
+    models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
@@ -57,6 +58,37 @@ async def authenticate(request: Request, call_next):
     if api_key and request.headers.get("Authorization", "") != f"Bearer {api_key}":
         return JSONResponse(content={"error": "Invalid key"}, status_code=401)
     return await call_next(request)
+
+
+@app.post("/tasks")
+def queue_for_transcription(call_audio: UploadFile, call_json: UploadFile):
+    metadata = json.loads(call_json.file.read())
+
+    if metadata["call_length"] < float(os.getenv("MIN_CALL_LENGTH", "2")):
+        raise HTTPException(status_code=400, detail="Call too short to transcribe")
+
+    raw_audio = tempfile.NamedTemporaryFile(
+        delete=False, suffix=f"_{call_audio.filename}"
+    )
+    while True:
+        data = call_audio.file.read(1024 * 1024)
+        if not data:
+            raw_audio.close()
+            break
+        raw_audio.write(data)
+
+    audio_url = storage.upload_raw_audio(metadata, raw_audio.name)
+
+    os.unlink(raw_audio.name)
+
+    task = transcribe_task.apply_async(
+        queue="transcribe",
+        kwargs={
+            "metadata": metadata,
+            "audio_url": audio_url,
+        },
+    )
+    return JSONResponse({"task_id": task.id}, status_code=201)
 
 
 @app.get("/tasks/{task_id}")
@@ -113,7 +145,7 @@ def create_call(
 
     db_call = crud.create_call(db=db, call=call)
 
-    task = transcribe_task.apply_async(
+    task = transcribe_from_db_task.apply_async(
         queue="transcribe",
         kwargs={
             "id": db_call.id,
@@ -133,15 +165,15 @@ def update_call(call_id: int, call: schemas.CallUpdate, db: Session = Depends(ge
     transcript = Transcript(db_call.raw_transcript)  # type: ignore
 
     search_url = search.index_call(
-        db_call.id,
+        db_call.id,  # type: ignore
         metadata,
-        db_call.raw_audio_url,
+        db_call.raw_audio_url,  # type: ignore
         transcript,
-        db_call.geo,
+        db_call.geo,  # type: ignore
     )
 
     notification.send_notifications(
-        db_call.raw_audio_url, metadata, transcript, search_url
+        db_call.raw_audio_url, metadata, transcript, search_url  # type: ignore
     )
 
     return db_call

@@ -18,7 +18,7 @@ class Geo(TypedDict):
 
 
 class GeoResponse(TypedDict):
-    _geo: Geo
+    geo: Geo
     geo_formatted_address: str
 
 
@@ -92,7 +92,7 @@ def google_geocode(address: str) -> GeoResponse | None:  # pragma: no cover
         "GEOMETRIC_CENTER",
     ]:
         return {
-            "_geo": geocode_result[0]["geometry"]["location"],
+            "geo": geocode_result[0]["geometry"]["location"],
             "geo_formatted_address": geocode_result[0]["formatted_address"],
         }
     return None
@@ -123,7 +123,7 @@ def geocodio_geocode(address: str) -> GeoResponse | None:  # pragma: no cover
         "state",
     ]:
         return {
-            "_geo": geocode_result.best_match["location"],
+            "geo": geocode_result.best_match["location"],
             "geo_formatted_address": geocode_result.best_match["formatted_address"],
         }
 

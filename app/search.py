@@ -113,7 +113,9 @@ def build_document(
     }
 
     if geo:
-        doc.update(geo)
+        doc.update(
+            {"_geo": geo["geo"], "geo_formatted_address": geo["geo_formatted_address"]}
+        )
 
     return doc  # type: ignore
 

@@ -1,7 +1,6 @@
 from pydantic import BaseModel
 
-from app.geocoding import GeoResponse
-
+from .geocoding import GeoResponse
 from .transcript import RawTranscript
 
 
