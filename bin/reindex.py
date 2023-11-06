@@ -18,12 +18,11 @@ from meilisearch.index import Index
 from meilisearch.models.document import Document as MeiliDocument
 from meilisearch.models.task import TaskInfo
 
-from app import storage
-
 # Load the .env file of our choice if specified before the regular .env can load
 load_dotenv(os.getenv("ENV"))
 
-from app import search
+from app import search, storage
+from app.geocoding import lookup_geo
 from app.metadata import Metadata
 from app.transcript import Transcript
 from app.worker import transcribe_task
@@ -86,10 +85,11 @@ def update_document(document: MeiliDocument, reuse: bool = False) -> search.Docu
     raw_audio_url = update_audio_url(metadata, document.raw_audio_url)
 
     return search.build_document(
+        document.id,
         metadata,
         raw_audio_url,
         transcript,
-        id=document.id,
+        lookup_geo(metadata, transcript),
     )
 
 

@@ -1,5 +1,7 @@
+import json
 import os
 import platform
+from tempfile import NamedTemporaryFile
 import pytz
 import time
 import unittest
@@ -110,38 +112,38 @@ class TestGetMatchingConfig(unittest.TestCase):
         self.assertListEqual(matching_configs, expected_matching_configs)
 
 
-# class TestSendNotifications(unittest.TestCase):
-#     @patch("app.notification.requests.get")
-#     @patch("app.notification.Transcript")
-#     def test_send_notifications(self, mock_transcript, mock_requests_get):
-#         audio_file = "audio.wav"
-#         search_url = "https://example.com/search?q=TG123"
+class TestSendNotifications(unittest.TestCase):
+    @patch("app.notification.get_notifications_config")
+    @patch("app.notification.convert_to_ogg")
+    @patch("app.notification.Transcript")
+    def test_send_notifications(
+        self, mock_transcript, mock_convert_to_ogg, mock_get_notifications_config
+    ):
+        audio_file = "audio.wav"
+        search_url = "https://example.com/search?q=TG123"
 
-#         metadata = Metadata(
-#             talkgroup="TG123", short_name="ShortName123", stop_time=1234567890
-#         )
+        with open("tests/data/11-1673118186_460378000-call_0.json", "rb") as call_json:
+            metadata = json.load(call_json)
 
-#         mock_transcript_instance = mock_transcript.return_value
-#         mock_transcript_instance.html = "<p>This is the transcript.</p>"
+        mock_transcript_instance = mock_transcript.return_value
+        mock_transcript_instance.html = "<p>This is the transcript.</p>"
 
-#         # Plug for the function requests.get
-#         mock_response = mock_requests_get.return_value
-#         mock_response.json.return_value = {
-#             "regex1": {
-#                 "config_key1": "config_value1",
-#                 "config_key2": "config_value2",
-#                 "alerts": [],
-#             },
-#             "regex2": {
-#                 "config_key3": "config_value3",
-#                 "config_key4": "config_value4",
-#                 "alerts": [],
-#             },
-#         }
+        mock_convert_to_ogg.return_value = NamedTemporaryFile(delete=False).name
 
-#         send_notifications(
-#             audio_file, metadata, mock_transcript_instance, search_url
-#         )
+        mock_get_notifications_config.return_value = {
+            "regex1": {
+                "config_key1": "config_value1",
+                "config_key2": "config_value2",
+                "alerts": [],
+            },
+            "regex2": {
+                "config_key3": "config_value3",
+                "config_key4": "config_value4",
+                "alerts": [],
+            },
+        }
+
+        send_notifications(audio_file, metadata, mock_transcript_instance, search_url)
 
 
 class TestNotifyChannels(unittest.TestCase):
