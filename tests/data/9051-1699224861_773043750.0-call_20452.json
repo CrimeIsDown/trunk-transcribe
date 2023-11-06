@@ -1,0 +1,20 @@
+{
+"freq": 773043750,
+"start_time": 1699224861,
+"stop_time": 1699224872,
+"emergency": 0,
+"priority": 4,
+"mode": 0,
+"duplex": 0,
+"encrypted": 0,
+"call_length": 11,
+"talkgroup": 9051,
+"talkgroup_tag": "T3 Priority",
+"talkgroup_description": "Chicago Priority (patch to ISPERN)",
+"talkgroup_group_tag": "Law Talk",
+"talkgroup_group": "ISP Troop 3 - Chicago",
+"audio_type": "digital",
+"short_name": "sc21102",
+"freqList": [ {"freq": 773043750, "time": 1699224861, "pos": 0.00, "len": 11.34, "error_count": "45", "spike_count": "3"} ],
+"srcList": [ {"src": 1904399, "time": 1699224861, "pos": 0.00, "emergency": 0, "signal_system": "", "tag": ""} ]
+}

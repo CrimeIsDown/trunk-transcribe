@@ -4,22 +4,21 @@ import re
 from datetime import datetime
 from sys import platform
 from time import time
-import requests
 
 import pytz
 from apprise import Apprise, AppriseAttachment, NotifyFormat
 from apprise.plugins.NotifyTelegram import NotifyTelegram as NotifyTelegramBase
 
-from app.config import (
+from .config import (
     AlertConfig,
     NotificationConfig,
     get_notifications_config,
     get_ttl_hash,
 )
-from app.conversion import convert_to_ogg
-from app.metadata import Metadata
-from app.notification_plugins.NotifyTelegram import NotifyTelegram
-from app.transcript import Transcript
+from .conversion import convert_to_ogg
+from .metadata import Metadata
+from .notification_plugins.NotifyTelegram import NotifyTelegram
+from .transcript import Transcript
 
 
 # TODO: write tests
@@ -100,10 +99,9 @@ def get_matching_config(
 
 
 def send_notifications(
-    audio_file: str,
+    raw_audio_url: str,
     metadata: Metadata,
     transcript: Transcript,
-    mp3_file: str,
     search_url: str,
 ):  # pragma: no cover
     # If delayed over our MAX_CALL_AGE, don't bother sending to Telegram
@@ -115,11 +113,17 @@ def send_notifications(
     config = get_notifications_config(get_ttl_hash(cache_seconds=60))
 
     transcript_html = transcript.html
+    ogg_file = convert_to_ogg(raw_audio_url, metadata)
 
-    for match in get_matching_config(metadata, config):
-        notify_channels(match, audio_file, metadata, transcript_html)
-        for alert_config in match["alerts"]:
-            send_alert(alert_config, metadata, transcript_html, mp3_file, search_url)
+    try:
+        for match in get_matching_config(metadata, config):
+            notify_channels(match, ogg_file, metadata, transcript_html)
+            for alert_config in match["alerts"]:
+                send_alert(
+                    alert_config, metadata, transcript_html, raw_audio_url, search_url
+                )
+    finally:
+        os.unlink(ogg_file)
 
 
 def notify_channels(
@@ -132,7 +136,7 @@ def notify_channels(
     if not len(config["channels"]):
         return
 
-    voice_file = AppriseAttachment(convert_to_ogg(audio_file, metadata))
+    voice_file = AppriseAttachment(audio_file)
 
     # Captions are only 1024 chars max so we must truncate the transcript to fit for Telegram
     if "tgram://" in str(config["channels"]):

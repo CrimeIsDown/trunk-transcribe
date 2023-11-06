@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import argparse
-import csv
 import json
 import logging
 import os
@@ -12,12 +11,10 @@ from dotenv import load_dotenv
 from meilisearch.index import Index
 from meilisearch.models.document import Document as MeiliDocument
 
-from app import db
-
 # Load the .env file of our choice if specified before the regular .env can load
 load_dotenv(os.getenv("ENV"))
 
-from app import search
+from app import database, search
 
 
 def get_documents(
@@ -85,10 +82,10 @@ if __name__ == "__main__":
     limit = 2000
     offset = 0
 
-    with db.connect() as conn:
+    with psycopg.connect(database.SQLALCHEMY_DATABASE_URL) as conn:
         with conn.cursor() as cursor:
             with cursor.copy(
-                "COPY calls (raw_metadata, raw_audio_url, raw_transcript) FROM STDIN"
+                "COPY calls (raw_metadata, raw_audio_url, raw_transcript, geo) FROM STDIN"
             ) as copy:
                 while offset < total or (args.search and total > 0):
                     try:
@@ -113,6 +110,14 @@ if __name__ == "__main__":
                                     d["raw_metadata"],
                                     d["raw_audio_url"],
                                     d["raw_transcript"],
+                                    json.dumps(
+                                        {
+                                            "_geo": d["_geo"],
+                                            "geo_formatted_address": d[
+                                                "geo_formatted_address"
+                                            ],
+                                        }
+                                    ),
                                 )
                             )
 

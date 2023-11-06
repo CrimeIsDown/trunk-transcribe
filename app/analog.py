@@ -3,8 +3,8 @@ import subprocess
 from glob import glob
 from threading import Lock
 
-from app.transcript import Transcript
-from app.whisper import transcribe
+from .transcript import Transcript
+from .whisper import transcribe
 
 
 def pad_silence(audio_file: str):  # pragma: no cover

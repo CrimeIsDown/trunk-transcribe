@@ -1,7 +1,7 @@
 import json
 from typing import Tuple, TypeAlias, Union
 
-from app.metadata import SrcListItem
+from .metadata import SrcListItem
 
 RawTranscript: TypeAlias = list[Tuple[Union[None, SrcListItem], str]]
 

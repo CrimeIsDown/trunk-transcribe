@@ -4,7 +4,7 @@ from functools import lru_cache
 from time import time
 from typing import TypedDict
 
-import requests
+from . import api_client
 
 
 class AlertConfig(TypedDict):
@@ -25,19 +25,8 @@ def get_notifications_config(
     del ttl_hash
 
     path = "config/notifications.json"
-    api_key = os.getenv("API_KEY")
-    if api_key:
-        headers = {"Authorization": f"Bearer {api_key}"}
-    else:
-        headers = None
     try:
-        r = requests.get(
-            url=f"{os.getenv('API_BASE_URL')}/{path}",
-            timeout=5,
-            headers=headers,
-        )
-        r.raise_for_status()
-        return r.json()
+        return api_client.call("get", path)
     except Exception as e:
         # If we have a local copy of the config, fallback to that
         if os.path.isfile(path):

@@ -10,9 +10,9 @@ from meilisearch import Client
 from meilisearch.errors import MeilisearchApiError, MeilisearchError
 from meilisearch.index import Index
 
-from app.metadata import Metadata, SearchableMetadata
-from app.transcript import Transcript
-from app.geocoding import add_geo
+from .metadata import Metadata, SearchableMetadata
+from .transcript import Transcript
+from .geocoding import GeoResponse
 
 
 client = None
@@ -68,10 +68,11 @@ def get_index(index_name: str) -> Index:  # pragma: no cover
 
 # TODO: write tests
 def build_document(
+    id: str | int,
     metadata: Metadata,
     raw_audio_url: str,
     transcript: Transcript,
-    id: str | None = None,
+    geo: GeoResponse | None = None,
 ) -> Document:
     srcList = set()
     units = set()
@@ -87,8 +88,6 @@ def build_document(
         radios.add(str(src["src"]))
 
     raw_metadata = json.dumps(metadata)
-    if not id:
-        id = sha256(raw_metadata.encode("utf-8")).hexdigest()
 
     doc = {
         "freq": metadata["freq"],
@@ -113,7 +112,10 @@ def build_document(
         "id": id,
     }
 
-    doc = add_geo(doc, metadata, transcript)
+    if geo:
+        doc.update(
+            {"_geo": geo["geo"], "geo_formatted_address": geo["geo_formatted_address"]}
+        )
 
     return doc  # type: ignore
 
@@ -134,7 +136,7 @@ def build_search_url(document: Document, index_name: str) -> str:
             },
         }
     }
-    hash = "hit-" + document["id"]
+    hash = "hit-" + str(document["id"])
 
     encoded_params = urlencode(flatten_dict(params))
 
@@ -142,13 +144,14 @@ def build_search_url(document: Document, index_name: str) -> str:
 
 
 def index_call(
+    id: int | str,
     metadata: Metadata,
     raw_audio_url: str,
     transcript: Transcript,
-    id: str | None = None,
+    geo: GeoResponse | None = None,
     index_name: str | None = None,
 ) -> str:  # pragma: no cover
-    doc = build_document(metadata, raw_audio_url, transcript, id)
+    doc = build_document(id, metadata, raw_audio_url, transcript, geo)
 
     logging.debug(f"Sending document to be indexed: {str(doc)}")
 

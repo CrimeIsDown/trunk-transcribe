@@ -1,18 +1,23 @@
-import unittest
-import time
-import pytz
+import json
 import os
 import platform
-from app.notification import truncate_transcript
-from app.notification import add_channels
+from tempfile import NamedTemporaryFile
+import pytz
+import time
+import unittest
+
 from datetime import datetime
+from unittest.mock import patch, Mock, ANY
+
+from app.config import AlertConfig
+from app.notification import add_channels
 from app.notification import build_suffix
 from app.notification import check_transcript_for_alert_keywords
 from app.notification import get_matching_config
-from unittest.mock import patch, Mock, ANY
-from app.notification import send_notifications, Metadata
 from app.notification import notify_channels, NotifyFormat
-from app.notification import send_alert, NotifyFormat, Apprise, AppriseAttachment
+from app.notification import send_alert, NotifyFormat
+from app.notification import send_notifications, Metadata
+from app.notification import truncate_transcript
 
 
 class TestTruncateTranscript(unittest.TestCase):
@@ -108,23 +113,24 @@ class TestGetMatchingConfig(unittest.TestCase):
 
 
 class TestSendNotifications(unittest.TestCase):
-    @patch("app.notification.requests.get")
+    @patch("app.notification.get_notifications_config")
+    @patch("app.notification.convert_to_ogg")
     @patch("app.notification.Transcript")
-    def test_send_notifications(self, mock_transcript, mock_requests_get):
+    def test_send_notifications(
+        self, mock_transcript, mock_convert_to_ogg, mock_get_notifications_config
+    ):
         audio_file = "audio.wav"
-        mp3_file = "audio.mp3"
         search_url = "https://example.com/search?q=TG123"
 
-        metadata = Metadata(
-            talkgroup="TG123", short_name="ShortName123", stop_time=1234567890
-        )
+        with open("tests/data/11-1673118186_460378000-call_0.json", "rb") as call_json:
+            metadata = json.load(call_json)
 
         mock_transcript_instance = mock_transcript.return_value
         mock_transcript_instance.html = "<p>This is the transcript.</p>"
 
-        # Plug for the function requests.get
-        mock_response = mock_requests_get.return_value
-        mock_response.json.return_value = {
+        mock_convert_to_ogg.return_value = NamedTemporaryFile(delete=False).name
+
+        mock_get_notifications_config.return_value = {
             "regex1": {
                 "config_key1": "config_value1",
                 "config_key2": "config_value2",
@@ -137,20 +143,16 @@ class TestSendNotifications(unittest.TestCase):
             },
         }
 
-        send_notifications(
-            audio_file, metadata, mock_transcript_instance, mp3_file, search_url
-        )
+        send_notifications(audio_file, metadata, mock_transcript_instance, search_url)
 
 
 class TestNotifyChannels(unittest.TestCase):
     @patch("app.notification.build_suffix")
     @patch("app.notification.truncate_transcript")
-    @patch("app.notification.convert_to_ogg")
     @patch("app.notification.add_channels")
     def test_notify_channels(
         self,
         mock_add_channels,
-        mock_convert_to_ogg,
         mock_truncate_transcript,
         mock_build_suffix,
     ):
@@ -164,7 +166,6 @@ class TestNotifyChannels(unittest.TestCase):
         transcript = "This is the transcript."
 
         # Mock return values and behaviors
-        mock_convert_to_ogg.return_value = "audio.ogg"
         mock_truncate_transcript.return_value = transcript
         mock_build_suffix.return_value = "TG123"
 
@@ -176,7 +177,6 @@ class TestNotifyChannels(unittest.TestCase):
         notify_channels(config, audio_file, metadata, transcript)
 
         # Perform assertions
-        mock_convert_to_ogg.assert_called_once_with(audio_file, metadata)
         mock_truncate_transcript.assert_called_once_with(transcript)
         mock_build_suffix.assert_called_once_with(metadata, True)
         apprise_mock.notify.assert_called_once_with(
@@ -199,10 +199,12 @@ class TestSendAlert(unittest.TestCase):
         mock_truncate_transcript,
     ):
         # Mock input data
-        config = {
-            "channels": ["tgram://channel1", "tgram://channel2"],
-            "keywords": ["keyword1", "keyword2"],
-        }
+        config = AlertConfig(
+            {
+                "channels": ["tgram://channel1", "tgram://channel2"],
+                "keywords": ["keyword1", "keyword2"],
+            }
+        )
         metadata = {"talkgroup_tag": "TG123"}
         transcript = "This is the transcript."
         mp3_file = "audio.mp3"

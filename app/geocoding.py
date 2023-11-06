@@ -8,8 +8,8 @@ import sentry_sdk
 from geocodio import GeocodioClient
 from geocodio.exceptions import GeocodioDataError
 
-from app.metadata import Metadata
-from app.transcript import Transcript
+from .metadata import Metadata
+from .transcript import Transcript
 
 
 class Geo(TypedDict):
@@ -18,7 +18,7 @@ class Geo(TypedDict):
 
 
 class GeoResponse(TypedDict):
-    _geo: Geo
+    geo: Geo
     geo_formatted_address: str
 
 
@@ -92,7 +92,7 @@ def google_geocode(address: str) -> GeoResponse | None:  # pragma: no cover
         "GEOMETRIC_CENTER",
     ]:
         return {
-            "_geo": geocode_result[0]["geometry"]["location"],
+            "geo": geocode_result[0]["geometry"]["location"],
             "geo_formatted_address": geocode_result[0]["formatted_address"],
         }
     return None
@@ -123,7 +123,7 @@ def geocodio_geocode(address: str) -> GeoResponse | None:  # pragma: no cover
         "state",
     ]:
         return {
-            "_geo": geocode_result.best_match["location"],
+            "geo": geocode_result.best_match["location"],
             "geo_formatted_address": geocode_result.best_match["formatted_address"],
         }
 
@@ -139,7 +139,7 @@ def geocode(address: str) -> GeoResponse | None:  # pragma: no cover
         return None
 
 
-def add_geo(doc: dict, metadata: Metadata, transcript: Transcript) -> dict:
+def lookup_geo(metadata: Metadata, transcript: Transcript) -> GeoResponse | None:
     if metadata["short_name"] in filter(
         lambda name: len(name), os.getenv("GEOCODING_ENABLED_SYSTEMS", "").split(",")
     ):
@@ -155,8 +155,4 @@ def add_geo(doc: dict, metadata: Metadata, transcript: Transcript) -> dict:
                         f"Got exception while geocoding: {repr(e)}", exc_info=e
                     )
                 if geo:
-                    break
-
-        if geo:
-            doc.update(geo)
-    return doc
+                    return geo

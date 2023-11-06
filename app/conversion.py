@@ -8,7 +8,7 @@ import pytz
 from cachetools import cached
 from cachetools.keys import hashkey
 
-from app.metadata import Metadata
+from .metadata import Metadata
 
 
 def _convert_file(
@@ -51,8 +51,7 @@ def _convert_file(
             f'album={metadata["talkgroup_group"]}',
         ]
 
-    dir = dirname(audio_file)
-    file = tempfile.NamedTemporaryFile(delete=False, dir=dir, suffix=f".{format}")
+    file = tempfile.NamedTemporaryFile(delete=False, suffix=f".{format}")
     file.close()
     p = subprocess.run(
         [

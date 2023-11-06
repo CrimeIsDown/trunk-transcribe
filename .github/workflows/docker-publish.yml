@@ -132,19 +132,26 @@ jobs:
       # Only test the small.en model, and do not run builds where we expect a GPU
       if: matrix.model == 'small.en' && matrix.desired_cuda != 'cu117' && matrix.desired_cuda != 'fw' && github.event_name != 'release'
       run: |
+        set -x
         cp .env.example .env
-        sed -i 's/^COMPOSE_FILE=docker-compose.yml:docker-compose.gpu.yml$/COMPOSE_FILE=docker-compose.yml/g' .env
+        sed -i 's/^COMPOSE_FILE=docker-compose.yml:docker-compose.gpu.yml$/COMPOSE_FILE=docker-compose.yml:docker-compose.minio.yml/g' .env
         sed -i 's/^WHISPER_MODEL=small.en$/WHISPER_MODEL=${{ matrix.model }}/g' .env
         sed -i 's/^DESIRED_CUDA=cu117$/DESIRED_CUDA=${{ matrix.desired_cuda }}/g' .env
         sed -i 's/^# WORKER_DOCKERFILE=Dockerfile.whispercpp$/WORKER_DOCKERFILE=${{ matrix.dockerfile }}/g' .env
         sed -i 's/^# POSTGRES/POSTGRES/g' .env
-        sed -i 's/^POSTGRES_PASSWORD=$/POSTGRES_PASSWORD=password/g' .env
+        sed -i 's/^# S3_BUCKET=my-bucket$/S3_BUCKET=trunk-transcribe/g' .env
+        sed -i -E 's/^# S3_PUBLIC_URL=https(.*)$/S3_PUBLIC_URL=http:\/\/minio:9000\/trunk-transcribe/g' .env
+        sed -i 's/^# AWS_ACCESS_KEY_ID=$/AWS_ACCESS_KEY_ID=root/g' .env
+        sed -i 's/^# AWS_SECRET_ACCESS_KEY=$/AWS_SECRET_ACCESS_KEY=password/g' .env
+        sed -i 's/^# S3_ENDPOINT=$/S3_ENDPOINT=http:\/\/minio:9000/g' .env
         echo "VERSION=${{ github.sha }}" >> .env
+        cat .env
+
         cp config/whisper.json.testing config/whisper.json
         echo "{}" > config/notifications.json
         docker compose --ansi never build
         docker compose --ansi never up -d --quiet-pull
-        docker compose --ansi never logs worker --no-log-prefix -f &
+        docker compose --ansi never logs -f &
         docker compose exec api python3 -m unittest -k tests.integration
     - name: Build and push
       uses: docker/build-push-action@v4

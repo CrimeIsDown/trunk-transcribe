@@ -2,9 +2,9 @@ import os
 import subprocess
 from threading import Lock
 
-from app.metadata import Metadata, SrcListItem
-from app.transcript import Transcript
-from app.whisper import transcribe
+from .metadata import Metadata, SrcListItem
+from .transcript import Transcript
+from .whisper import transcribe
 
 
 # TODO: write tests
