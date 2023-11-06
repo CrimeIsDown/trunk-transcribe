@@ -140,7 +140,7 @@ jobs:
         sed -i 's/^# WORKER_DOCKERFILE=Dockerfile.whispercpp$/WORKER_DOCKERFILE=${{ matrix.dockerfile }}/g' .env
         sed -i 's/^# POSTGRES/POSTGRES/g' .env
         sed -i 's/^# S3_BUCKET=my-bucket$/S3_BUCKET=trunk-transcribe/g' .env
-        sed -i 's/^# S3_PUBLIC_URL=https(.*)$/S3_PUBLIC_URL=http:\/\/minio:9000/trunk-transcribe/g' .env
+        sed -iE 's/^# S3_PUBLIC_URL=https(.*)$/S3_PUBLIC_URL=http:\/\/minio:9000\/trunk-transcribe/g' .env
         sed -i 's/^# AWS_ACCESS_KEY_ID=$/AWS_ACCESS_KEY_ID=root/g' .env
         sed -i 's/^# AWS_SECRET_ACCESS_KEY=$/AWS_SECRET_ACCESS_KEY=password/g' .env
         sed -i 's/^# S3_ENDPOINT=$/S3_ENDPOINT=http:\/\/minio:9000/g' .env
