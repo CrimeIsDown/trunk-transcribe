@@ -18,6 +18,7 @@ services:
     image: quay.io/minio/mc
     depends_on:
       - minio
+    restart: on-failure:5
     environment:
       - S3_ENDPOINT=http://minio:9000
       - AWS_ACCESS_KEY_ID
