@@ -24,7 +24,8 @@ class TestEndToEnd(unittest.TestCase):
         while True:
             try:
                 requests.get(url=str(os.getenv("API_BASE_URL")), timeout=5)
-                if show_success:
+                resp = requests.get(url=f"{os.getenv('S3_PUBLIC_URL')}/abc", timeout=5)
+                if show_success and resp.status_code == 404:
                     print("Connected to API successfully.")
                 break
             except:

@@ -28,7 +28,8 @@ services:
       /bin/sh -c "
       /usr/bin/mc alias set local ${S3_ENDPOINT} ${AWS_ACCESS_KEY_ID} ${AWS_SECRET_ACCESS_KEY};
       /usr/bin/mc mb local/${S3_BUCKET};
-      /usr/bin/mc anonymous set public local/${S3_BUCKET};
+      /usr/bin/mc anonymous set none local/${S3_BUCKET};
+      /usr/bin/mc anonymous set download local/${S3_BUCKET}/*;
       exit 0;
       "
 
