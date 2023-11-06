@@ -150,8 +150,7 @@ jobs:
         echo "{}" > config/notifications.json
         docker compose --ansi never build
         docker compose --ansi never up -d --quiet-pull
-        docker compose --ansi never logs api --no-log-prefix -f &
-        docker compose --ansi never logs worker --no-log-prefix -f &
+        docker compose --ansi never logs -f &
         docker compose exec api python3 -m unittest -k tests.integration
     - name: Build and push
       uses: docker/build-push-action@v4
