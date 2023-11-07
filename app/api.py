@@ -77,9 +77,10 @@ def queue_for_transcription(call_audio: UploadFile, call_json: UploadFile):
             break
         raw_audio.write(data)
 
-    audio_url = storage.upload_raw_audio(metadata, raw_audio.name)
-
-    os.unlink(raw_audio.name)
+    try:
+        audio_url = storage.upload_raw_audio(metadata, raw_audio.name)
+    finally:
+        os.unlink(raw_audio.name)
 
     task = transcribe_task.apply_async(
         queue="transcribe",
@@ -137,9 +138,10 @@ def create_call(
             break
         raw_audio.write(data)
 
-    audio_url = storage.upload_raw_audio(metadata, raw_audio.name)
-
-    os.unlink(raw_audio.name)
+    try:
+        audio_url = storage.upload_raw_audio(metadata, raw_audio.name)
+    finally:
+        os.unlink(raw_audio.name)
 
     call = schemas.CallCreate(raw_metadata=metadata, raw_audio_url=audio_url)
 
