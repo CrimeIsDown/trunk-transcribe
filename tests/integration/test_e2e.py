@@ -102,9 +102,7 @@ class TestEndToEnd(unittest.TestCase):
             isinstance(json.loads(result["hits"][0]["raw_transcript"]), list)
         )
 
-        r = requests.get(
-            result["hits"][0]["raw_audio_url"].replace("minio", "127.0.0.1")
-        )
+        r = requests.get(result["hits"][0]["raw_audio_url"])
         self.assertEqual(200, r.status_code)
         self.assertEqual("audio/mpeg", r.headers.get("content-type"))
 
@@ -133,9 +131,7 @@ class TestEndToEnd(unittest.TestCase):
             isinstance(json.loads(result["hits"][0]["raw_transcript"]), list)
         )
 
-        r = requests.get(
-            result["hits"][0]["raw_audio_url"].replace("minio", "127.0.0.1")
-        )
+        r = requests.get(result["hits"][0]["raw_audio_url"])
         self.assertEqual(200, r.status_code)
         self.assertEqual("audio/mpeg", r.headers.get("content-type"))
 
@@ -164,9 +160,7 @@ class TestEndToEnd(unittest.TestCase):
             isinstance(json.loads(result["hits"][0]["raw_transcript"]), list)
         )
 
-        r = requests.get(
-            result["hits"][0]["raw_audio_url"].replace("minio", "127.0.0.1")
-        )
+        r = requests.get(result["hits"][0]["raw_audio_url"])
         self.assertEqual(200, r.status_code)
         self.assertEqual("audio/mpeg", r.headers.get("content-type"))
 
