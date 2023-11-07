@@ -169,22 +169,24 @@ def transcribe_task(
     id: str | None = None,
     index_name: str | None = None,
 ) -> str:
-    with tempfile.TemporaryDirectory() as tempdir:
-        mp3_file = tempfile.NamedTemporaryFile(delete=False, dir=tempdir, suffix=".mp3")
-        if audio_url.startswith("data:"):
-            uri = DataURI(audio_url)
-            mp3_file.write(uri.data)  # type: ignore
+    mp3_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
+    if audio_url.startswith("data:"):
+        uri = DataURI(audio_url)
+        mp3_file.write(uri.data)  # type: ignore
+        mp3_file.close()
+    else:
+        with requests.get(audio_url, stream=True) as r:
+            r.raise_for_status()
+            for chunk in r.iter_content(chunk_size=1024 * 1024):
+                mp3_file.write(chunk)
             mp3_file.close()
-        else:
-            with requests.get(audio_url, stream=True) as r:
-                r.raise_for_status()
-                for chunk in r.iter_content(chunk_size=1024 * 1024):
-                    mp3_file.write(chunk)
-                mp3_file.close()
 
-        audio_file = convert_to_wav(mp3_file.name)
+    audio_file = convert_to_wav(mp3_file.name)
 
-        return transcribe_and_index(
+    os.unlink(mp3_file.name)
+
+    try:
+        result = transcribe_and_index(
             transcribe_task.model,
             transcribe_task.model_lock,
             metadata,
@@ -193,6 +195,10 @@ def transcribe_task(
             id,
             index_name,
         )
+    finally:
+        os.unlink(audio_file)
+
+    return result
 
 
 @celery.task(name="transcribe_db")
@@ -203,24 +209,29 @@ def transcribe_from_db_task(
     metadata = call["raw_metadata"]
     audio_url = call["raw_audio_url"]
 
-    with tempfile.TemporaryDirectory() as tempdir:
-        mp3_file = tempfile.NamedTemporaryFile(delete=False, dir=tempdir, suffix=".mp3")
-        if audio_url.startswith("data:"):
-            uri = DataURI(audio_url)
-            mp3_file.write(uri.data)  # type: ignore
+    mp3_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
+    if audio_url.startswith("data:"):
+        uri = DataURI(audio_url)
+        mp3_file.write(uri.data)  # type: ignore
+        mp3_file.close()
+    else:
+        with requests.get(audio_url, stream=True) as r:
+            r.raise_for_status()
+            for chunk in r.iter_content(chunk_size=1024 * 1024):
+                mp3_file.write(chunk)
             mp3_file.close()
-        else:
-            with requests.get(audio_url, stream=True) as r:
-                r.raise_for_status()
-                for chunk in r.iter_content(chunk_size=1024 * 1024):
-                    mp3_file.write(chunk)
-                mp3_file.close()
 
+    try:
         audio_file = convert_to_wav(mp3_file.name)
+    finally:
+        os.unlink(mp3_file.name)
 
+    try:
         transcript, geo = transcribe(
             transcribe_task.model, transcribe_task.model_lock, metadata, audio_file
         )
+    finally:
+        os.unlink(audio_file)
 
     if transcript:
         schemas.CallUpdate(raw_transcript=transcript.transcript, geo=geo)

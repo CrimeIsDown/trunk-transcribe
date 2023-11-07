@@ -123,7 +123,10 @@ def send_notifications(
                     alert_config, metadata, transcript_html, raw_audio_url, search_url
                 )
     finally:
-        os.unlink(ogg_file)
+        try:
+            os.unlink(ogg_file)
+        except:
+            pass
 
 
 def notify_channels(
