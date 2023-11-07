@@ -49,14 +49,18 @@ class Whisper:
         audio: str,
         language: str = "en",
         initial_prompt: str | None = None,
+        cleanup_audio: bool = True,
         **decode_options,
     ) -> dict:
-        return self.model.transcribe(
+        result = self.model.transcribe(
             audio=audio,
             language=language,
             initial_prompt=initial_prompt,
             **decode_options,
         )
+        if cleanup_audio:
+            os.unlink(audio)
+        return result
 
 
 class FasterWhisper:
