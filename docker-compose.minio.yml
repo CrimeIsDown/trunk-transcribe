@@ -10,28 +10,13 @@ services:
     environment:
       - MINIO_ROOT_USER=${AWS_ACCESS_KEY_ID}
       - MINIO_ROOT_PASSWORD=${AWS_SECRET_ACCESS_KEY}
-    command: server /data --console-address ":9001"
+      - S3_BUCKET
+    entrypoint: /bin/bash
+    command: /usr/bin/minio-entrypoint.sh
     volumes:
       - minio-storage:/data
-
-  minio-init:
-    image: quay.io/minio/mc
-    depends_on:
-      - minio
-    restart: on-failure:5
-    environment:
-      - S3_ENDPOINT=http://minio:9000
-      - AWS_ACCESS_KEY_ID
-      - AWS_SECRET_ACCESS_KEY
-      - S3_BUCKET
-    entrypoint: >
-      /bin/sh -c "
-      /usr/bin/mc alias set local ${S3_ENDPOINT} ${AWS_ACCESS_KEY_ID} ${AWS_SECRET_ACCESS_KEY};
-      /usr/bin/mc mb local/${S3_BUCKET};
-      /usr/bin/mc anonymous set none local/${S3_BUCKET};
-      /usr/bin/mc anonymous set download local/${S3_BUCKET}/*;
-      exit 0;
-      "
+      - ./bin/minio-entrypoint.sh:/usr/bin/minio-entrypoint.sh
+    restart: always
 
 volumes:
   minio-storage:

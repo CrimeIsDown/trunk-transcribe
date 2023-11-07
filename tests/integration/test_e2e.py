@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import unittest
 from time import sleep
@@ -20,17 +21,21 @@ class TestEndToEnd(unittest.TestCase):
         index.delete()
         search.get_index(index_name)
 
-        show_success = False
         while True:
             try:
-                requests.get(url=str(os.getenv("API_BASE_URL")), timeout=5)
-                resp = requests.get(url=f"{os.getenv('S3_PUBLIC_URL')}/abc", timeout=5)
-                if show_success and resp.status_code == 404:
-                    print("Connected to API successfully.")
+                requests.get(
+                    url=f"{os.getenv('API_BASE_URL')}/config/notifications.json",
+                    headers={"Authorization": f"Bearer {os.getenv('API_KEY')}"},
+                    timeout=5,
+                ).raise_for_status()
+                requests.get(
+                    url=f"{os.getenv('S3_PUBLIC_URL')}/init-complete", timeout=5
+                ).raise_for_status()
+                logging.info("Connected to API successfully.")
                 break
-            except:
-                print("Waiting for API to come online...")
-                show_success = True
+            except Exception as e:
+                logging.error(e)
+                logging.info("Waiting for API to come online...")
                 sleep(1)
 
     def transcribe(
@@ -97,7 +102,9 @@ class TestEndToEnd(unittest.TestCase):
             isinstance(json.loads(result["hits"][0]["raw_transcript"]), list)
         )
 
-        r = requests.get(result["hits"][0]["raw_audio_url"])
+        r = requests.get(
+            result["hits"][0]["raw_audio_url"].replace("minio", "127.0.0.1")
+        )
         self.assertEqual(200, r.status_code)
         self.assertEqual("audio/mpeg", r.headers.get("content-type"))
 
@@ -126,7 +133,9 @@ class TestEndToEnd(unittest.TestCase):
             isinstance(json.loads(result["hits"][0]["raw_transcript"]), list)
         )
 
-        r = requests.get(result["hits"][0]["raw_audio_url"])
+        r = requests.get(
+            result["hits"][0]["raw_audio_url"].replace("minio", "127.0.0.1")
+        )
         self.assertEqual(200, r.status_code)
         self.assertEqual("audio/mpeg", r.headers.get("content-type"))
 
@@ -155,7 +164,9 @@ class TestEndToEnd(unittest.TestCase):
             isinstance(json.loads(result["hits"][0]["raw_transcript"]), list)
         )
 
-        r = requests.get(result["hits"][0]["raw_audio_url"])
+        r = requests.get(
+            result["hits"][0]["raw_audio_url"].replace("minio", "127.0.0.1")
+        )
         self.assertEqual(200, r.status_code)
         self.assertEqual("audio/mpeg", r.headers.get("content-type"))
 
