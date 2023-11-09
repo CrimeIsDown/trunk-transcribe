@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import json
 import logging
 import os
 import sys
@@ -16,8 +17,7 @@ from dotenv import load_dotenv
 # Load the .env file of our choice if specified before the regular .env can load
 load_dotenv(os.getenv("ENV"))
 
-from app import storage
-from app.worker import transcribe_task
+from app import api_client
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36 Edg/112.0.1722.64"
 TAGS = {
@@ -192,30 +192,26 @@ def process_call(call: dict, short_name: str, jar):
     logging.debug(f"Downloading {url}")
     with requests.get(url, cookies=jar, stream=True, timeout=10) as r:
         r.raise_for_status()
-        audio_file = tempfile.NamedTemporaryFile(delete=False, suffix=f".{extension}")
-        for chunk in r.iter_content(chunk_size=1024 * 1024):
-            audio_file.write(chunk)
-        audio_file.close()
+        with tempfile.NamedTemporaryFile(
+            suffix=f".json"
+        ) as metadata_file, tempfile.NamedTemporaryFile(
+            suffix=f".{extension}"
+        ) as audio_file:
+            metadata_file.write(bytes(json.dumps(metadata), encoding="utf-8"))
+            metadata_file.flush()
 
-    start_time = datetime.fromtimestamp(metadata["start_time"], tz=pytz.UTC)
-    uploaded_audio_path = (
-        start_time.strftime("%Y/%m/%d/%H/%Y%m%d_%H%M%S")
-        + f"_{metadata['short_name']}_{metadata['talkgroup']}.{extension}"
-    )
+            for chunk in r.iter_content(chunk_size=1024 * 1024):
+                audio_file.write(chunk)
+            audio_file.flush()
 
-    logging.debug(f"Re-uploading to {uploaded_audio_path}")
-    audio_url = storage.upload_file(audio_file.name, uploaded_audio_path)
-    os.unlink(audio_file.name)
+            api_client.call(
+                "POST",
+                "calls",
+                files={"call_json": metadata_file, "call_audio": audio_file},
+            )
 
-    transcribe_task.apply_async(
-        queue="transcribe",
-        kwargs={
-            "metadata": metadata,
-            "audio_url": audio_url,
-        },
-    )
     logging.info(
-        f"Queued call on '{call['display']}' (TG {call['call_tg']}) for transcription - {audio_url}"
+        f"Queued call on '{call['display']}' (TG {call['call_tg']}) for transcription - {url}"
     )
 
 
