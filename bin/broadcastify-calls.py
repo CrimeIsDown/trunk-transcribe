@@ -207,6 +207,9 @@ def process_call(call: dict, short_name: str, jar):
             audio_file.seek(0)
 
             try:
+                logging.info(
+                    f"Queueing call on '{call['display']}' (TG {call['call_tg']}) for transcription - {url}"
+                )
                 api_client.call(
                     "POST",
                     "calls",
@@ -215,10 +218,6 @@ def process_call(call: dict, short_name: str, jar):
             except requests.exceptions.HTTPError as e:
                 if e.response.status_code > 400:
                     raise e
-
-    logging.info(
-        f"Queued call on '{call['display']}' (TG {call['call_tg']}) for transcription - {url}"
-    )
 
 
 if __name__ == "__main__":
