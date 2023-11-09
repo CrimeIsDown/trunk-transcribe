@@ -61,11 +61,10 @@ class TestEndToEnd(unittest.TestCase):
                 print(r.text)
         r.raise_for_status()
         result = r.json()
-        pending_status = "PENDING"
-        task_status = result.get("task_status", pending_status)
+        task_status = result.get("task_status", "PENDING")
         task_id = result["task_id"]
 
-        while task_status == pending_status:
+        while task_status in ["PENDING", "RETRY"]:
             sleep(1)
             r = requests.get(
                 url=f"{api_base_url}/tasks/{task_id}", timeout=5, headers=headers

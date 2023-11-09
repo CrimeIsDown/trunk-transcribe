@@ -1,11 +1,10 @@
+from abc import ABC, abstractmethod
 import json
 import logging
 import os
 import subprocess
 from csv import DictReader
 from threading import Lock
-
-import openai
 
 from .config import get_ttl_hash, get_whisper_config
 from .task import Task
@@ -27,6 +26,8 @@ class WhisperTask(Task):
                     self._model = WhisperCpp(model_name, os.getenv("WHISPERCPP"))
                 elif os.getenv("FASTERWHISPER"):
                     self._model = FasterWhisper(model_name)
+                elif os.getenv("DISTILWHISPER"):
+                    self._model = DistilWhisper(model_name)
                 else:
                     self._model = Whisper(model_name)
             else:
@@ -38,8 +39,20 @@ class WhisperTask(Task):
             return self._model
 
 
-class Whisper:
-    def __init__(self, model_name):
+class BaseWhisper(ABC):
+    @abstractmethod
+    def transcribe(
+        self,
+        audio: str,
+        language: str = "en",
+        initial_prompt: str | None = None,
+        **decode_options,
+    ):
+        pass
+
+
+class Whisper(BaseWhisper):
+    def __init__(self, model_name: str):
         import whisper
 
         self.model = whisper.load_model(model_name)
@@ -49,21 +62,72 @@ class Whisper:
         audio: str,
         language: str = "en",
         initial_prompt: str | None = None,
-        cleanup_audio: bool = True,
         **decode_options,
     ) -> dict:
-        result = self.model.transcribe(
+        return self.model.transcribe(
             audio=audio,
             language=language,
             initial_prompt=initial_prompt,
             **decode_options,
         )
-        if cleanup_audio:
-            os.unlink(audio)
+
+
+class DistilWhisper(BaseWhisper):
+    def __init__(self, model_name: str):
+        import torch
+        from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
+
+        device = "cuda:0" if torch.cuda.is_available() else "cpu"
+        torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+
+        model_id = f"distil-whisper/distil-{model_name}"
+
+        model = AutoModelForSpeechSeq2Seq.from_pretrained(
+            model_id,
+            torch_dtype=torch_dtype,
+            low_cpu_mem_usage=True,
+            use_safetensors=True,
+        )
+        model.to(device)
+
+        processor = AutoProcessor.from_pretrained(model_id)
+
+        self.pipe = pipeline(
+            "automatic-speech-recognition",
+            model=model,
+            tokenizer=processor.tokenizer,
+            feature_extractor=processor.feature_extractor,
+            max_new_tokens=128,
+            chunk_length_s=15,
+            batch_size=16,
+            torch_dtype=torch_dtype,
+            device=device,
+        )
+
+    def transcribe(
+        self,
+        audio: str,
+        language: str = "en",
+        initial_prompt: str | None = None,
+        **decode_options,
+    ) -> dict:
+        output = self.pipe(audio, return_timestamps=True)
+        result = {
+            "segments": [],
+            "text": output["text"],
+        }
+        for chunk in result["chunks"]:
+            result["segments"].append(
+                {
+                    "start": chunk["timestamp"][0],
+                    "end": chunk["timestamp"][1],
+                    "text": chunk["text"],
+                }
+            )
         return result
 
 
-class FasterWhisper:
+class FasterWhisper(BaseWhisper):
     vad_filter = False
 
     def __init__(self, model_name):
@@ -109,7 +173,7 @@ class FasterWhisper:
         return result
 
 
-class WhisperCpp:
+class WhisperCpp(BaseWhisper):
     def __init__(self, model_name, model_dir):
         model_path = f"{model_dir}/ggml-{model_name}.bin"
         if os.path.isfile(model_path):
@@ -163,6 +227,7 @@ class WhisperCpp:
                             "text": line["text"],
                         }
                     )
+        os.unlink(f"{audio}.csv")
 
         if len(result["segments"]):
             result["text"] = "\n".join(
@@ -172,10 +237,12 @@ class WhisperCpp:
         return result
 
 
-class WhisperApi:
+class WhisperApi(BaseWhisper):
     openai = None
 
     def __init__(self):
+        import openai
+
         openai.api_key = os.getenv("OPENAI_API_KEY")
 
     def transcribe(
@@ -186,7 +253,9 @@ class WhisperApi:
         **decode_options,
     ):
         audio_file = open(audio, "rb")
-        prompt = "This is a police radio dispatch transcript."
+        prompt = os.getenv(
+            "OPENAI_PROMPT", "This is a police radio dispatch transcript."
+        )
         if initial_prompt:
             prompt += "The following words may appear: " + initial_prompt
         return openai.Audio.transcribe(
@@ -210,5 +279,6 @@ def transcribe(
         result = model.transcribe(
             audio_file, language="en", initial_prompt=initial_prompt, **whisper_kwargs
         )
+        os.unlink(audio_file)
         logging.debug("Transcription result: " + json.dumps(result, indent=4))
         return result
