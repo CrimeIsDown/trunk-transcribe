@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-from contextlib import contextmanager
 from hashlib import sha256
 import json
 import logging
@@ -20,7 +19,7 @@ from sentry_sdk.integrations.celery import CeleryIntegration
 
 load_dotenv()
 
-from . import api_client, schemas
+from . import api_client
 from .analog import transcribe_call as transcribe_analog
 from .conversion import convert_to_wav
 from .digital import transcribe_call as transcribe_digital
@@ -234,7 +233,6 @@ def transcribe_from_db_task(
         os.unlink(audio_file)
 
     if transcript:
-        schemas.CallUpdate(raw_transcript=transcript.transcript, geo=geo)
         call = api_client.call(
             "patch",
             f"calls/{id}",
