@@ -12,7 +12,6 @@ from statistics import mean
 from threading import Thread
 
 from celery import Celery
-from flower.utils.broker import Broker
 import requests
 import sentry_sdk
 from dotenv import dotenv_values, load_dotenv
@@ -77,11 +76,36 @@ class Autoscaler:
         if image:
             self.image = image
         else:
-            self.image = f"ghcr.io/crimeisdown/trunk-transcribe:main-{self.model}-cu117"
+            self.image = f"ghcr.io/crimeisdown/trunk-transcribe:main-{self.model}-{self.envs['DESIRED_CUDA']}"
 
         if os.path.isfile(FORBIDDEN_INSTANCE_CONFIG):
             with open(FORBIDDEN_INSTANCE_CONFIG) as config:
                 self.forbidden_instances = set(json.load(config))
+
+    def _get_image_digest(self, image: str):
+        repo, tag = image.split(":", 1)
+        registry, repository = repo.split("/", 1)
+
+        r = requests.get(f"https://{registry}/token?scope=repository:{repository}:pull")
+        r.raise_for_status()
+        token = r.json()["token"]
+
+        r = requests.get(
+            f"https://{registry}/v2/{repository}/manifests/{tag}",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/vnd.oci.image.index.v1+json",
+            },
+        )
+        r.raise_for_status()
+        for manifest in r.json()["manifests"]:
+            if (
+                manifest["platform"]["architecture"] == "amd64"
+                and manifest["platform"]["os"] == "linux"
+            ):
+                return f"{repo}@{manifest['digest']}"
+
+        raise Exception("Could not find image digest for linux amd64")
 
     def _make_instance_hostname(self, instance: dict) -> str:
         return f'{instance["machine_id"]}.{instance["host_id"]}.vast.ai'
@@ -209,6 +233,14 @@ class Autoscaler:
 
         instances_created = 0
 
+        image = self.image
+        # Try to avoid image caching if possible
+        if "@" not in image:
+            try:
+                image = self._get_image_digest(image)
+            except:
+                pass
+
         while count and len(instances):
             instance = instances.pop(0)
             count -= 1
@@ -228,7 +260,7 @@ class Autoscaler:
 
             body = {
                 "client_id": "me",
-                "image": self.image,
+                "image": image,
                 "args": ["worker"],
                 "env": self.envs,
                 "price": bid,
