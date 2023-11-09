@@ -1,7 +1,7 @@
+from typing import Tuple
 from pydantic import BaseModel
 
 from .geocoding import GeoResponse
-from .transcript import RawTranscript
 
 
 class CallBase(BaseModel):
@@ -14,7 +14,7 @@ class CallCreate(CallBase):
 
 
 class CallUpdate(CallBase):
-    raw_transcript: RawTranscript
+    raw_transcript: list[Tuple]
     geo: GeoResponse | None
 
 
@@ -22,7 +22,7 @@ class Call(CallBase):
     id: int
     raw_metadata: dict
     raw_audio_url: str
-    raw_transcript: RawTranscript | None
+    raw_transcript: list[Tuple] | None
     geo: GeoResponse | None
 
     class Config:
