@@ -199,16 +199,22 @@ def process_call(call: dict, short_name: str, jar):
         ) as audio_file:
             metadata_file.write(bytes(json.dumps(metadata), encoding="utf-8"))
             metadata_file.flush()
+            metadata_file.seek(0)
 
             for chunk in r.iter_content(chunk_size=1024 * 1024):
                 audio_file.write(chunk)
             audio_file.flush()
+            audio_file.seek(0)
 
-            api_client.call(
-                "POST",
-                "calls",
-                files={"call_json": metadata_file, "call_audio": audio_file},
-            )
+            try:
+                api_client.call(
+                    "POST",
+                    "calls",
+                    files={"call_json": metadata_file, "call_audio": audio_file},
+                )
+            except requests.exceptions.HTTPError as e:
+                if e.response.status_code > 400:
+                    raise e
 
     logging.info(
         f"Queued call on '{call['display']}' (TG {call['call_tg']}) for transcription - {url}"
