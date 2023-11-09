@@ -146,6 +146,7 @@ def process_call(call: dict, short_name: str, jar):
     if "metadata" in call:
         metadata = call["metadata"]
         metadata["short_name"] = short_name
+        metadata["talkgroup_group_tag"] = TAGS[call["tag"]]
     else:
         freq = int(call["call_freq"] * 1e6)
 
