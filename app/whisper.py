@@ -238,12 +238,12 @@ class WhisperCpp(BaseWhisper):
 
 
 class WhisperApi(BaseWhisper):
-    openai = None
+    client = None
 
     def __init__(self):
-        import openai
+        from openai import OpenAI
 
-        openai.api_key = os.getenv("OPENAI_API_KEY")
+        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
     def transcribe(
         self,
@@ -258,7 +258,7 @@ class WhisperApi(BaseWhisper):
         )
         if initial_prompt:
             prompt += "The following words may appear: " + initial_prompt
-        return openai.Audio.transcribe(
+        return self.client.audio.transcriptions.create(
             model="whisper-1",
             file=audio_file,
             prompt=initial_prompt,
