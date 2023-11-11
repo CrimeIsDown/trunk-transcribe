@@ -39,7 +39,11 @@ class TestEndToEnd(unittest.TestCase):
                 sleep(1)
 
     def transcribe(
-        self, call_audio_path: str, call_json_path: str, endpoint: str = "calls"
+        self,
+        call_audio_path: str,
+        call_json_path: str,
+        endpoint: str = "calls",
+        extra_params: dict = {},
     ) -> dict:
         api_base_url = os.getenv("API_BASE_URL")
         api_key = os.getenv("API_KEY")
@@ -50,6 +54,7 @@ class TestEndToEnd(unittest.TestCase):
         ) as call_json:
             r = requests.post(
                 url=f"{api_base_url}/{endpoint}",
+                params=extra_params,
                 files={"call_audio": call_audio, "call_json": call_json},
                 timeout=5,
                 headers=headers,
@@ -139,6 +144,7 @@ class TestEndToEnd(unittest.TestCase):
             "tests/data/9051-1699224861_773043750.0-call_20452.wav",
             "tests/data/9051-1699224861_773043750.0-call_20452.json",
             endpoint="tasks",
+            extra_params={"whisper_implementation": "openai:whisper-1"},
         )
 
         self.assertEqual("SUCCESS", result["task_status"])

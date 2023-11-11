@@ -147,6 +147,10 @@ jobs:
         echo "VERSION=${{ github.sha }}" >> .env
         cat .env
 
+        { set +x; } 2>/dev/null
+        sed -i 's/^# OPENAI_API_KEY=$/OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}/g' .env
+        set -x
+
         cp config/whisper.json.testing config/whisper.json
         echo "{}" > config/notifications.json
         docker compose --ansi never build

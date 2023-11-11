@@ -167,6 +167,7 @@ def transcribe_task(
     audio_url: str,
     id: str | None = None,
     index_name: str | None = None,
+    whisper_implementation: str | None = None,
 ) -> str:
     mp3_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
     if audio_url.startswith("data:"):
@@ -186,7 +187,7 @@ def transcribe_task(
 
     try:
         result = transcribe_and_index(
-            transcribe_task.model,
+            transcribe_task.model(whisper_implementation),
             transcribe_task.model_lock,
             metadata,
             audio_file,
@@ -202,7 +203,7 @@ def transcribe_task(
 
 @celery.task(name="transcribe_db")
 def transcribe_from_db_task(
-    id: int,
+    id: int, whisper_implementation: str | None = None
 ) -> str | None:
     call = api_client.call("get", f"calls/{id}")
     metadata = call["raw_metadata"]
@@ -227,7 +228,10 @@ def transcribe_from_db_task(
 
     try:
         transcript, geo = transcribe(
-            transcribe_task.model, transcribe_task.model_lock, metadata, audio_file
+            transcribe_task.model(whisper_implementation),
+            transcribe_task.model_lock,
+            metadata,
+            audio_file,
         )
     finally:
         os.unlink(audio_file)

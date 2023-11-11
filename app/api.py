@@ -61,7 +61,11 @@ async def authenticate(request: Request, call_next):
 
 
 @app.post("/tasks")
-def queue_for_transcription(call_audio: UploadFile, call_json: UploadFile):
+def queue_for_transcription(
+    call_audio: UploadFile,
+    call_json: UploadFile,
+    whisper_implementation: str | None = None,
+):
     metadata = json.loads(call_json.file.read())
 
     if metadata["call_length"] < float(os.getenv("MIN_CALL_LENGTH", "2")):
@@ -87,6 +91,7 @@ def queue_for_transcription(call_audio: UploadFile, call_json: UploadFile):
         kwargs={
             "metadata": metadata,
             "audio_url": audio_url,
+            "whisper_implementation": whisper_implementation,
         },
     )
     return JSONResponse({"task_id": task.id}, status_code=201)
@@ -121,7 +126,10 @@ def read_call(call_id: int, db: Session = Depends(get_db)):
 
 @app.post("/calls")
 def create_call(
-    call_audio: UploadFile, call_json: UploadFile, db: Session = Depends(get_db)
+    call_audio: UploadFile,
+    call_json: UploadFile,
+    db: Session = Depends(get_db),
+    whisper_implementation: str | None = None,
 ):
     metadata = json.loads(call_json.file.read())
 
@@ -149,9 +157,7 @@ def create_call(
 
     task = transcribe_from_db_task.apply_async(
         queue="transcribe",
-        kwargs={
-            "id": db_call.id,
-        },
+        kwargs={"id": db_call.id, "whisper_implementation": whisper_implementation},
     )
     return JSONResponse({"task_id": task.id}, status_code=201)
 
