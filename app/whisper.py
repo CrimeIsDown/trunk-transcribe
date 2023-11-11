@@ -10,35 +10,6 @@ from .config import get_ttl_hash, get_whisper_config
 from .task import Task
 
 
-class WhisperTask(Task):
-    _model = None
-    model_lock = Lock()
-
-    @property
-    def model(self):
-        with self.model_lock:
-            if self._model is not None:
-                return self._model
-
-            model_name = os.getenv("WHISPER_MODEL")
-            if model_name:
-                if os.getenv("WHISPERCPP"):
-                    self._model = WhisperCpp(model_name, os.getenv("WHISPERCPP"))
-                elif os.getenv("FASTERWHISPER"):
-                    self._model = FasterWhisper(model_name)
-                elif os.getenv("DISTILWHISPER"):
-                    self._model = DistilWhisper(model_name)
-                else:
-                    self._model = Whisper(model_name)
-            else:
-                if os.getenv("OPENAI_API_KEY"):
-                    self._model = WhisperApi()
-                else:
-                    raise RuntimeError("WHISPER_MODEL env must be set")
-
-            return self._model
-
-
 class BaseWhisper(ABC):
     @abstractmethod
     def transcribe(
@@ -49,6 +20,54 @@ class BaseWhisper(ABC):
         **decode_options,
     ) -> dict:
         pass
+
+
+class WhisperTask(Task):
+    _models = {}
+    model_lock = Lock()
+
+    def model(self, implementation: str | None = None):
+        if not implementation:
+            implementation = self.default_implementation
+        if implementation not in self._models:
+            self._models[implementation] = self.initialize_model(implementation)
+        return self._models[implementation]
+
+    @property
+    def default_implementation(self) -> str:
+        model_name = os.getenv("WHISPER_MODEL")
+        if model_name:
+            if os.getenv("WHISPERCPP"):
+                return f"whisper.cpp:{model_name}"
+            if os.getenv("FASTERWHISPER"):
+                return f"faster-whisper:{model_name}"
+            if os.getenv("DISTILWHISPER"):
+                return f"distil-whisper:{model_name}"
+            return f"whisper:{model_name}"
+
+        if os.getenv("OPENAI_API_KEY"):
+            return "openai:whisper-1"
+
+        raise RuntimeError("WHISPER_MODEL env or OPENAI_API_KEY env must be set")
+
+    def initialize_model(self, implementation: str) -> BaseWhisper:
+        with self.model_lock:
+            model_class, model = implementation.split(":", 1)
+            if model_class == "whisper.cpp":
+                return WhisperCpp(
+                    model,
+                    os.getenv("WHISPERCPP_MODEL_DIR", "/usr/local/lib/whisper-models"),
+                )
+            if model_class == "faster-whisper":
+                return FasterWhisper(model)
+            if model_class == "distil-whisper":
+                return DistilWhisper(model)
+            if model_class == "whisper":
+                return Whisper(model)
+            if model_class == "openai":
+                return WhisperApi(os.getenv("OPENAI_API_KEY", ""))
+
+            raise RuntimeError(f"Unknown implementation {implementation}")
 
 
 class Whisper(BaseWhisper):
@@ -130,7 +149,7 @@ class DistilWhisper(BaseWhisper):
 class FasterWhisper(BaseWhisper):
     vad_filter = False
 
-    def __init__(self, model_name):
+    def __init__(self, model_name: str):
         if "cpu" in os.getenv("DESIRED_CUDA", ""):
             device = "cpu"
             compute_type = "int8"
@@ -174,7 +193,7 @@ class FasterWhisper(BaseWhisper):
 
 
 class WhisperCpp(BaseWhisper):
-    def __init__(self, model_name, model_dir):
+    def __init__(self, model_name: str, model_dir: str):
         model_path = f"{model_dir}/ggml-{model_name}.bin"
         if os.path.isfile(model_path):
             self.model_path = model_path
@@ -238,12 +257,10 @@ class WhisperCpp(BaseWhisper):
 
 
 class WhisperApi(BaseWhisper):
-    client = None
-
-    def __init__(self):
+    def __init__(self, api_key: str):
         from openai import OpenAI
 
-        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        self.client = OpenAI(api_key=api_key)
 
     def transcribe(
         self,
@@ -261,7 +278,7 @@ class WhisperApi(BaseWhisper):
         return self.client.audio.transcriptions.create(
             model="whisper-1",
             file=audio_file,
-            prompt=initial_prompt,
+            prompt=prompt,
             response_format="verbose_json",
             language=language,
         ).model_dump()
