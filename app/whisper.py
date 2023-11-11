@@ -47,7 +47,7 @@ class BaseWhisper(ABC):
         language: str = "en",
         initial_prompt: str | None = None,
         **decode_options,
-    ):
+    ) -> dict:
         pass
 
 
@@ -151,7 +151,7 @@ class FasterWhisper(BaseWhisper):
         language: str = "en",
         initial_prompt: str | None = None,
         **decode_options,
-    ):
+    ) -> dict:
         segments, _ = self.model.transcribe(
             audio=audio,
             language=language,
@@ -185,7 +185,7 @@ class WhisperCpp(BaseWhisper):
         language: str = "en",
         initial_prompt: str | None = None,
         **decode_options,
-    ):
+    ) -> dict:
         args = [
             "whisper-cpp",
             "--model",
@@ -251,7 +251,7 @@ class WhisperApi(BaseWhisper):
         language: str = "en",
         initial_prompt: str | None = None,
         **decode_options,
-    ):
+    ) -> dict:
         audio_file = open(audio, "rb")
         prompt = os.getenv(
             "OPENAI_PROMPT", "This is a police radio dispatch transcript."
@@ -264,7 +264,7 @@ class WhisperApi(BaseWhisper):
             prompt=initial_prompt,
             response_format="verbose_json",
             language=language,
-        )
+        ).model_dump()
 
 
 def transcribe(
