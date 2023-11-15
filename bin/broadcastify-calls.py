@@ -81,7 +81,12 @@ def bcfy_login(redirect_path: str):
 
 
 def process_calls(
-    short_name: str, systemId: int = 0, sid: int = 0, onlyTalkgroups: list[int] = []
+    short_name: str,
+    systemId: int = 0,
+    sid: int = 0,
+    onlyTalkgroups: list[int] = [],
+    transcribe: bool = True,
+    openmhz: bool = False,
 ):
     request_time = time.time()
     pos = request_time - GET_NEW_CALLS_INTERVAL
@@ -122,7 +127,7 @@ def process_calls(
         for call in calls:
             if len(onlyTalkgroups) == 0 or call["call_tg"] in onlyTalkgroups:
                 try:
-                    process_call(call, short_name, jar)
+                    process_call(call, short_name, jar, transcribe, openmhz)
                 except Exception as e:
                     logging.error(
                         f"Got exception while trying to process call: {repr(e)}",
@@ -140,7 +145,9 @@ def process_calls(
             pos = lastPos + 1
 
 
-def process_call(call: dict, short_name: str, jar):
+def process_call(
+    call: dict, short_name: str, jar, transcribe: bool = True, openmhz: bool = False
+):
     if "metadata" in call:
         metadata = call["metadata"]
         metadata["short_name"] = short_name
@@ -205,18 +212,38 @@ def process_call(call: dict, short_name: str, jar):
             audio_file.flush()
             audio_file.seek(0)
 
-            try:
-                logging.info(
-                    f"Queueing call on '{call['display']}' (TG {call['call_tg']}) for transcription - {url}"
+            if transcribe:
+                try:
+                    logging.info(
+                        f"Queueing call on '{call['display']}' (TG {call['call_tg']}) for transcription - {url}"
+                    )
+                    api_client.call(
+                        "POST",
+                        "calls",
+                        files={"call_json": metadata_file, "call_audio": audio_file},
+                    )
+                except requests.exceptions.HTTPError as e:
+                    if e.response.status_code > 400:
+                        raise e
+
+            if openmhz:
+                r = requests.post(
+                    f"https://api.openmhz.com/{os.getenv('OPENMHZ_SYSTEM', short_name)}/upload",
+                    timeout=5,
+                    files={
+                        "api_key": (None, os.getenv("OPENMHZ_API_KEY", "")),
+                        "call": audio_file,
+                        "freq": (None, metadata["freq"]),
+                        "start_time": (None, metadata["start_time"]),
+                        "stop_time": (None, metadata["stop_time"]),
+                        "call_length": (None, metadata["call_length"]),
+                        "talkgroup_num": (None, metadata["talkgroup"]),
+                        "emergency": (None, metadata["emergency"]),
+                        "source_list": (None, json.dumps(metadata["srcList"])),
+                        "freq_list": (None, json.dumps(metadata["freqList"])),
+                    },
                 )
-                api_client.call(
-                    "POST",
-                    "calls",
-                    files={"call_json": metadata_file, "call_audio": audio_file},
-                )
-            except requests.exceptions.HTTPError as e:
-                if e.response.status_code > 400:
-                    raise e
+                r.raise_for_status()
 
 
 if __name__ == "__main__":
@@ -246,6 +273,18 @@ if __name__ == "__main__":
         metavar="TGIDS",
         help="Comma seperated list or range of talkgroups to limit uploads to",
     )
+    parser.add_argument(
+        "--transcribe",
+        default=True,
+        action="store_true",
+        help="Whether or not to send the calls to be transcribed",
+    )
+    parser.add_argument(
+        "--openmhz",
+        default=False,
+        action="store_true",
+        help="Whether or not to send the calls to OpenMHz.com",
+    )
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO)
@@ -269,4 +308,6 @@ if __name__ == "__main__":
         systemId=args.node_id,
         sid=args.system_id,
         onlyTalkgroups=onlyTalkgroups,
+        transcribe=args.transcribe,
+        openmhz=args.openmhz,
     )
