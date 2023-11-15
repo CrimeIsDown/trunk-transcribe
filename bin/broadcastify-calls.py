@@ -7,10 +7,8 @@ import os
 import sys
 import tempfile
 import time
-from datetime import datetime
 from uuid import uuid4
 
-import pytz
 import requests
 from dotenv import load_dotenv
 
