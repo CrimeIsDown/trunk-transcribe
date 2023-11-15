@@ -276,13 +276,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--transcribe",
         default=True,
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
         help="Whether or not to send the calls to be transcribed",
     )
     parser.add_argument(
         "--openmhz",
         default=False,
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
         help="Whether or not to send the calls to OpenMHz.com",
     )
     args = parser.parse_args()
