@@ -227,6 +227,9 @@ def process_call(
                         raise e
 
             if openmhz:
+                logging.info(
+                    f"Sending call on '{call['display']}' (TG {call['call_tg']}) to OpenMHz - {url}"
+                )
                 data = {
                     "api_key": os.getenv("OPENMHZ_API_KEY", ""),
                     "freq": metadata["freq"],
