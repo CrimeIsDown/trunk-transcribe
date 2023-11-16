@@ -227,21 +227,21 @@ def process_call(
                         raise e
 
             if openmhz:
+                data = {
+                    "api_key": os.getenv("OPENMHZ_API_KEY", ""),
+                    "freq": metadata["freq"],
+                    "start_time": metadata["start_time"],
+                    "stop_time": metadata["stop_time"],
+                    "call_length": metadata["call_length"],
+                    "talkgroup_num": metadata["talkgroup"],
+                    "emergency": metadata["emergency"],
+                    "source_list": json.dumps(metadata["srcList"]),
+                }
                 r = requests.post(
                     f"https://api.openmhz.com/{os.getenv('OPENMHZ_SYSTEM', short_name)}/upload",
                     timeout=5,
-                    files={
-                        "api_key": (None, os.getenv("OPENMHZ_API_KEY", "")),
-                        "call": audio_file,
-                        "freq": (None, metadata["freq"]),
-                        "start_time": (None, metadata["start_time"]),
-                        "stop_time": (None, metadata["stop_time"]),
-                        "call_length": (None, metadata["call_length"]),
-                        "talkgroup_num": (None, metadata["talkgroup"]),
-                        "emergency": (None, metadata["emergency"]),
-                        "source_list": (None, json.dumps(metadata["srcList"])),
-                        "freq_list": (None, json.dumps(metadata["freqList"])),
-                    },
+                    data=data,
+                    files={"call": (f"{call['filename']}.m4a", audio_file)},
                 )
                 r.raise_for_status()
 
