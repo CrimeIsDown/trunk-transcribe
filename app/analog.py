@@ -33,11 +33,20 @@ def pad_silence(audio_file: str):  # pragma: no cover
     p.check_returncode()
 
     whisper_file = f"{basename}-whisper.wav"
-    sox_args = sorted(glob(pathname=f"{basename}-*.wav"))
+    split_files = glob(pathname=f"{basename}-*.wav")
+    sox_args = sorted(split_files)
     sox_args.insert(0, "sox")
     sox_args.append(whisper_file)
     p = subprocess.run(sox_args)
-    p.check_returncode()
+
+    try:
+        p.check_returncode()
+    except Exception as e:
+        os.unlink(whisper_file)
+        raise e
+    finally:
+        for filename in split_files:
+            os.unlink(filename)
 
     return whisper_file
 

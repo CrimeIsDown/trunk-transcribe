@@ -297,5 +297,5 @@ def transcribe(
             audio_file, language="en", initial_prompt=initial_prompt, **whisper_kwargs
         )
         os.unlink(audio_file)
-        logging.debug("Transcription result: " + json.dumps(result, indent=4))
+        logging.debug(f"{audio_file} transcription result: " + json.dumps(result, indent=4))
         return result

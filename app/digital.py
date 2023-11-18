@@ -36,6 +36,7 @@ def extract_src_audio(
     )
     length_call.check_returncode()
     if float(length_call.stdout) < 1:
+        os.unlink(src_file)
         return None
 
     return src_file
