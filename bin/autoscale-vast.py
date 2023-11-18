@@ -305,6 +305,7 @@ class Autoscaler:
                 instance["actual_status"] == "loading"
                 and time.time() - instance["start_date"] > 900
             )
+            is_full = instance["disk_usage"] / instance["disk_space"] > 0.9
             is_errored = (
                 instance["status_msg"] and "error" in instance["status_msg"].lower()
             )
@@ -313,7 +314,7 @@ class Autoscaler:
                 instance["actual_status"] == "exited"
                 or instance["cur_state"] == "stopped"
             )
-            if errored or exited:
+            if errored or exited or is_full:
                 if is_disconnected:
                     instance["deletion_reason"] = "disconnected"
                 if is_stuck:
@@ -322,6 +323,8 @@ class Autoscaler:
                     instance["deletion_reason"] = "error"
                 if exited:
                     instance["deletion_reason"] = "exited"
+                if is_full:
+                    instance["deletion_reason"] = "disk_space_full"
                 deletable_instances.append(instance)
                 if is_stuck or is_errored:
                     bad_instances.append(instance)
