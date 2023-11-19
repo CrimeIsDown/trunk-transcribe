@@ -112,7 +112,7 @@ def transcribe(
         else:
             raise Reject(f"Audio type {metadata['audio_type']} not supported")
     except RuntimeError as e:
-        logging.error(e)
+        logging.warn(e)
         return None, None
     logging.debug(transcript.json)
 
