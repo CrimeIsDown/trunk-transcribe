@@ -7,7 +7,6 @@ from time import time
 
 import pytz
 from apprise import Apprise, AppriseAttachment, NotifyFormat
-from apprise.plugins.NotifyTelegram import NotifyTelegram as NotifyTelegramBase
 
 from .config import (
     AlertConfig,
@@ -15,9 +14,7 @@ from .config import (
     get_notifications_config,
     get_ttl_hash,
 )
-from .conversion import convert_to_ogg
 from .metadata import Metadata
-from .notification_plugins.NotifyTelegram import NotifyTelegram
 from .transcript import Transcript
 
 
@@ -113,11 +110,9 @@ def send_notifications(
     config = get_notifications_config(get_ttl_hash(cache_seconds=60))
 
     transcript_html = transcript.html
-    # We cannot delete this ogg file immediately as Apprise sends notifications in the background
-    ogg_file = convert_to_ogg(raw_audio_url, metadata)
 
     for match in get_matching_config(metadata, config):
-        notify_channels(match, ogg_file, metadata, transcript_html)
+        notify_channels(match, raw_audio_url, metadata, transcript_html)
         for alert_config in match["alerts"]:
             send_alert(
                 alert_config, metadata, transcript_html, raw_audio_url, search_url
@@ -140,22 +135,11 @@ def notify_channels(
 
     suffix = build_suffix(metadata, config["append_talkgroup"])
 
-    # Save original methods to return later
-    orig_send = NotifyTelegramBase.send
-    orig_send_media = NotifyTelegramBase.send_media
-    # Monkey patch NotifyTelegram so we can send voice messages with captions
-    NotifyTelegramBase.send = NotifyTelegram.send  # type: ignore
-    NotifyTelegramBase.send_media = NotifyTelegram.send_media  # type: ignore
-
     add_channels(Apprise(), config["channels"]).notify(
         body="<br />".join([transcript, suffix]),
         body_format=NotifyFormat.HTML,
         attach=AppriseAttachment(audio_file),
     )
-
-    # Undo the patch
-    NotifyTelegramBase.send = orig_send
-    NotifyTelegramBase.send_media = orig_send_media
 
 
 def send_alert(
