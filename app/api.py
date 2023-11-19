@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
 import json
+import logging
 import os
+import sys
 import tempfile
 
 import sentry_sdk
@@ -19,6 +21,11 @@ from .metadata import Metadata
 from .transcript import Transcript
 from .worker import celery as celery_app
 from .worker import transcribe_task, transcribe_from_db_task
+
+logging.basicConfig(
+    level=getattr(logging, os.getenv("UVICORN_LOG_LEVEL", "info").upper()),
+    stream=sys.stdout,
+)
 
 sentry_dsn = os.getenv("SENTRY_DSN")
 if sentry_dsn:
@@ -40,7 +47,6 @@ if os.getenv("POSTGRES_DB") is not None:
     models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
-
 
 # Dependency
 def get_db():

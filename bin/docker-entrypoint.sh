@@ -2,8 +2,16 @@
 set -Eeou pipefail
 
 if [ "$1" = 'api' ]; then
-    exec uvicorn app.api:app --host 0.0.0.0
+    # Clean up any old temp files
+    /bin/sh -c "while true; do find /tmp -type f -mmin +10 -delete; sleep 60; done" &
+    disown
+
+    exec uvicorn app.api:app --host 0.0.0.0 --log-level ${UVICORN_LOG_LEVEL}
 elif [ "$1" = 'worker' ]; then
+    # Clean up any old temp files
+    /bin/sh -c "while true; do find /tmp -type f -mmin +10 -delete; sleep 60; done" &
+    disown
+
     if [ -z "${CELERY_HOSTNAME-}" ]; then
         CELERY_HOSTNAME="celery-${GIT_COMMIT::7}"
         if [ -f /root/.vast_containerlabel ]; then
