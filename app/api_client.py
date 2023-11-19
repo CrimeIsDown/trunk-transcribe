@@ -44,9 +44,11 @@ def call(method: str, path: str, **kwargs):
     else:
         headers = None
 
+    if "url" not in kwargs:
+        kwargs["url"] = f"{os.getenv('API_BASE_URL')}/{path}"
+
     r = requests.request(
         method=method,
-        url=kwargs["url"] if "url" in kwargs else f"{os.getenv('API_BASE_URL')}/{path}",
         timeout=60,
         headers=headers,
         **kwargs,
