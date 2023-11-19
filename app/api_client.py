@@ -46,7 +46,7 @@ def call(method: str, path: str, **kwargs):
 
     r = requests.request(
         method=method,
-        url=f"{os.getenv('API_BASE_URL')}/{path}",
+        url=kwargs["url"] if "url" in kwargs else f"{os.getenv('API_BASE_URL')}/{path}",
         timeout=60,
         headers=headers,
         **kwargs,

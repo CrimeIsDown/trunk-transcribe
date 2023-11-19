@@ -26,7 +26,11 @@ def get_notifications_config(
 
     path = "config/notifications.json"
     try:
-        return api_client.call("get", path)
+        custom_config_url = os.getenv("NOTIFICATIONS_CONFIG_URL")
+        if custom_config_url:
+            return api_client.call("get", "", url=custom_config_url)
+        else:
+            return api_client.call("get", path)
     except Exception as e:
         # If we have a local copy of the config, fallback to that
         if os.path.isfile(path):
