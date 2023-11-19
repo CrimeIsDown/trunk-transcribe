@@ -6,7 +6,7 @@ if [ "$1" = 'api' ]; then
     /bin/sh -c "while true; do find /tmp -type f -mmin +10 -delete; sleep 60; done" &
     disown
 
-    exec uvicorn app.api:app --host 0.0.0.0 --log-level ${UVICORN_LOG_LEVEL}
+    exec uvicorn app.api:app --host 0.0.0.0 --log-level ${UVICORN_LOG_LEVEL:-info}
 elif [ "$1" = 'worker' ]; then
     # Clean up any old temp files
     /bin/sh -c "while true; do find /tmp -type f -mmin +10 -delete; sleep 60; done" &
