@@ -133,9 +133,9 @@ class DistilWhisper(BaseWhisper):
         output = self.pipe(audio, return_timestamps=True)
         result = {
             "segments": [],
-            "text": output["text"],
+            "text": output["text"], # type: ignore
         }
-        for chunk in result["chunks"]:
+        for chunk in output["chunks"]: # type: ignore
             result["segments"].append(
                 {
                     "start": chunk["timestamp"][0],
