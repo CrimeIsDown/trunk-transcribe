@@ -114,11 +114,8 @@ class TestGetMatchingConfig(unittest.TestCase):
 
 class TestSendNotifications(unittest.TestCase):
     @patch("app.notification.get_notifications_config")
-    @patch("app.notification.convert_to_ogg")
     @patch("app.notification.Transcript")
-    def test_send_notifications(
-        self, mock_transcript, mock_convert_to_ogg, mock_get_notifications_config
-    ):
+    def test_send_notifications(self, mock_transcript, mock_get_notifications_config):
         audio_file = "audio.wav"
         search_url = "https://example.com/search?q=TG123"
 
@@ -127,8 +124,6 @@ class TestSendNotifications(unittest.TestCase):
 
         mock_transcript_instance = mock_transcript.return_value
         mock_transcript_instance.html = "<p>This is the transcript.</p>"
-
-        mock_convert_to_ogg.return_value = NamedTemporaryFile(delete=False).name
 
         mock_get_notifications_config.return_value = {
             "regex1": {
