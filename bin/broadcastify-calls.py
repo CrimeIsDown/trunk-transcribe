@@ -87,6 +87,7 @@ def process_calls(
     onlyTalkgroups: list[int] = [],
     transcribe: bool = True,
     openmhz: bool = False,
+    rdio: bool = False,
 ):
     request_time = time.time()
     pos = request_time - GET_NEW_CALLS_INTERVAL
@@ -127,7 +128,7 @@ def process_calls(
         for call in calls:
             if len(onlyTalkgroups) == 0 or call["call_tg"] in onlyTalkgroups:
                 try:
-                    process_call(call, short_name, jar, transcribe, openmhz)
+                    process_call(call, short_name, jar, transcribe, openmhz, rdio)
                 except Exception as e:
                     logging.error(
                         f"Got exception while trying to process call: {repr(e)}",
@@ -146,7 +147,12 @@ def process_calls(
 
 
 def process_call(
-    call: dict, short_name: str, jar, transcribe: bool = True, openmhz: bool = False
+    call: dict,
+    short_name: str,
+    jar,
+    transcribe: bool = True,
+    openmhz: bool = False,
+    rdio: bool = False,
 ):
     if "metadata" in call:
         metadata = call["metadata"]
@@ -222,6 +228,7 @@ def process_call(
                         "calls",
                         files={"call_json": metadata_file, "call_audio": audio_file},
                     )
+                    audio_file.seek(0)
                 except requests.exceptions.HTTPError as e:
                     if e.response.status_code > 400:
                         raise e
@@ -246,6 +253,35 @@ def process_call(
                     data=data,
                     files={"call": (f"{call['filename']}.m4a", audio_file)},
                 )
+                audio_file.seek(0)
+                r.raise_for_status()
+
+            if rdio:
+                logging.info(
+                    f"Sending call on '{call['display']}' (TG {call['call_tg']}) to Rdio Scanner - {url}"
+                )
+                data = {
+                    "key": os.getenv("RDIO_API_KEY", ""),
+                    "system": os.getenv("RDIO_SYSTEM_ID", ""),
+                    "systemLabel": metadata["short_name"],
+                    "dateTime": metadata["start_time"],
+                    "talkgroup": metadata["talkgroup"],
+                    "frequency": metadata["freq"],
+                    "frequencies": json.dumps(metadata["freqList"]),
+                    "source": call["call_src"],
+                    "sources": json.dumps(metadata["srcList"]),
+                    "talkgroupGroup": metadata["talkgroup_group"],
+                    "talkgroupLabel": metadata["talkgroup_tag"],
+                    "talkgroupTag": metadata["talkgroup_group_tag"],
+                    "talkgroupName": metadata["talkgroup_description"],
+                }
+                r = requests.post(
+                    f"{os.getenv('RDIO_URL', '')}/api/call-upload",
+                    timeout=5,
+                    data=data,
+                    files={"audio": (f"{call['filename']}.{extension}", audio_file)},
+                )
+                audio_file.seek(0)
                 r.raise_for_status()
 
 
@@ -288,6 +324,12 @@ if __name__ == "__main__":
         action=argparse.BooleanOptionalAction,
         help="Whether or not to send the calls to OpenMHz.com",
     )
+    parser.add_argument(
+        "--rdio",
+        default=False,
+        action=argparse.BooleanOptionalAction,
+        help="Whether or not to send the calls to Rdio Scanner",
+    )
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO)
@@ -313,4 +355,5 @@ if __name__ == "__main__":
         onlyTalkgroups=onlyTalkgroups,
         transcribe=args.transcribe,
         openmhz=args.openmhz,
+        rdio=args.rdio,
     )
