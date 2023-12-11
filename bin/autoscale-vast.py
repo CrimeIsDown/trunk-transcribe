@@ -43,7 +43,7 @@ FORBIDDEN_INSTANCE_CONFIG = "config/forbidden_instances.json"
 
 class Autoscaler:
     envs: dict[str, str] = {}
-    utilization_readings: list[float] = []
+    message_rates: list[float] = []
     pending_instances: dict[str, int] = {}
     forbidden_instances: set[str] = set()
 
@@ -214,18 +214,18 @@ class Autoscaler:
     def create_instances(self, count: int) -> int:
         logging.info(f"Scaling up by {count} instances")
 
-        utilization_factor = 1
+        mem_util_factor = 1
         # Decrease the memory needed for certain forks
         if os.getenv("DESIRED_CUDA") == "fw" or os.getenv("DESIRED_CUDA") == "cpu-cpp":
-            utilization_factor = 0.4
+            mem_util_factor = 0.4
 
         vram_requirements = {
-            "tiny.en": 1.5 * 1024 * utilization_factor,
-            "base.en": 2 * 1024 * utilization_factor,
-            "small.en": 3.5 * 1024 * utilization_factor,
-            "medium.en": 6.5 * 1024 * utilization_factor,
-            "large": 12 * 1024 * utilization_factor,
-            "large-v2": 12 * 1024 * utilization_factor,
+            "tiny.en": 1.5 * 1024 * mem_util_factor,
+            "base.en": 2 * 1024 * mem_util_factor,
+            "small.en": 3.5 * 1024 * mem_util_factor,
+            "medium.en": 6.5 * 1024 * mem_util_factor,
+            "large": 12 * 1024 * mem_util_factor,
+            "large-v2": 12 * 1024 * mem_util_factor,
         }
 
         vram_required = vram_requirements[self.model]
@@ -368,57 +368,43 @@ class Autoscaler:
 
         return len(deletable_instances)
 
-    def calculate_utilization(self):
-        workers = self.get_worker_status()
-        queue = self.get_queue_status()
-
-        # Calculate the total number of worker processes online
-        max_capacity = sum(
-            [
-                worker["stats"]["pool"]["max-concurrency"]
-                for worker in workers
-                if "stats" in worker
-            ]
-        )
-        # Calculate the total number of worker processes we will be creating
-        pending_capacity = sum(self.pending_instances.values())
-        total_capacity = max_capacity + pending_capacity
-        queued = queue["messages"] if "messages" in queue else 0
-        # Use our job count if we have no capacity to determine what to do
-        utilization = queued / total_capacity if total_capacity else queued
-
-        logging.debug(
-            f"Calculated utilization {utilization:.2f} = {queued} queued jobs / {max_capacity} processes + {pending_capacity} pending processes"
-        )
-
-        return utilization
-
-    def monitor_utilization(self):
+    def monitor_queue(self):
         while True:
             time.sleep(2)
             try:
-                current_utilization = self.calculate_utilization()
+                queue = self.get_queue_status()
+                message_rate = (
+                    queue["messages_details"]["rate"]
+                    if "messages_details" in queue
+                    else 0
+                )
             except Exception as e:
                 logging.exception(e)
                 sentry_sdk.capture_exception(e)
                 continue
 
-            self.utilization_readings.append(current_utilization)
-            if len(self.utilization_readings) > self.interval / 2:
-                self.utilization_readings.pop(0)
+            self.message_rates.append(message_rate)
+            if len(self.message_rates) > self.interval / 2:
+                self.message_rates.pop(0)
 
     def calculate_needed_instances(self, current_instances: int):
         needed_instances = current_instances
 
-        if len(self.utilization_readings):
-            avg_utilization = mean(self.utilization_readings)
+        queue = self.get_queue_status()
 
-            logging.info(f"Current average utilization: {avg_utilization:.2f}")
+        if len(self.message_rates):
+            message_rate = mean(self.message_rates)
+        else:
+            message_rate = queue["messages_details"]["rate"]
 
-            if avg_utilization > 2:
-                needed_instances += 1
-            elif avg_utilization < 0.35:
-                needed_instances -= 1
+        logging.info(
+            f"Current avg message rate: {message_rate:.2f} / Current message count: {queue['messages']}"
+        )
+
+        if message_rate > 0.2:
+            needed_instances += 1
+        elif message_rate < -0.5 and queue["messages"] < 10:
+            needed_instances -= 1
 
         return needed_instances
 
@@ -442,8 +428,8 @@ class Autoscaler:
             f"Started autoscaler: min_instances={self.min} max_instances={self.max} interval={self.interval}"
         )
 
-        # Start monitoring the utilization
-        t = Thread(target=self.monitor_utilization)
+        # Start monitoring the queue stats
+        t = Thread(target=self.monitor_queue)
         t.start()
 
         while True:
