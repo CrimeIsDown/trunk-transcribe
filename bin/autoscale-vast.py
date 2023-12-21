@@ -63,8 +63,9 @@ class Autoscaler:
         self.vast_api_key = os.getenv("VAST_API_KEY")
         if not self.vast_api_key:
             self.vast_api_key = (
-                open(os.path.expanduser("~/.vast_api_key")).read().strip()
+                open(os.path.expanduser("~/.vast_api_key")).read()
             )
+        self.vast_api_key = self.vast_api_key.strip()
 
         self.envs = dotenv_values(".env.vast")  # type: ignore
 
@@ -187,7 +188,7 @@ class Autoscaler:
         }
 
         r = requests.get(
-            "https://console.vast.ai/api/v0/bundles",
+            "https://console.vast.ai/api/v0/bundles/",
             params={"q": json.dumps(query)},
             headers={"Authorization": f"Bearer {self.vast_api_key}"},
         )
@@ -205,7 +206,7 @@ class Autoscaler:
 
     def get_current_instances(self) -> list[dict]:
         r = requests.get(
-            "https://console.vast.ai/api/v0/instances",
+            "https://console.vast.ai/api/v0/instances/",
             params={"owner": "me"},
             headers={"Authorization": f"Bearer {self.vast_api_key}"},
         )
@@ -250,7 +251,7 @@ class Autoscaler:
 
             instance_id = instance["id"]
             # Bid 1.25x the minimum bid
-            bid = round(float(instance["dph_total"]) * 1.25, 6)
+            bid = max(round(float(instance["dph_total"]) * 1.25, 6), 0.001)
 
             # Adjust concurrency based on GPU RAM
             concurrency = floor(instance["gpu_ram"] / vram_required)
