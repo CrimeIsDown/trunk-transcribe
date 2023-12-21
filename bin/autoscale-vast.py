@@ -186,7 +186,7 @@ class Autoscaler:
         }
 
         r = requests.get(
-            "https://console.vast.ai/api/v0/bundles",
+            "https://cloud.vast.ai/api/v0/bundles",
             params={"q": json.dumps(query), "api_key": self.vast_api_key},
         )
         r.raise_for_status()
@@ -203,7 +203,7 @@ class Autoscaler:
 
     def get_current_instances(self) -> list[dict]:
         r = requests.get(
-            "https://console.vast.ai/api/v0/instances",
+            "https://cloud.vast.ai/api/v0/instances",
             params={"owner": "me", "api_key": self.vast_api_key},
         )
         r.raise_for_status()
@@ -269,7 +269,7 @@ class Autoscaler:
             }
 
             r = requests.put(
-                f"https://console.vast.ai/api/v0/asks/{instance_id}/",
+                f"https://cloud.vast.ai/api/v0/asks/{instance_id}/",
                 params={"api_key": self.vast_api_key},
                 json=body,
             )
@@ -354,7 +354,7 @@ class Autoscaler:
         if len(deletable_instances):
             for instance in deletable_instances:
                 r = requests.delete(
-                    f"https://console.vast.ai/api/v0/instances/{instance['id']}/",
+                    f"https://cloud.vast.ai/api/v0/instances/{instance['id']}/",
                     params={"api_key": self.vast_api_key},
                     json={},
                 )
