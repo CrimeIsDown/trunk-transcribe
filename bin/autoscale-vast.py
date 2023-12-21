@@ -405,7 +405,7 @@ class Autoscaler:
             f"Current avg message rate: {message_rate:.2f} / Current message count: {queue['messages']}"
         )
 
-        if message_rate > 0.2:
+        if message_rate > 0.2 or queue["messages"] > 1000:
             needed_instances += 1
         elif message_rate < -0.5 and queue["messages"] < 10:
             needed_instances -= 1
