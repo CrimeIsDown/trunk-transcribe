@@ -7,6 +7,7 @@ import os
 import subprocess
 import time
 from functools import lru_cache
+from http.client import HTTPConnection
 from math import floor
 from statistics import mean
 from threading import Thread
@@ -479,6 +480,8 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
+    if args.verbose:
+        HTTPConnection.debuglevel = 2
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO)
 
     autoscaler = Autoscaler(
