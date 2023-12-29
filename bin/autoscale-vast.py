@@ -62,9 +62,7 @@ class Autoscaler:
 
         self.vast_api_key = os.getenv("VAST_API_KEY")
         if not self.vast_api_key:
-            self.vast_api_key = (
-                open(os.path.expanduser("~/.vast_api_key")).read()
-            )
+            self.vast_api_key = open(os.path.expanduser("~/.vast_api_key")).read()
         self.vast_api_key = self.vast_api_key.strip()
 
         self.envs = dotenv_values(".env.vast")  # type: ignore

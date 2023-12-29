@@ -18,4 +18,4 @@ else
     EXTRA_INDEX_URL=""
 fi
 
-pip3 install --use-pep517 $EXTRA_INDEX_URL git+https://github.com/openai/whisper.git@${WHISPER_VERSION:-b38a1f20f4b23f3f3099af2c3e0ca95627276ddf}
+pip3 install --use-pep517 $EXTRA_INDEX_URL git+https://github.com/openai/whisper.git@${WHISPER_VERSION:-ba3f3cd54b0e5b8ce1ab3de13e32122d0d5f98ab}
