@@ -95,7 +95,7 @@ jobs:
             platform: linux/amd64
             desired_cuda: cpu-cpp
             dockerfile: Dockerfile.whispercpp
-          - model: large
+          - model: large-v2
             platform: linux/amd64
             desired_cuda: cpu-cpp
             dockerfile: Dockerfile.whispercpp
