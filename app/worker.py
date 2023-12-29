@@ -156,7 +156,7 @@ def transcribe_and_index(
 
     # Do not send Telegram messages for calls we already have transcribed previously
     if new_call:
-        send_notifications(raw_audio_url, metadata, transcript, search_url)
+        send_notifications(raw_audio_url, metadata, transcript, geo, search_url)
 
     return transcript.txt
 

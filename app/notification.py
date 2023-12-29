@@ -4,9 +4,11 @@ import re
 from datetime import datetime
 from sys import platform
 from time import time
+from typing import Tuple
 
 import pytz
 from apprise import Apprise, AppriseAttachment, NotifyFormat
+from geopy import distance, point
 
 from .config import (
     AlertConfig,
@@ -14,6 +16,7 @@ from .config import (
     get_notifications_config,
     get_ttl_hash,
 )
+from .geocoding import GeoResponse, calculate_route_duration
 from .metadata import Metadata
 from .transcript import Transcript
 
@@ -99,6 +102,7 @@ def send_notifications(
     raw_audio_url: str,
     metadata: Metadata,
     transcript: Transcript,
+    geo: GeoResponse | None,
     search_url: str,
 ):  # pragma: no cover
     # If delayed over our MAX_CALL_AGE, don't bother sending to Telegram
@@ -115,7 +119,7 @@ def send_notifications(
         notify_channels(match, raw_audio_url, metadata, transcript_html)
         for alert_config in match["alerts"]:
             send_alert(
-                alert_config, metadata, transcript_html, raw_audio_url, search_url
+                alert_config, metadata, transcript_html, geo, raw_audio_url, search_url
             )
 
 
@@ -146,6 +150,7 @@ def send_alert(
     config: AlertConfig,
     metadata: Metadata,
     transcript: str,
+    geo: GeoResponse | None,
     audio_file: str,
     search_url: str,
 ):  # pragma: no cover
@@ -160,23 +165,87 @@ def send_alert(
     # If we haven't already appended the talkgroup, do it for the alert
     suffix = build_suffix(metadata, add_talkgroup=True, search_url=search_url)
 
-    matched_keywords, matched_lines = check_transcript_for_alert_keywords(
-        transcript, config["keywords"]
-    )
+    should_send, title, body = should_send_alert(config, transcript, geo)
 
-    if len(matched_keywords):
-        title = ", ".join(matched_keywords) + " detected in transcript"
-
-        # Avoid duplicating the transcript if we don't have to
-        transcript_excerpt = "<br />".join(matched_lines)
-        if transcript_excerpt == transcript:
-            body = transcript
-        else:
-            body = transcript_excerpt + "<br />&#8213;&#8213;&#8213;<br />" + transcript
-
+    # If we have set the title to a non-empty string, there must be a match
+    if should_send:
         add_channels(Apprise(), config["channels"]).notify(
             body="<br />".join([body, suffix]),
             body_format=NotifyFormat.HTML,
             title=title,
             attach=AppriseAttachment(audio_file),
         )
+
+
+def should_send_alert(
+    config: AlertConfig, transcript: str, geo: GeoResponse | None
+) -> Tuple[bool, str, str]:
+    """
+    Notification options:
+    - keyword
+    - location / radius
+    - location / travel time
+    - LLM based (TBA)
+    """
+
+    condition_results = []
+    title = ""
+    body = transcript
+
+    keywords = config.get("keywords")
+    if keywords:
+        matched_keywords, matched_lines = check_transcript_for_alert_keywords(
+            transcript, keywords
+        )
+
+        match = len(matched_keywords) > 0
+        condition_results.append(match)
+        if match:
+            title = (
+                title + " " + ", ".join(matched_keywords) + " detected in transcript"
+            )
+
+            # Avoid duplicating the transcript if we don't have to
+            transcript_excerpt = "<br />".join(matched_lines)
+            if transcript_excerpt != transcript:
+                body = transcript_excerpt + "<br />&#8213;&#8213;&#8213;<br />" + body
+
+    location = config.get("location")
+    if location and geo:
+        incident_location = point.Point(geo["geo"]["lat"], geo["geo"]["lng"])
+        user_location = point.Point(location["geo"]["lat"], location["geo"]["lng"])
+
+        if max_radius := location.get("radius"):
+            distance_to_incident = distance.distance(
+                user_location, incident_location
+            ).miles
+            match = distance_to_incident < float(max_radius)
+            condition_results.append(match)
+            if match:
+                title = (
+                    title
+                    + f" Location {geo['geo_formatted_address']} ({distance_to_incident:.2f} miles away) detected in transcript"
+                )
+
+        if travel_time_max := location.get("travel_time"):
+            duration = calculate_route_duration(user_location, incident_location)
+            match = duration < int(travel_time_max)
+            condition_results.append(match)
+            if match:
+                duration_min = duration / 60
+                title = (
+                    title
+                    + f" Location {geo['geo_formatted_address']} ({duration_min:.0f} minutes away) detected in transcript"
+                )
+
+    # if config.get("custom_gpt_prompt"):
+    # TODO: send the prompt and transcript to the LLM to determine if we should notify
+
+    behavior = "AND"
+    should_send = (
+        False not in condition_results
+        if behavior == "AND"
+        else True in condition_results
+    )
+
+    return should_send, title.strip(), body.strip()

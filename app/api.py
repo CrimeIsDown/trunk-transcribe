@@ -180,7 +180,7 @@ def update_call(call_id: int, call: schemas.CallUpdate, db: Session = Depends(ge
     )
 
     notification.send_notifications(
-        db_call.raw_audio_url, metadata, transcript, search_url  # type: ignore
+        db_call.raw_audio_url, metadata, transcript, db_call.geo, search_url  # type: ignore
     )
 
     return db_call

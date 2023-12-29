@@ -138,7 +138,9 @@ class TestSendNotifications(unittest.TestCase):
             },
         }
 
-        send_notifications(audio_file, metadata, mock_transcript_instance, search_url)
+        send_notifications(
+            audio_file, metadata, mock_transcript_instance, None, search_url
+        )
 
 
 class TestNotifyChannels(unittest.TestCase):
@@ -218,7 +220,7 @@ class TestSendAlert(unittest.TestCase):
         mock_add_channels.return_value = apprise_mock
 
         # Call the function
-        send_alert(config, metadata, transcript, mp3_file, search_url)
+        send_alert(config, metadata, transcript, None, mp3_file, search_url)
 
         # Perform assertions
         mock_truncate_transcript.assert_called_once_with(transcript)
