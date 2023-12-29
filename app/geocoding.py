@@ -1,12 +1,14 @@
 import logging
 import re
 import os
+import sys
 from typing import Tuple, TypedDict
 
-import googlemaps
 import sentry_sdk
-from geocodio import GeocodioClient
-from geocodio.exceptions import GeocodioDataError
+from geopy.point import Point
+from geopy.geocoders import get_geocoder_for_service
+from google.api_core.client_options import ClientOptions
+from google.maps import routing_v2
 
 from .metadata import Metadata
 from .transcript import Transcript
@@ -20,10 +22,6 @@ class Geo(TypedDict):
 class GeoResponse(TypedDict):
     geo: Geo
     geo_formatted_address: str
-
-
-google_maps_client = None
-geocodio_client = None
 
 
 def build_address_regex(include_intersections: bool = True):
@@ -42,8 +40,10 @@ ADDRESS_REGEX = build_address_regex(
 
 
 # TODO: write tests
-def extract_address(transcript: str) -> Tuple[str | None, bool]:
-    match = re.search(ADDRESS_REGEX, transcript)
+def extract_address(
+    transcript: str, ignore_case: bool = False
+) -> Tuple[str | None, bool]:
+    match = re.search(ADDRESS_REGEX, transcript, re.IGNORECASE if ignore_case else 0)
     if match:
         if match.group(1) and match.group(2):
             return f"{match.group(2)} and {match.group(3)}", True
@@ -58,101 +58,120 @@ def extract_address(transcript: str) -> Tuple[str | None, bool]:
     return None, False
 
 
-def get_google_maps_client() -> googlemaps.Client | None:  # pragma: no cover
-    global google_maps_client
-    api_key = os.getenv("GOOGLE_MAPS_API_KEY")
-    if not google_maps_client and api_key:
-        google_maps_client = googlemaps.Client(key=api_key)
-    return google_maps_client
-
-
-def get_geocodio_client() -> GeocodioClient | None:  # pragma: no cover
-    global geocodio_client
-    api_key = os.getenv("GEOCODIO_API_KEY")
-    if not geocodio_client and api_key:
-        geocodio_client = GeocodioClient(api_key, timeout=15)
-    return geocodio_client
-
-
-def google_geocode(address: str) -> GeoResponse | None:  # pragma: no cover
-    client = get_google_maps_client()
-    if not client:
-        return None
-    geocode_result = client.geocode(  # type: ignore
-        address=address,
-        components={
-            "locality": os.getenv("GEOCODING_CITY"),
-            "administrative_area": os.getenv("GEOCODING_STATE"),
-            "country": os.getenv("GEOCODING_COUNTRY"),
-        },
-        bounds=os.getenv("GOOGLE_GEOCODING_BOUNDS"),
-    )
-    if len(geocode_result) and geocode_result[0]["geometry"]["location_type"] not in [
-        "APPROXIMATE",
-        "GEOMETRIC_CENTER",
-    ]:
-        return {
-            "geo": geocode_result[0]["geometry"]["location"],
-            "geo_formatted_address": geocode_result[0]["formatted_address"],
-        }
-    return None
-
-
-def geocodio_geocode(address: str) -> GeoResponse | None:  # pragma: no cover
-    client = get_geocodio_client()
-    if not client:
-        return None
-    try:
-        geocode_result = client.geocode_address(
-            components={
+def geocode(
+    address: str, geocoder: str | None = None
+) -> GeoResponse | None:  # pragma: no cover
+    if geocoder == "geocodio" or (os.getenv("GEOCODIO_API_KEY") and geocoder is None):
+        geocoder = "geocodio"
+        config = {"api_key": os.getenv("GEOCODIO_API_KEY")}
+        query = {
+            "query": {
                 "street": address,
                 "city": os.getenv("GEOCODING_CITY"),
                 "state": os.getenv("GEOCODING_STATE"),
                 "country": os.getenv("GEOCODING_COUNTRY"),
             }
-        )
-    except GeocodioDataError:
-        return None
-
-    if "accuracy_type" in geocode_result.best_match and geocode_result.best_match[
-        "accuracy_type"
-    ] not in [
-        "street_center",
-        "place",
-        "county",
-        "state",
-    ]:
-        return {
-            "geo": geocode_result.best_match["location"],
-            "geo_formatted_address": geocode_result.best_match["formatted_address"],
         }
-
-    return None
-
-
-def geocode(address: str) -> GeoResponse | None:  # pragma: no cover
-    if get_geocodio_client():
-        return geocodio_geocode(address)
-    elif get_google_maps_client():
-        return google_geocode(address)
+    elif geocoder == "googlev3" or (
+        os.getenv("GOOGLE_MAPS_API_KEY") and geocoder is None
+    ):
+        geocoder = "googlev3"
+        config = {"api_key": os.getenv("GOOGLE_MAPS_API_KEY")}
+        bounds_raw = os.getenv("GOOGLE_GEOCODING_BOUNDS")
+        if bounds_raw:
+            bounds = [Point(bound) for bound in bounds_raw.split("|")]
+        else:
+            bounds = None
+        query = {
+            "query": address,
+            "components": {
+                "locality": os.getenv("GEOCODING_CITY"),
+                "administrative_area_level_1": os.getenv("GEOCODING_STATE"),
+                "country": os.getenv("GEOCODING_COUNTRY"),
+            },
+            "bounds": bounds,
+        }
     else:
+        raise RuntimeError("Unsupported geocoder or no geocoding envs defined")
+
+    cls = get_geocoder_for_service(geocoder)
+    geolocator = cls(**config)
+    location = geolocator.geocode(**query)
+
+    if not location:
         return None
+
+    if geocoder == "geocodio":
+        if location.raw.get("accuracy_type", []) in [
+            "street_center",
+            "place",
+            "county",
+            "state",
+        ]:
+            return None
+    elif geocoder == "googlev3":
+        if location.raw["geometry"]["location_type"] in [
+            "APPROXIMATE",
+            "GEOMETRIC_CENTER",
+        ]:
+            return None
+
+    return {
+        "geo": {
+            "lat": location.latitude,
+            "lng": location.longitude,
+        },
+        "geo_formatted_address": location.address,
+    }
 
 
 def lookup_geo(metadata: Metadata, transcript: Transcript) -> GeoResponse | None:
     if metadata["short_name"] in filter(
         lambda name: len(name), os.getenv("GEOCODING_ENABLED_SYSTEMS", "").split(",")
     ):
-        geo = None
         for segment in transcript.transcript:
             address, _ = extract_address(segment[1])
             if address:
                 try:
-                    geo = geocode(address)
+                    return geocode(address)
                 except Exception as e:
                     sentry_sdk.capture_exception(e)
                     logging.error(
                         f"Got exception while geocoding: {repr(e)}", exc_info=e
                     )
-                if geo:
-                    return geo
+
+
+def calculate_route_duration(origin: Point, destination: Point) -> int:
+    # Create a client
+    options = ClientOptions(api_key=os.getenv("GOOGLE_MAPS_API_KEY"))
+    client = routing_v2.RoutesClient(client_options=options)
+
+    # Initialize request argument(s)
+    request = routing_v2.ComputeRoutesRequest(
+        origin=routing_v2.Waypoint(
+            location=routing_v2.Location(
+                lat_lng={"latitude": origin.latitude, "longitude": origin.longitude}
+            )
+        ),
+        destination=routing_v2.Waypoint(
+            location=routing_v2.Location(
+                lat_lng={
+                    "latitude": destination.latitude,
+                    "longitude": destination.longitude,
+                }
+            )
+        ),
+        travel_mode=routing_v2.RouteTravelMode.DRIVE,
+        routing_preference=routing_v2.RoutingPreference.TRAFFIC_AWARE,
+    )
+
+    # Make the request
+    response = client.compute_routes(
+        request=request, metadata=[("x-goog-fieldmask", "routes.duration")]
+    )
+
+    if len(response.routes):
+        return response.routes[0].duration.seconds
+
+    # If there are no routes, give the maximum possible time - this simplifies logic using this method
+    return sys.maxsize

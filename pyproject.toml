@@ -23,11 +23,11 @@ apprise = "^1.2"
 cachetools = "^5.3"
 sentry-sdk = "^1.14"
 openai = "^1.2.3"
-googlemaps = "^4.10.0"
-pygeocodio = "^1.2.0"
 python-datauri = "^1.1.0"
 psycopg = {extras = ["binary", "pool"], version = "^3.1.12"}
 sqlalchemy = "^2.0.22"
+geopy = "^2.4.1"
+google-maps-routing = "^0.6.3"
 
 
 [tool.poetry.group.dev.dependencies]

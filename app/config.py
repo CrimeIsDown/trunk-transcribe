@@ -2,14 +2,22 @@ import json
 import os
 from functools import lru_cache
 from time import time
-from typing import TypedDict
+from typing import Optional, TypedDict
 
 from . import api_client
+from .geocoding import Geo
+
+
+class LocationAlertConfig(TypedDict):
+    geo: Geo
+    radius: Optional[float]
+    travel_time: Optional[int]
 
 
 class AlertConfig(TypedDict):
     channels: list[str]
-    keywords: list[str]
+    keywords: Optional[list[str]]
+    location: Optional[LocationAlertConfig]
 
 
 class NotificationConfig(TypedDict):
