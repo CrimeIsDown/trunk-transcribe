@@ -111,7 +111,7 @@ Some useful dashboards to check on the workers and queues:
 
 ### notifications.json
 
-Configuration used to send notifications of calls to various services.
+Configuration used to send notifications of calls to various services. You can also receive alerts when a transcript mentions a certain keyword, or is within a certain distance/driving time of your specified location.
 
 File is cached in memory for 60 seconds upon calling the API (or reading from disk if that fails), so changes may not be shown instantly.
 
@@ -136,10 +136,24 @@ File is cached in memory for 60 seconds upon calling the API (or reading from di
                     // Telegram example (only tested integration so far)
                     "tgram://$TELEGRAM_BOT_TOKEN/chat_id"
                 ],
+                // NOTE: If both keywords and location.radius / location.travel_time are specified, then it will AND the two alert conditions together
                 "keywords": [
                     // A list of keywords to find in the transcript, can be multiple words - case insensitive search
                     "working fire"
-                ]
+                ],
+                "location": {
+                    // Latitude and longitude of the point to compare the call location to (e.g. your current location)
+                    "geo": {
+                        "lat": 41.8,
+                        "lng": -87.7
+                    },
+                    // NOTE: radius will get ANDed with travel_time if both are specified, so only include the keys you want to be conditions
+                    // Radius in miles, will notify for calls under 2 miles away
+                    "radius": 2,
+                    // Travel time in seconds, will notify for calls within a 10 minute drive (with current traffic conditions)
+                    // This requires a Google API key with the Routes API enabled
+                    "travel_time": 600
+                }
             }
         ]
     }
