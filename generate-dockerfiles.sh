@@ -53,7 +53,8 @@ echo >> Dockerfile.whispercpp
 export WHISPER_INSTALL_INSTRUCTIONS="Install Whisper.cpp
 COPY --from=whispercpp /whisper.cpp/main /usr/local/bin/whisper-cpp
 COPY --from=whispercpp /whisper.cpp/models/ggml-*.bin /usr/local/lib/whisper-models/
-ENV WHISPERCPP=/usr/local/lib/whisper-models"
+ENV WHISPERCPP=true
+ENV WHISPERCPP_MODEL_DIR=/usr/local/lib/whisper-models"
 
 envsubst '$WHISPER_INSTALL_INSTRUCTIONS' < Dockerfile >> Dockerfile.whispercpp
 
