@@ -14,8 +14,7 @@ from app.notification import add_channels
 from app.notification import build_suffix
 from app.notification import check_transcript_for_alert_keywords
 from app.notification import get_matching_config
-from app.notification import notify_channels, NotifyFormat
-from app.notification import send_alert, NotifyFormat
+from app.notification import notify, NotifyFormat
 from app.notification import send_notifications, Metadata
 from app.notification import truncate_transcript
 
@@ -143,7 +142,7 @@ class TestSendNotifications(unittest.TestCase):
         )
 
 
-class TestNotifyChannels(unittest.TestCase):
+class TestNotify(unittest.TestCase):
     @patch("app.notification.build_suffix")
     @patch("app.notification.truncate_transcript")
     @patch("app.notification.add_channels")
@@ -171,29 +170,23 @@ class TestNotifyChannels(unittest.TestCase):
         mock_add_channels.return_value = apprise_mock
 
         # Call the function
-        notify_channels(config, audio_file, metadata, transcript)
+        notify(config, metadata, transcript, audio_file)
 
         # Perform assertions
         mock_truncate_transcript.assert_called_once_with(transcript)
-        mock_build_suffix.assert_called_once_with(metadata, True)
+        mock_build_suffix.assert_called_once_with(metadata, True, "")
         apprise_mock.notify.assert_called_once_with(
             body="<br />".join([transcript, "TG123"]),
             body_format=NotifyFormat.HTML,
+            title="",
             attach=ANY,
         )
 
-
-class TestSendAlert(unittest.TestCase):
-    @patch("app.notification.truncate_transcript")
     @patch("app.notification.build_suffix")
-    @patch("app.notification.check_transcript_for_alert_keywords")
+    @patch("app.notification.truncate_transcript")
     @patch("app.notification.add_channels")
     def test_send_alert(
-        self,
-        mock_add_channels,
-        mock_check_transcript_for_alert_keywords,
-        mock_build_suffix,
-        mock_truncate_transcript,
+        self, mock_add_channels, mock_truncate_transcript, mock_build_suffix
     ):
         # Mock input data
         config = AlertConfig(
@@ -210,26 +203,17 @@ class TestSendAlert(unittest.TestCase):
         # Mock return values and behaviors
         mock_truncate_transcript.return_value = transcript
         mock_build_suffix.return_value = "TG123"
-        mock_check_transcript_for_alert_keywords.return_value = (
-            ["keyword1"],
-            ["line1", "line2"],
-        )
 
         # Mock the Apprise instance
         apprise_mock = Mock()
         mock_add_channels.return_value = apprise_mock
 
         # Call the function
-        send_alert(config, metadata, transcript, None, mp3_file, search_url)
+        notify(config, metadata, transcript, mp3_file, "", search_url)
 
         # Perform assertions
         mock_truncate_transcript.assert_called_once_with(transcript)
-        mock_build_suffix.assert_called_once_with(
-            metadata, add_talkgroup=True, search_url=search_url
-        )
-        mock_check_transcript_for_alert_keywords.assert_called_once_with(
-            transcript, config["keywords"]
-        )
+        mock_build_suffix.assert_called_once_with(metadata, True, search_url)
         apprise_mock.notify.assert_called_once()
 
 

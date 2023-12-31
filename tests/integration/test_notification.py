@@ -56,6 +56,29 @@ class TestNotification(unittest.TestCase):
         )
         self.assertEqual(transcript, body)
 
+    def test_does_not_alert_when_keyword_and_traveltime_do_not_match(self):
+        config = {
+            "channels": [
+                "tgram://$TELEGRAM_BOT_TOKEN/-1",
+            ],
+            "keywords": ["abc"],
+            "location": {
+                "geo": {"lat": 41.872321, "lng": -87.764948},
+                "travel_time": 1,
+            },
+        }
+        transcript = "E96: Engine company 96 in the truck 333 north central"
+        geo = {
+            "geo": {"lat": 41.886719, "lng": -87.764503},
+            "geo_formatted_address": "333 N Central Ave, Chicago, IL 60644",
+        }
+
+        should_send, title, body = notification.should_send_alert(config, transcript, geo)  # type: ignore
+
+        self.assertFalse(should_send)
+        self.assertEqual(title, "")
+        self.assertEqual(body, transcript)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -116,65 +116,42 @@ def send_notifications(
     transcript_html = transcript.html
 
     for match in get_matching_config(metadata, config):
-        notify_channels(match, raw_audio_url, metadata, transcript_html)
+        if len(match["channels"]):
+            notify(match, metadata, transcript_html, raw_audio_url)
         for alert_config in match["alerts"]:
-            send_alert(
-                alert_config, metadata, transcript_html, geo, raw_audio_url, search_url
-            )
+            if len(alert_config["channels"]):
+                should_send, title, body = should_send_alert(
+                    alert_config, transcript_html, geo
+                )
+                if should_send:
+                    notify(
+                        alert_config, metadata, body, raw_audio_url, title, search_url
+                    )
 
 
-def notify_channels(
-    config: NotificationConfig,
-    audio_file: str,
+def notify(
+    config: NotificationConfig | AlertConfig,
     metadata: Metadata,
-    transcript: str,
+    body: str,
+    audio_file: str,
+    title: str = "",
+    search_url: str = "",
 ):  # pragma: no cover
-    # Validate we actually have somewhere to send the notification
-    if not len(config["channels"]):
-        return
-
     # Captions are only 1024 chars max so we must truncate the transcript to fit for Telegram
     if "tgram://" in str(config["channels"]):
-        transcript = truncate_transcript(transcript)
+        body = truncate_transcript(body)
 
-    suffix = build_suffix(metadata, config["append_talkgroup"])
+    should_add_talkgroup = (
+        config["append_talkgroup"] if "append_talkgroup" in config else True
+    )
+    suffix = build_suffix(metadata, should_add_talkgroup, search_url)
 
     add_channels(Apprise(), config["channels"]).notify(
-        body="<br />".join([transcript, suffix]),
+        body="<br />".join([body, suffix]),
         body_format=NotifyFormat.HTML,
+        title=title,
         attach=AppriseAttachment(audio_file),
     )
-
-
-def send_alert(
-    config: AlertConfig,
-    metadata: Metadata,
-    transcript: str,
-    geo: GeoResponse | None,
-    audio_file: str,
-    search_url: str,
-):  # pragma: no cover
-    # Validate we actually have somewhere to send the notification
-    if not len(config["channels"]):
-        return
-
-    # Captions are only 1024 chars max so we must truncate the transcript to fit for Telegram
-    if "tgram://" in str(config["channels"]):
-        transcript = truncate_transcript(transcript)
-
-    # If we haven't already appended the talkgroup, do it for the alert
-    suffix = build_suffix(metadata, add_talkgroup=True, search_url=search_url)
-
-    should_send, title, body = should_send_alert(config, transcript, geo)
-
-    # If we have set the title to a non-empty string, there must be a match
-    if should_send:
-        add_channels(Apprise(), config["channels"]).notify(
-            body="<br />".join([body, suffix]),
-            body_format=NotifyFormat.HTML,
-            title=title,
-            attach=AppriseAttachment(audio_file),
-        )
 
 
 def should_send_alert(
