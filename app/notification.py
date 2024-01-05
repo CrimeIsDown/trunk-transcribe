@@ -117,7 +117,9 @@ def send_notifications(
 
     for match in get_matching_config(metadata, config):
         if len(match["channels"]):
-            logging.debug(f"Detected match for {metadata}, sending call to {match['channels']}")
+            logging.debug(
+                f"Detected match for {metadata}, sending call to {match['channels']}"
+            )
             notify(match, metadata, transcript_html, raw_audio_url)
         for alert_config in match["alerts"]:
             if len(alert_config["channels"]):
@@ -125,7 +127,9 @@ def send_notifications(
                     alert_config, transcript_html, geo
                 )
                 if should_send:
-                    logging.debug(f"Detected match for {metadata}, sending alert for config {alert_config} with title {title}")
+                    logging.debug(
+                        f"Detected match for {metadata}, sending alert for config {alert_config} with title {title}"
+                    )
                     notify(
                         alert_config, metadata, body, raw_audio_url, title, search_url
                     )
@@ -199,7 +203,9 @@ def should_send_alert(
                 user_location, incident_location
             ).miles
             match = distance_to_incident < float(max_radius)
-            logging.debug(f"Compared distance to incident {distance_to_incident} with max radius {max_radius}, got {match}")
+            logging.debug(
+                f"Compared distance to incident {distance_to_incident} with max radius {max_radius}, got {match}"
+            )
             condition_results.append(match)
             if match:
                 title = (
@@ -210,7 +216,9 @@ def should_send_alert(
         if travel_time_max := location.get("travel_time"):
             duration = calculate_route_duration(user_location, incident_location)
             match = duration < int(travel_time_max)
-            logging.debug(f"Compared travel time to incident {duration}s with max travel time {travel_time_max}s, got {match}")
+            logging.debug(
+                f"Compared travel time to incident {duration}s with max travel time {travel_time_max}s, got {match}"
+            )
             condition_results.append(match)
             if match:
                 duration_min = duration / 60
@@ -224,7 +232,8 @@ def should_send_alert(
 
     behavior = "AND"
     should_send = (
-        len(condition_results) > 0 and condition_results.count(True) == len(condition_results)
+        len(condition_results) > 0
+        and condition_results.count(True) == len(condition_results)
         if behavior == "AND"
         else True in condition_results
     )

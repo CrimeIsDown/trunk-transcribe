@@ -52,7 +52,9 @@ def get_notifications_config(
 def get_whisper_config(ttl_hash=None) -> dict:  # pragma: no cover
     del ttl_hash
 
-    whisper_kwargs = {}
+    whisper_kwargs = {
+        "compression_ratio_threshold": 1.8  # Try to prevent repetitive segments https://github.com/openai/whisper/discussions/192
+    }
     config = "config/whisper.json"
     if os.path.isfile(config):
         with open(config) as file:

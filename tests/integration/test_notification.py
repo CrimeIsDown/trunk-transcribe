@@ -84,7 +84,7 @@ class TestNotification(unittest.TestCase):
             "channels": [
                 "tgram://$TELEGRAM_BOT_TOKEN/-1",
             ],
-            "keywords": ["abc"]
+            "keywords": ["abc"],
         }
         transcript = "E96: Engine company 96 in the truck 333 north central"
         geo = {
