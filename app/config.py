@@ -62,6 +62,17 @@ def get_whisper_config(ttl_hash=None) -> dict:  # pragma: no cover
     return whisper_kwargs
 
 
+@lru_cache()
+def get_transcript_cleanup_config(ttl_hash=None) -> list[dict]:  # pragma: no cover
+    del ttl_hash
+
+    config = "config/transcript_cleanup.json"
+    if os.path.isfile(config):
+        with open(config) as file:
+            return json.load(file)
+    return []
+
+
 def get_ttl_hash(cache_seconds=3600):  # pragma: no cover
     """Return the same value within `cache_seconds` time period"""
     return round(time() / cache_seconds)

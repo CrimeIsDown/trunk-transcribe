@@ -5,9 +5,22 @@ import os
 import subprocess
 from csv import DictReader
 from threading import Lock
+from typing import Optional, TypedDict
 
-from .config import get_ttl_hash, get_whisper_config
+from .config import get_transcript_cleanup_config, get_ttl_hash, get_whisper_config
 from .task import Task
+
+
+class WhisperSegment(TypedDict):
+    start: float
+    end: float
+    text: str
+
+
+class WhisperResult(TypedDict):
+    text: str
+    segments: list[WhisperSegment]
+    language: Optional[str]
 
 
 class BaseWhisper(ABC):
@@ -82,7 +95,7 @@ class Whisper(BaseWhisper):
         language: str = "en",
         initial_prompt: str | None = None,
         **decode_options,
-    ) -> dict:
+    ) -> WhisperResult:
         return self.model.transcribe(
             audio=audio,
             language=language,
@@ -129,7 +142,7 @@ class DistilWhisper(BaseWhisper):
         language: str = "en",
         initial_prompt: str | None = None,
         **decode_options,
-    ) -> dict:
+    ) -> WhisperResult:
         output = self.pipe(audio, return_timestamps=True)
         result = {
             "segments": [],
@@ -170,7 +183,7 @@ class FasterWhisper(BaseWhisper):
         language: str = "en",
         initial_prompt: str | None = None,
         **decode_options,
-    ) -> dict:
+    ) -> WhisperResult:
         segments, _ = self.model.transcribe(
             audio=audio,
             language=language,
@@ -204,7 +217,7 @@ class WhisperCpp(BaseWhisper):
         language: str = "en",
         initial_prompt: str | None = None,
         **decode_options,
-    ) -> dict:
+    ) -> WhisperResult:
         args = [
             "whisper-cpp",
             "--model",
@@ -268,7 +281,7 @@ class WhisperApi(BaseWhisper):
         language: str = "en",
         initial_prompt: str | None = None,
         **decode_options,
-    ) -> dict:
+    ) -> WhisperResult:
         audio_file = open(audio, "rb")
         prompt = os.getenv(
             "OPENAI_PROMPT", "This is a police radio dispatch transcript."
@@ -281,7 +294,70 @@ class WhisperApi(BaseWhisper):
             prompt=prompt,
             response_format="verbose_json",
             language=language,
-        ).model_dump()
+        ).model_dump()  # type: ignore
+
+
+def cleanup_transcript(result: WhisperResult) -> WhisperResult:
+    config = get_transcript_cleanup_config()
+
+    indices_to_delete = set()
+
+    hallucination_count = 0
+    # Check for patterns to replace or delete
+    for i, segment in enumerate(result["segments"]):
+        for item in config:
+            if item["match_type"] == "partial":
+                is_match = item["pattern"].lower() in segment["text"].lower().strip()
+            elif item["match_type"] == "full":
+                is_match = item["pattern"].lower() == segment["text"].lower().strip()
+            else:
+                raise Exception("Unsupported match_type in config")
+
+            if is_match:
+                if item["is_hallucination"]:
+                    hallucination_count += 1
+                if item["action"] == "delete":
+                    indices_to_delete.add(i)
+                elif item["action"] == "replace":
+                    if item["match_type"] == "partial":
+                        segment["text"] = segment["text"].replace(
+                            item["pattern"], item["replacement"]
+                        )
+                    elif item["match_type"] == "full":
+                        segment["text"] = item["replacement"]
+                break
+    # Do not proceed any further if the entire transcript appears to be hallucinations
+    if len(result["segments"]) == hallucination_count:
+        raise RuntimeError("Transcript invalid, 100% hallucination")
+
+    prev_seg_text = ""
+    times_seg_repeated = 0
+    # Check for repeated segments
+    for i, segment in enumerate(result["segments"]):
+        if prev_seg_text == segment["text"]:
+            times_seg_repeated += 1
+            # Delete all the repetitive segments (except for the first instance)
+            # until we find a non-repetitive one or we reach the end of the file
+            if times_seg_repeated == 2:
+                for j in range(i - times_seg_repeated, i):
+                    indices_to_delete.add(j)
+            elif times_seg_repeated > 2:
+                indices_to_delete.add(i)
+        else:
+            times_seg_repeated = 0
+            prev_seg_text = segment["text"]
+
+    # Delete the invalid segments from the transcript
+    valid_segments = [
+        segment
+        for i, segment in enumerate(result["segments"])
+        if i not in indices_to_delete
+    ]
+
+    result["segments"] = valid_segments
+    result["text"] = "\n".join([segment["text"] for segment in valid_segments])
+
+    return result
 
 
 def transcribe(
@@ -289,7 +365,8 @@ def transcribe(
     model_lock: Lock,
     audio_file: str,
     initial_prompt: str = "",
-) -> dict:
+    cleanup: bool = False,
+) -> WhisperResult:
     whisper_kwargs = get_whisper_config(get_ttl_hash(cache_seconds=60))
     # TODO: Remove the lock if we are using Whisper.cpp
     with model_lock:
@@ -300,4 +377,4 @@ def transcribe(
         logging.debug(
             f"{audio_file} transcription result: " + json.dumps(result, indent=4)
         )
-        return result
+        return cleanup_transcript(result) if cleanup else result

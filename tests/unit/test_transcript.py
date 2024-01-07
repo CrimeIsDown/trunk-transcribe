@@ -77,10 +77,6 @@ class TestTranscript(unittest.TestCase):
         self.assertEqual(len(transcript.transcript), 1)
         self.assertEqual(transcript.transcript[0], ({"src": "Speaker 1"}, "Hello"))
 
-        transcript.append("urn.com")
-        self.assertEqual(len(transcript.transcript), 2)
-        self.assertEqual(transcript.transcript[1], (None, transcript.hallucination))
-
     def test_empty(self):
         # Test with an empty transcript
         transcript = Transcript()
@@ -93,11 +89,6 @@ class TestTranscript(unittest.TestCase):
     def test_validate(self):
         # Test with an empty transcript
         transcript = Transcript()
-        with self.assertRaises(RuntimeError):
-            transcript.validate()
-
-        # Test with a single invalid segment
-        transcript.append("Please subscribe to my channel, and like this video!")
         with self.assertRaises(RuntimeError):
             transcript.validate()
 

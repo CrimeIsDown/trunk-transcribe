@@ -38,6 +38,7 @@ class TestAddChannels(unittest.TestCase):
     def test_add_channels_with_token(self):
         apprise = AppriseStub()
         channels = ["tgram://$TELEGRAM_BOT_TOKEN"]
+        os.environ["TELEGRAM_BOT_TOKEN"] = "no-token-defined"
         result = add_channels(apprise, channels)
 
         self.assertEqual(len(result.channels), 1)

@@ -1,0 +1,158 @@
+[
+    {
+        "match_type": "partial",
+        "pattern": "urn.com",
+        "action": "delete",
+        "is_hallucination": true
+    },
+    {
+        "match_type": "partial",
+        "pattern": "urn.schemas",
+        "action": "delete",
+        "is_hallucination": true
+    },
+    {
+        "match_type": "partial",
+        "pattern": "welcome back to my channel",
+        "action": "delete",
+        "is_hallucination": true
+    },
+    {
+        "match_type": "full",
+        "pattern": "Hello, and welcome to another video!",
+        "action": "delete",
+        "is_hallucination": true
+    },
+    {
+        "match_type": "partial",
+        "pattern": "thank you for watching",
+        "action": "delete",
+        "is_hallucination": true
+    },
+    {
+        "match_type": "partial",
+        "pattern": "thanks for watching",
+        "action": "delete",
+        "is_hallucination": true
+    },
+    {
+        "match_type": "partial",
+        "pattern": "please subscribe",
+        "action": "delete",
+        "is_hallucination": true
+    },
+    {
+        "match_type": "partial",
+        "pattern": "subscribe to my channel",
+        "action": "delete",
+        "is_hallucination": true
+    },
+    {
+        "match_type": "partial",
+        "pattern": "comments below",
+        "action": "delete",
+        "is_hallucination": true
+    },
+    {
+        "match_type": "partial",
+        "pattern": "this video is a derivative work of the touhou project.",
+        "action": "delete",
+        "is_hallucination": true
+    },
+    {
+        "match_type": "partial",
+        "pattern": "Any resemblance to anyone, living or dead",
+        "action": "delete",
+        "is_hallucination": true
+    },
+    {
+        "match_type": "partial",
+        "pattern": "enjoyed this video",
+        "action": "delete",
+        "is_hallucination": true
+    },
+    {
+        "match_type": "partial",
+        "pattern": "if you did, please leave a like and a comment below.",
+        "action": "delete",
+        "is_hallucination": true
+    },
+    {
+        "match_type": "partial",
+        "pattern": "please leave a like and a comment.",
+        "action": "delete",
+        "is_hallucination": true
+    },
+    {
+        "match_type": "partial",
+        "pattern": "post them in the comments",
+        "action": "delete",
+        "is_hallucination": true
+    },
+    {
+        "match_type": "partial",
+        "pattern": "the bell icon",
+        "action": "delete",
+        "is_hallucination": true
+    },
+    {
+        "match_type": "partial",
+        "pattern": "if you enjoyed it",
+        "action": "delete",
+        "is_hallucination": true
+    },
+    {
+        "match_type": "partial",
+        "pattern": "see you in the next video",
+        "action": "delete",
+        "is_hallucination": true
+    },
+    {
+        "match_type": "full",
+        "pattern": "Bye.",
+        "action": "delete",
+        "is_hallucination": true
+    },
+    {
+        "match_type": "full",
+        "pattern": "Bye-bye.",
+        "action": "delete",
+        "is_hallucination": true
+    },
+    {
+        "match_type": "full",
+        "pattern": "See you next time.",
+        "action": "delete",
+        "is_hallucination": true
+    },
+    {
+        "match_type": "full",
+        "pattern": "Have a great day.",
+        "action": "delete",
+        "is_hallucination": true
+    },
+    {
+        "match_type": "full",
+        "pattern": "Thank you.",
+        "action": "delete",
+        "is_hallucination": true
+    },
+    {
+        "match_type": "full",
+        "pattern": "Thank you!",
+        "action": "delete",
+        "is_hallucination": true
+    },
+    {
+        "match_type": "full",
+        "pattern": "Beep.",
+        "action": "delete",
+        "is_hallucination": true
+    },
+    {
+        "match_type": "full",
+        "pattern": "Beep",
+        "action": "delete",
+        "is_hallucination": true
+    }
+]

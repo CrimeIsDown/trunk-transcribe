@@ -134,4 +134,5 @@ dmypy.json
 # Custom
 docker-compose.override.yml
 config/*.json
+!config/transcript_cleanup.json
 bin/scratch

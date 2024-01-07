@@ -10,24 +10,6 @@ RawTranscript: TypeAlias = list[Tuple[Union[None, SrcListItem], str]]
 class Transcript:
     transcript: RawTranscript
 
-    hallucinations = [
-        "urn.com",
-        "urn.schemas",
-        # Various YouTube hallucations
-        "thank you for watching",
-        "thanks for watching",
-        "please subscribe",
-        "subscribe to my channel",
-        "comments below",
-        "this video is a derivative work of the touhou project.",
-        "i hope you enjoyed this video.",
-        "if you did, please leave a like and a comment below.",
-        "please leave a like and a comment.",
-        "the bell icon",
-        "if you enjoyed it",
-    ]
-    hallucination = "(unintelligible)"
-
     def __init__(self, transcript: RawTranscript | None = None):
         self.transcript = transcript if transcript else []
 
@@ -72,12 +54,8 @@ class Transcript:
         )
 
     def append(self, transcript: str, src: SrcListItem | None = None):
-        lowercase_transcript = transcript.lower()
-        if len(lowercase_transcript) <= 1 or True in [
-            h in lowercase_transcript for h in Transcript.hallucinations
-        ]:
-            transcript = self.hallucination
-        self.transcript.append((src, transcript))
+        if len(transcript):
+            self.transcript.append((src, transcript))
         return self
 
     def empty(self):
@@ -86,14 +64,6 @@ class Transcript:
     def validate(self):
         if self.empty():
             raise RuntimeError("Transcript empty/null")
-        hallucination_count = 0
-        for i in range(len(self.transcript)):
-            segment = self.transcript[i][1]
-            if segment is self.hallucination:
-                hallucination_count = hallucination_count + 1
-
-        if len(self.transcript) == hallucination_count:
-            raise RuntimeError("Transcript invalid, 100%% hallucination")
         return self
 
     def update_src(self, newSrc: SrcListItem):
