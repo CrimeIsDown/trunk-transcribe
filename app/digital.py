@@ -68,6 +68,7 @@ def transcribe_call(
             model_lock=model_lock,
             audio_file=src_file,
             initial_prompt=prev_transcript,
+            cleanup=True,
         )
 
         # TODO: use segments instead

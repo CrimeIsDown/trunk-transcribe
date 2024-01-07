@@ -55,9 +55,7 @@ def transcribe_call(model, model_lock: Lock, audio_file: str) -> Transcript:
     audio_file = pad_silence(audio_file)
 
     response = transcribe(
-        model=model,
-        model_lock=model_lock,
-        audio_file=audio_file,
+        model=model, model_lock=model_lock, audio_file=audio_file, cleanup=True
     )
 
     transcript = Transcript()

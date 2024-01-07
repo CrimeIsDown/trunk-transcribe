@@ -69,7 +69,10 @@ class TestEndToEnd(unittest.TestCase):
         task_status = result.get("task_status", "PENDING")
         task_id = result["task_id"]
 
+        tries = 0
         while task_status in ["PENDING", "RETRY"]:
+            tries += 1
+            self.assertLess(tries, 100, "Timed out waiting for task to complete")
             sleep(1)
             r = requests.get(
                 url=f"{api_base_url}/tasks/{task_id}", timeout=5, headers=headers
