@@ -36,6 +36,7 @@ class TestAnalog(unittest.TestCase):
             model=self.model,
             model_lock=self.model_lock,
             audio_file="padded_audio.wav",
+            cleanup=True,
         )
 
         self.assertEqual(expected_transcript.json, result.json)
