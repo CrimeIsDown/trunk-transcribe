@@ -32,23 +32,25 @@ class TestGeocoding(unittest.TestCase):
 
     def test_geocodes_valid_address_geocodio(self):
         address = "333 north central"
+        address_parts = {"city": "Chicago", "state": "IL", "country": "US"}
         expected_result = {
             "geo": {"lat": 41.886719, "lng": -87.764503},
             "geo_formatted_address": "333 N Central Ave, Chicago, IL 60644",
         }
 
-        result = geocoding.geocode(address, geocoder="geocodio")
+        result = geocoding.geocode(address, address_parts, geocoder="geocodio")
 
         self.assertDictEqual(expected_result, result)
 
     def test_geocodes_valid_address_google(self):
         address = "333 north central ave"
+        address_parts = {"city": "Chicago", "state": "IL", "country": "US"}
         expected_result = {
             "geo": {"lat": 41.8867315, "lng": -87.7644538},
             "geo_formatted_address": "333 N Central Ave, Chicago, IL 60644, USA",
         }
 
-        result = geocoding.geocode(address, geocoder="googlev3")
+        result = geocoding.geocode(address, address_parts, geocoder="googlev3")
 
         self.assertDictEqual(expected_result, result)
 

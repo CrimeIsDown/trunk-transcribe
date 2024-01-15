@@ -99,6 +99,15 @@ def build_document(
         "talkgroup_description": metadata["talkgroup_description"],
         "talkgroup_group_tag": metadata["talkgroup_group_tag"],
         "talkgroup_group": metadata["talkgroup_group"],
+        "talkgroup_hierarchy": {
+            "lvl0": metadata["short_name"],
+            "lvl1": metadata["short_name"] + " > " + metadata["talkgroup_group"],
+            "lvl2": metadata["short_name"]
+            + " > "
+            + metadata["talkgroup_group"]
+            + " > "
+            + metadata["talkgroup_tag"],
+        },
         "audio_type": metadata["audio_type"],
         "short_name": metadata["short_name"],
         "srcList": list(srcList),
@@ -188,6 +197,9 @@ def create_or_update_index(
             "talkgroup_description",
             "talkgroup_group_tag",
             "talkgroup_group",
+            "talkgroup_hierarchy.lvl0",
+            "talkgroup_hierarchy.lvl1",
+            "talkgroup_hierarchy.lvl2",
             "audio_type",
             "short_name",
             "units",

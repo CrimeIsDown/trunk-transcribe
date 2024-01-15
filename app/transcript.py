@@ -8,6 +8,8 @@ RawTranscript: TypeAlias = list[Tuple[Union[None, SrcListItem], str]]
 
 # TODO: write tests
 class Transcript:
+    MIN_LENGTH = 4
+
     transcript: RawTranscript
 
     def __init__(self, transcript: RawTranscript | None = None):
@@ -64,6 +66,11 @@ class Transcript:
     def validate(self):
         if self.empty():
             raise RuntimeError("Transcript empty/null")
+        if (
+            len(" ".join([transcript for _, transcript in self.transcript]))
+            < Transcript.MIN_LENGTH
+        ):
+            raise RuntimeError("Transcript too short")
         return self
 
     def update_src(self, newSrc: SrcListItem):

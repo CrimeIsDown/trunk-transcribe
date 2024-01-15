@@ -22,7 +22,7 @@ from meilisearch.models.task import TaskInfo
 load_dotenv(os.getenv("ENV"))
 
 from app import search, storage
-from app.geocoding import lookup_geo
+from app.geocoding import GeoResponse, lookup_geo
 from app.metadata import Metadata
 from app.transcript import Transcript
 from app.worker import transcribe_task
@@ -72,7 +72,9 @@ def update_audio_url(metadata: Metadata, raw_audio_url: str) -> str:
     return raw_audio_url
 
 
-def update_document(document: MeiliDocument, reuse: bool = False) -> search.Document:
+def update_document(
+    document: MeiliDocument, reuse: bool = False, should_lookup_geo: bool = False
+) -> search.Document:
     if reuse:
         return dict(document)["_Document__doc"]
 
@@ -84,13 +86,17 @@ def update_document(document: MeiliDocument, reuse: bool = False) -> search.Docu
 
     raw_audio_url = update_audio_url(metadata, document.raw_audio_url)
 
-    return search.build_document(
-        document.id,
-        metadata,
-        raw_audio_url,
-        transcript,
-        lookup_geo(metadata, transcript),
-    )
+    if hasattr(document, "_geo"):
+        geo = GeoResponse(
+            geo=document._geo,  # type: ignore
+            geo_formatted_address=document.geo_formatted_address,
+        )
+    elif should_lookup_geo:
+        geo = lookup_geo(metadata, transcript)
+    else:
+        geo = None
+
+    return search.build_document(document.id, metadata, raw_audio_url, transcript, geo)
 
 
 def reindex(index: Index, documents: list[search.Document]) -> TaskInfo:

@@ -59,7 +59,7 @@ def extract_address(
 
 
 def geocode(
-    address: str, geocoder: str | None = None
+    address: str, address_parts: dict, geocoder: str | None = None
 ) -> GeoResponse | None:  # pragma: no cover
     if geocoder == "geocodio" or (os.getenv("GEOCODIO_API_KEY") and geocoder is None):
         geocoder = "geocodio"
@@ -67,9 +67,9 @@ def geocode(
         query = {
             "query": {
                 "street": address,
-                "city": os.getenv("GEOCODING_CITY"),
-                "state": os.getenv("GEOCODING_STATE"),
-                "country": os.getenv("GEOCODING_COUNTRY"),
+                "city": address_parts["city"],
+                "state": address_parts["state"],
+                "country": address_parts["country"],
             }
         }
     elif geocoder == "googlev3" or (
@@ -77,19 +77,14 @@ def geocode(
     ):
         geocoder = "googlev3"
         config = {"api_key": os.getenv("GOOGLE_MAPS_API_KEY")}
-        bounds_raw = os.getenv("GOOGLE_GEOCODING_BOUNDS")
-        if bounds_raw:
-            bounds = [Point(bound) for bound in bounds_raw.split("|")]
-        else:
-            bounds = None
         query = {
             "query": address,
             "components": {
-                "locality": os.getenv("GEOCODING_CITY"),
-                "administrative_area_level_1": os.getenv("GEOCODING_STATE"),
-                "country": os.getenv("GEOCODING_COUNTRY"),
+                "locality": address_parts["city"],
+                "administrative_area_level_1": address_parts["state"],
+                "country": address_parts["country"],
             },
-            "bounds": bounds,
+            "bounds": address_parts.get("bounds"),
         }
     else:
         raise RuntimeError("Unsupported geocoder or no geocoding envs defined")
@@ -129,11 +124,24 @@ def lookup_geo(metadata: Metadata, transcript: Transcript) -> GeoResponse | None
     if metadata["short_name"] in filter(
         lambda name: len(name), os.getenv("GEOCODING_ENABLED_SYSTEMS", "").split(",")
     ):
+        # TODO: determine city/state/country/bounds based on the transcript and metadata
+        # TODO: associate each talkgroup with an area
+        address_parts = {
+            "city": os.getenv("GEOCODING_CITY"),
+            "state": os.getenv("GEOCODING_STATE"),
+            "country": os.getenv("GEOCODING_COUNTRY", "US"),
+        }
+        bounds_raw = os.getenv("GOOGLE_GEOCODING_BOUNDS")
+        if bounds_raw:
+            address_parts["bounds"] = [Point(bound) for bound in bounds_raw.split("|")]
+        else:
+            address_parts["bounds"] = None
+
         for segment in transcript.transcript:
             address, _ = extract_address(segment[1])
             if address:
                 try:
-                    return geocode(address)
+                    return geocode(address, address_parts)
                 except Exception as e:
                     sentry_sdk.capture_exception(e)
                     logging.error(
