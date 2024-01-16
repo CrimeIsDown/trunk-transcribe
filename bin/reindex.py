@@ -230,10 +230,14 @@ if __name__ == "__main__":
         logging.info(f"Updating settings for index {args.index}")
         search.create_or_update_index(client, args.index, create=False)
 
-    index = search.get_index(args.index)
+    index = client.index(args.index)
     source_index = None
     if args.copy_from_index:
-        source_index = search.get_index(args.copy_from_index)
+        if "@" in args.copy_from_index:
+            parts = args.copy_from_index.split("@")
+            source_index = search.get_client(parts[1]).index(parts[0])
+        else:
+            source_index = client.index(args.copy_from_index)
 
     total, _ = get_documents(source_index or index, {"limit": 1}, args.search)
     logging.info(f"Found {total} total documents")

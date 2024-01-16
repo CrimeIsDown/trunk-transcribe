@@ -46,26 +46,6 @@ def get_default_index_name() -> str:  # pragma: no cover
     return os.getenv("MEILI_INDEX", "calls")
 
 
-def get_index(index_name: str) -> Index:  # pragma: no cover
-    if "@" in index_name:
-        parts = index_name.split("@")
-        index_name = parts[0]
-        url = parts[1]
-        client = get_client(url)
-    else:
-        client = get_client()
-    index = client.index(index_name)
-    try:
-        index.fetch_info()
-    except MeilisearchApiError as e:
-        if e.code == "index_not_found":
-            index = create_or_update_index(client, index_name)
-        else:
-            raise e
-
-    return index
-
-
 # TODO: write tests
 def build_document(
     id: str | int,
@@ -167,24 +147,29 @@ def index_call(
     if not index_name:
         index_name = get_default_index_name()
 
+    client = get_client()
+
     try:
-        get_index(index_name).add_documents([doc])  # type: ignore
-    # Raise a different exception because of https://github.com/celery/celery/issues/6990
+        client.index(index_name).add_documents([doc])  # type: ignore
     except MeilisearchApiError as err:
+        # Raise a different exception because of https://github.com/celery/celery/issues/6990
         raise MeilisearchError(str(err))
 
     return build_search_url(doc, index_name)
 
 
 def create_or_update_index(
-    client: Client, index_name: str, create: bool = True
+    client: Client, index_name: str
 ) -> Index:  # pragma: no cover
-    if create:
-        client.create_index(index_name)
-        sleep(5)  # Wait for index to be created
     index = client.index(index_name)
 
-    current_settings = index.get_settings()
+    try:
+        current_settings = index.get_settings()
+    except MeilisearchApiError as err:
+        if err.code == "index_not_found":
+            current_settings = {}
+        else:
+            raise err
 
     desired_settings = {
         "searchableAttributes": [
@@ -222,7 +207,7 @@ def create_or_update_index(
     }
 
     for key, value in desired_settings.copy().items():
-        if current_settings[key] == value:
+        if key in current_settings and current_settings[key] == value:
             del desired_settings[key]
 
     logging.info(f"Updating settings: {str(desired_settings)}")

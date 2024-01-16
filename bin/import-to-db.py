@@ -75,7 +75,7 @@ if __name__ == "__main__":
 
     client = search.get_client()
 
-    index = search.get_index(args.index)
+    index = client.index(args.index)
 
     total, _ = get_documents(index, {"limit": 1}, args.search)
     logging.info(f"Found {total} total documents")

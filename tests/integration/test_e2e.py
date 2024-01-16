@@ -6,6 +6,7 @@ from time import sleep
 
 import requests
 from dotenv import load_dotenv
+from meilisearch.errors import MeilisearchApiError
 
 from app import search
 
@@ -17,9 +18,14 @@ class TestEndToEnd(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         index_name = search.get_default_index_name()
-        index = search.get_index(index_name)
-        index.delete()
-        search.get_index(index_name)
+        client = search.get_client()
+        index = client.index(index_name)
+        try:
+            index.delete()
+        except MeilisearchApiError as err:
+            if err.code != "index_not_found":
+                raise err
+        index = search.create_or_update_index(client, index_name)
 
         while True:
             try:
@@ -85,7 +91,7 @@ class TestEndToEnd(unittest.TestCase):
         return result
 
     def search(self, query: str, options):
-        index = search.get_index(search.get_default_index_name())
+        index = search.get_client().index(search.get_default_index_name())
         return index.search(query, opt_params=options)
 
     def test_transcribes_digital(self):
