@@ -36,8 +36,8 @@ RUN poetry config virtualenvs.create false && \
 
 COPY app app
 COPY config config
-COPY bin/*.py ./
-COPY bin/*.sh /usr/local/bin/
+COPY bin bin
+COPY bin/docker-entrypoint.sh /usr/local/bin/
 
 ENV PYTHONPATH=/src
 
