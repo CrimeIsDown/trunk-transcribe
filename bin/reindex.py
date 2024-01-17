@@ -228,7 +228,7 @@ if __name__ == "__main__":
 
     if args.update_settings:
         logging.info(f"Updating settings for index {args.index}")
-        search.create_or_update_index(client, args.index, create=False)
+        search.create_or_update_index(client, args.index)
 
     index = client.index(args.index)
     source_index = None
