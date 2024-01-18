@@ -86,7 +86,7 @@ def update_document(
 
     raw_audio_url = update_audio_url(metadata, document.raw_audio_url)
 
-    if hasattr(document, "_geo"):
+    if hasattr(document, "_geo") and hasattr(document, "geo_formatted_address"):
         geo = GeoResponse(
             geo=document._geo,  # type: ignore
             geo_formatted_address=document.geo_formatted_address,
