@@ -157,6 +157,9 @@ def process_call(
     if "metadata" in call:
         metadata = call["metadata"]
         metadata["short_name"] = short_name
+        metadata["talkgroup_tag"] = call["display"]
+        metadata["talkgroup_description"] = call["descr"]
+        metadata["talkgroup_group"] = call["grouping"]
         metadata["talkgroup_group_tag"] = TAGS[call["tag"]]
     else:
         freq = int(call["call_freq"] * 1e6)
