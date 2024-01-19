@@ -479,7 +479,10 @@ if __name__ == "__main__":
 
     if args.verbose:
         HTTPConnection.debuglevel = 2
-    logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO)
+    logging.basicConfig(
+        format="[%(asctime)s] %(message)s",
+        level=logging.DEBUG if args.verbose else logging.INFO,
+    )
 
     autoscaler = Autoscaler(
         min=args.min_instances,

@@ -212,7 +212,10 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO)
+    logging.basicConfig(
+        format="[%(asctime)s] %(message)s",
+        level=logging.DEBUG if args.verbose else logging.INFO,
+    )
 
     UNIT_TAGS = {}
     if args.unit_tags:

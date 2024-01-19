@@ -335,7 +335,10 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO)
+    logging.basicConfig(
+        format="[%(asctime)s] %(message)s",
+        level=logging.DEBUG if args.verbose else logging.INFO,
+    )
 
     if (args.node_id and args.system_id) or (not args.node_id and not args.system_id):
         logging.error("You must specify either a node ID or a system ID")
