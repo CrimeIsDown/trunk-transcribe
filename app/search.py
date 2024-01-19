@@ -1,3 +1,4 @@
+from datetime import datetime
 import json
 import logging
 import os
@@ -43,7 +44,10 @@ def get_client(
 
 
 def get_default_index_name() -> str:  # pragma: no cover
-    return os.getenv("MEILI_INDEX", "calls")
+    index_name = os.getenv("MEILI_INDEX", "calls")
+    if os.getenv("MEILI_INDEX_SPLIT_BY_MONTH") == "true":
+        index_name += datetime.now().strftime("_%Y_%m")
+    return index_name
 
 
 # TODO: write tests

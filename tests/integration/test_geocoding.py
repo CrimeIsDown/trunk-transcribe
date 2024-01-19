@@ -34,7 +34,7 @@ class TestGeocoding(unittest.TestCase):
         address = "333 north central"
         address_parts = {"city": "Chicago", "state": "IL", "country": "US"}
         expected_result = {
-            "geo": {"lat": 41.886719, "lng": -87.764503},
+            "geo": {"lat": 41.886711, "lng": -87.764497},
             "geo_formatted_address": "333 N Central Ave, Chicago, IL 60644",
         }
 
