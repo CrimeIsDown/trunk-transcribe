@@ -187,8 +187,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--batch-size",
         type=int,
-        default=2000,
-        help="How many documents to fetch and update in a single request, defaults to 2000",
+        default=20000,
+        help="How many documents to fetch and update in a single request, defaults to 20000",
     )
     parser.add_argument(
         "--retranscribe",
