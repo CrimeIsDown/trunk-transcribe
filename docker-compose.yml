@@ -58,6 +58,7 @@ services:
 
   rabbitmq:
     image: rabbitmq:3-management
+    hostname: "rabbitmq"
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
     ports:
