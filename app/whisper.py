@@ -5,6 +5,7 @@ import os
 import subprocess
 from csv import DictReader
 from threading import Lock
+import time
 from typing import Optional, TypedDict
 
 from .config import get_transcript_cleanup_config, get_ttl_hash, get_whisper_config
@@ -370,6 +371,9 @@ def transcribe(
     whisper_kwargs = get_whisper_config(get_ttl_hash(cache_seconds=60))
     # TODO: Remove the lock if we are using Whisper.cpp
     with model_lock:
+        # measure transcription time
+        start_time = time.time()
+
         result = model.transcribe(
             audio_file, language="en", initial_prompt=initial_prompt, **whisper_kwargs
         )
@@ -377,4 +381,9 @@ def transcribe(
         logging.debug(
             f"{audio_file} transcription result: " + json.dumps(result, indent=4)
         )
+
+        end_time = time.time()
+        execution_time = end_time - start_time
+        logging.debug(f"Transcription execution time: {execution_time} seconds")
+
         return cleanup_transcript(result) if cleanup else result
