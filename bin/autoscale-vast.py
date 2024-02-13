@@ -307,7 +307,11 @@ class Autoscaler:
                 instance["actual_status"] == "loading"
                 and time.time() - instance["start_date"] > 900
             )
-            is_full = instance["disk_usage"] / instance["disk_space"] > 0.9 if instance["disk_space"] else False
+            is_full = (
+                instance["disk_usage"] / instance["disk_space"] > 0.9
+                if instance["disk_space"]
+                else False
+            )
             is_errored = (
                 instance["status_msg"] and "error" in instance["status_msg"].lower()
             )
