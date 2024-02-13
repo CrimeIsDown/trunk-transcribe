@@ -6,6 +6,7 @@ from typing import Tuple, TypedDict
 
 import sentry_sdk
 from geopy.point import Point
+from geopy.exc import GeocoderQueryError
 from geopy.geocoders import get_geocoder_for_service
 from google.api_core.client_options import ClientOptions
 from google.maps import routing_v2
@@ -91,7 +92,11 @@ def geocode(
 
     cls = get_geocoder_for_service(geocoder)
     geolocator = cls(**config)
-    location = geolocator.geocode(**query)
+    try:
+        location = geolocator.geocode(**query)
+    except GeocoderQueryError:
+        # Probably got "Could not geocode address. No matches found."
+        return None
 
     if not location:
         return None
