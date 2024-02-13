@@ -9,6 +9,7 @@ on:
       - 'app/**'
       - 'bin/**'
       - 'config/**'
+      - 'tests/integration/**'
       - 'Dockerfile'
       - 'Dockerfile.whisper'
       - 'Dockerfile.fasterwhisper'
