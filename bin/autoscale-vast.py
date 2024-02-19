@@ -179,7 +179,7 @@ class Autoscaler:
             "gpu_ram": {"gte": f"{vram_needed:.1f}"},
             "cuda_max_good": {"gte": "11.7"},
             "order": [["dph_total", "asc"]],
-            "type": "bid",
+            "type": "ask" if os.getenv("VAST_ONDEMAND") else "bid",
         }
 
         r = requests.get(
