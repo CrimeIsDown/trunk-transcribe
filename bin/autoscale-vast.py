@@ -245,8 +245,6 @@ class Autoscaler:
             count -= 1
 
             instance_id = instance["id"]
-            # Bid 1.25x the minimum bid
-            bid = max(round(float(instance["dph_total"]) * 1.25, 6), 0.001)
 
             # Adjust concurrency based on GPU RAM
             concurrency = floor(instance["gpu_ram"] / vram_required)
@@ -262,10 +260,13 @@ class Autoscaler:
                 "image": image,
                 "args": ["worker"],
                 "env": self.envs,
-                "price": bid,
                 "disk": 0.5,
                 "runtype": "args",
             }
+
+            if not os.getenv("VAST_ONDEMAND"):
+                # Bid 1.25x the minimum bid
+                body["price"] = max(round(float(instance["dph_total"]) * 1.25, 6), 0.001)
 
             r = requests.put(
                 f"https://console.vast.ai/api/v0/asks/{instance_id}/",
@@ -274,7 +275,7 @@ class Autoscaler:
             )
             r.raise_for_status()
             logging.info(
-                f"Started instance {instance_id}, a {instance['gpu_name']} for ${bid}/hr"
+                f"Started instance {instance_id}, a {instance['gpu_name']} for ${instance['dph_total'] if os.getenv('VAST_ONDEMAND') else body['price']}/hr"
             )
             # Add the instance to our list of pending instances so we can check when it comes online
             self.pending_instances[self.envs["CELERY_HOSTNAME"]] = concurrency
