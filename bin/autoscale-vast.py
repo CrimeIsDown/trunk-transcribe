@@ -177,9 +177,6 @@ class Autoscaler:
             "rentable": {"eq": "true"},
             "num_gpus": {"eq": "1"},
             "gpu_ram": {"gte": f"{vram_needed:.1f}"},
-            "dlperf": {"gt": "5"},
-            "dph_total": {"lte": "0.1"},
-            "cuda_vers": {"gte": "11.7"},
             "cuda_max_good": {"gte": "11.7"},
             "order": [["dph_total", "asc"]],
             "type": "bid",
@@ -404,12 +401,12 @@ class Autoscaler:
             message_rate = queue["messages_details"]["rate"]
 
         logging.info(
-            f"Current avg message rate: {message_rate:.2f} / Current message count: {queue['messages']}"
+            f"Current avg message rate: {message_rate:.2f} / Current message count: {queue['messages_ready']}"
         )
 
-        if message_rate > 0.2 or queue["messages"] > 1000:
+        if message_rate > 0.2 or queue["messages_ready"] > 1000:
             needed_instances += 1
-        elif message_rate < -0.5 and queue["messages"] < 10:
+        elif message_rate < -0.5 and queue["messages_ready"] < 10:
             needed_instances -= 1
 
         return needed_instances
