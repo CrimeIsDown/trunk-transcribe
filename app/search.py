@@ -1,4 +1,4 @@
-from datetime import datetime
+import datetime
 import json
 import logging
 import os
@@ -43,11 +43,24 @@ def get_client(
     return Client(url=url, api_key=api_key)
 
 
-def get_default_index_name() -> str:  # pragma: no cover
+def get_default_index_name(
+    time: datetime.datetime | None = None,
+) -> str:  # pragma: no cover
     index_name = os.getenv("MEILI_INDEX", "calls")
     if os.getenv("MEILI_INDEX_SPLIT_BY_MONTH") == "true":
-        index_name += datetime.now().strftime("_%Y_%m")
+        if not time:
+            time = datetime.datetime.now()
+        index_name += time.strftime("_%Y_%m")
     return index_name
+
+
+def make_next_index():
+    future_index_name = get_default_index_name(
+        datetime.datetime.now() + datetime.timedelta(hours=1)
+    )
+    if get_default_index_name() != future_index_name:
+        client = get_client()
+        create_or_update_index(client, future_index_name)
 
 
 # TODO: write tests
@@ -213,6 +226,10 @@ def create_or_update_index(
     for key, value in desired_settings.copy().items():
         if key in current_settings and current_settings[key] == value:
             del desired_settings[key]
+
+    # If all the settings match, return the index
+    if not desired_settings:
+        return index
 
     logging.info(f"Updating settings: {str(desired_settings)}")
     task = index.update_settings(desired_settings)

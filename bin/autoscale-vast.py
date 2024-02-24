@@ -266,7 +266,9 @@ class Autoscaler:
 
             if not os.getenv("VAST_ONDEMAND"):
                 # Bid 1.25x the minimum bid
-                body["price"] = max(round(float(instance["dph_total"]) * 1.25, 6), 0.001)
+                body["price"] = max(
+                    round(float(instance["dph_total"]) * 1.25, 6), 0.001
+                )
 
             r = requests.put(
                 f"https://console.vast.ai/api/v0/asks/{instance_id}/",

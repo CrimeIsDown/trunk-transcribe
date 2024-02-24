@@ -26,7 +26,7 @@ from .digital import transcribe_call as transcribe_digital
 from .geocoding import GeoResponse, lookup_geo
 from .metadata import Metadata
 from .notification import send_notifications
-from .search import index_call
+from .search import index_call, make_next_index
 from .transcript import Transcript
 
 sentry_dsn = os.getenv("SENTRY_DSN")
@@ -198,6 +198,8 @@ def transcribe_task(
     finally:
         os.unlink(audio_file)
 
+    make_next_index()
+
     return result
 
 
@@ -242,5 +244,7 @@ def transcribe_from_db_task(
             f"calls/{id}",
             json={"raw_transcript": transcript.transcript, "geo": geo},
         )
+
+        make_next_index()
 
         return transcript.txt
