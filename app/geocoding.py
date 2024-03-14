@@ -159,13 +159,12 @@ def lookup_geo(
 
         for segment in transcript.transcript:
             address_parts = default_address_parts.copy()
-            if llm_model:
+            address_parts["address"] = extract_address(segment[1])
+
+            if llm_model and not address_parts["address"]:
                 result = llm.extract_address(llm_model, segment[1], metadata)
                 if result:
                     address_parts.update(result)
-
-            if "address" not in address_parts:
-                address_parts["address"] = extract_address(segment[1])
 
             if address_parts["address"]:
                 try:
