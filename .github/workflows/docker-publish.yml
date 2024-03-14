@@ -155,8 +155,11 @@ jobs:
 
         { set +x; } 2>/dev/null
         sed -i 's/^# OPENAI_API_KEY=$/OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}/g' .env
+        sed -i 's/^# GOOGLE_GEMINI_API_KEY=$/GOOGLE_GEMINI_API_KEY=${{ secrets.GOOGLE_GEMINI_API_KEY }}/g' .env
         sed -i 's/^# GOOGLE_MAPS_API_KEY=$/GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }}/g' .env
         sed -i 's/^# GEOCODIO_API_KEY=$/GEOCODIO_API_KEY=${{ secrets.GEOCODIO_API_KEY }}/g' .env
+        sed -i 's/^# ARCGIS_USERNAME=$/ARCGIS_USERNAME=${{ secrets.ARCGIS_USERNAME }}/g' .env
+        sed -i 's/^# ARCGIS_PASSWORD=$/ARCGIS_PASSWORD=${{ secrets.ARCGIS_PASSWORD }}/g' .env
         set -x
 
         cp config/whisper.json.testing config/whisper.json

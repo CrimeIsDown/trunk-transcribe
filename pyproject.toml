@@ -28,6 +28,7 @@ psycopg = {extras = ["binary", "pool"], version = "^3.1.12"}
 sqlalchemy = "^2.0.22"
 geopy = "^2.4.1"
 google-maps-routing = "^0.6.3"
+google-generativeai = "^0.4.0"
 
 
 [tool.poetry.group.dev.dependencies]

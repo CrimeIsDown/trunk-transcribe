@@ -13,6 +13,7 @@ from google.maps import routing_v2
 
 from .metadata import Metadata
 from .transcript import Transcript
+from . import llm
 
 
 class Geo(TypedDict):
@@ -41,33 +42,29 @@ ADDRESS_REGEX = build_address_regex(
 
 
 # TODO: write tests
-def extract_address(
-    transcript: str, ignore_case: bool = False
-) -> Tuple[str | None, bool]:
+def extract_address(transcript: str, ignore_case: bool = False) -> str | None:
     match = re.search(ADDRESS_REGEX, transcript, re.IGNORECASE if ignore_case else 0)
     if match:
         if match.group(1) and match.group(2):
-            return f"{match.group(2)} and {match.group(3)}", True
-        return (
-            re.sub(
-                r"[-.,]",
-                "",
-                f"{match.group(4)}{' ' + match.group(5) if match.group(5) else ''} {match.group(6)}",
-            ),
-            False,
+            return f"{match.group(2)} and {match.group(3)}"
+        return re.sub(
+            r"[-.,]",
+            "",
+            f"{match.group(4)}{' ' + match.group(5) if match.group(5) else ''} {match.group(6)}",
         )
-    return None, False
+
+    return None
 
 
 def geocode(
-    address: str, address_parts: dict, geocoder: str | None = None
+    address_parts: dict, geocoder: str | None = None
 ) -> GeoResponse | None:  # pragma: no cover
     if geocoder == "geocodio" or (os.getenv("GEOCODIO_API_KEY") and geocoder is None):
         geocoder = "geocodio"
         config = {"api_key": os.getenv("GEOCODIO_API_KEY")}
         query = {
             "query": {
-                "street": address,
+                "street": address_parts["address"],
                 "city": address_parts["city"],
                 "state": address_parts["state"],
                 "country": address_parts["country"],
@@ -79,13 +76,27 @@ def geocode(
         geocoder = "googlev3"
         config = {"api_key": os.getenv("GOOGLE_MAPS_API_KEY")}
         query = {
-            "query": address,
+            "query": address_parts["address"],
             "components": {
                 "locality": address_parts["city"],
                 "administrative_area_level_1": address_parts["state"],
                 "country": address_parts["country"],
             },
             "bounds": address_parts.get("bounds"),
+        }
+    elif geocoder == "arcgis" or (
+        os.getenv("ARCGIS_USERNAME")
+        and os.getenv("ARCGIS_PASSWORD")
+        and geocoder is None
+    ):
+        geocoder = "arcgis"
+        config = {
+            "username": os.getenv("ARCGIS_USERNAME"),
+            "password": os.getenv("ARCGIS_PASSWORD"),
+            "referer": os.getenv("API_BASE_URL"),
+        }
+        query = {
+            "query": f"{address_parts['address']}, {address_parts['city']}, {address_parts['state']}, {address_parts['country']}"
         }
     else:
         raise RuntimeError("Unsupported geocoder or no geocoding envs defined")
@@ -125,28 +136,40 @@ def geocode(
     }
 
 
-def lookup_geo(metadata: Metadata, transcript: Transcript) -> GeoResponse | None:
+def lookup_geo(
+    metadata: Metadata, transcript: Transcript, geocoder: str | None = None
+) -> GeoResponse | None:
     if metadata["short_name"] in filter(
         lambda name: len(name), os.getenv("GEOCODING_ENABLED_SYSTEMS", "").split(",")
     ):
-        # TODO: determine city/state/country/bounds based on the transcript and metadata
-        # TODO: associate each talkgroup with an area
-        address_parts = {
+        default_address_parts = {
             "city": os.getenv("GEOCODING_CITY"),
             "state": os.getenv("GEOCODING_STATE"),
             "country": os.getenv("GEOCODING_COUNTRY", "US"),
         }
         bounds_raw = os.getenv("GOOGLE_GEOCODING_BOUNDS")
         if bounds_raw:
-            address_parts["bounds"] = [Point(bound) for bound in bounds_raw.split("|")]
+            default_address_parts["bounds"] = [
+                Point(bound) for bound in bounds_raw.split("|")
+            ]
         else:
-            address_parts["bounds"] = None
+            default_address_parts["bounds"] = None
+
+        llm_model = llm.create_model()
 
         for segment in transcript.transcript:
-            address, _ = extract_address(segment[1])
-            if address:
+            address_parts = default_address_parts.copy()
+            if llm_model:
+                result = llm.extract_address(llm_model, segment[1], metadata)
+                if result:
+                    address_parts.update(result)
+
+            if "address" not in address_parts:
+                address_parts["address"] = extract_address(segment[1])
+
+            if address_parts["address"]:
                 try:
-                    return geocode(address, address_parts)
+                    return geocode(address_parts, geocoder=geocoder)
                 except Exception as e:
                     sentry_sdk.capture_exception(e)
                     logging.error(
