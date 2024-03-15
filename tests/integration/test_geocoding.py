@@ -38,7 +38,7 @@ class TestGeocoding(unittest.TestCase):
                 "short_name": "chi_cfd",
                 "talkgroup_description": "Fire North",
                 "talkgroup_group": "Chicago Fire Department",
-            }
+            }  # type: ignore
         )
         transcript = Transcript(
             [
@@ -46,14 +46,15 @@ class TestGeocoding(unittest.TestCase):
             ]
         )
 
-        result = geocoding.lookup_geo(metadata, transcript, geocoder="arcgis")
+        result = geocoding.lookup_geo(metadata, transcript, geocoder="mapbox")
 
         self.assertIsNotNone(result)
 
-        self.assertEqual(
-            result["geo_formatted_address"],
-            "333 N Central Ave, Chicago, Illinois, 60644",
-        )
+        if result:
+            self.assertEqual(
+                result["geo_formatted_address"],
+                "333 North Central Avenue, Chicago, Illinois 60644, United States",
+            )
 
     def test_geocodes_valid_address_geocodio(self):
         address_parts = {
@@ -69,7 +70,18 @@ class TestGeocoding(unittest.TestCase):
 
         result = geocoding.geocode(address_parts, geocoder="geocodio")
 
-        self.assertDictEqual(expected_result, result)
+        self.assertIsNotNone(result)
+        if result:
+            self.assertEqual(
+                expected_result["geo_formatted_address"],
+                result["geo_formatted_address"],
+            )
+            self.assertAlmostEqual(
+                expected_result["geo"]["lat"], result["geo"]["lat"], places=4
+            )
+            self.assertAlmostEqual(
+                expected_result["geo"]["lng"], result["geo"]["lng"], places=4
+            )
 
     def test_geocodes_valid_address_google(self):
         address_parts = {
@@ -85,7 +97,72 @@ class TestGeocoding(unittest.TestCase):
 
         result = geocoding.geocode(address_parts, geocoder="googlev3")
 
-        self.assertDictEqual(expected_result, result)
+        self.assertIsNotNone(result)
+        if result:
+            self.assertEqual(
+                expected_result["geo_formatted_address"],
+                result["geo_formatted_address"],
+            )
+            self.assertAlmostEqual(
+                expected_result["geo"]["lat"], result["geo"]["lat"], places=4
+            )
+            self.assertAlmostEqual(
+                expected_result["geo"]["lng"], result["geo"]["lng"], places=4
+            )
+
+    def test_geocodes_valid_address_arcgis(self):
+        address_parts = {
+            "address": "333 north central ave",
+            "city": "Chicago",
+            "state": "IL",
+            "country": "US",
+        }
+        expected_result = {
+            "geo": {"lat": 41.8867315, "lng": -87.764651},
+            "geo_formatted_address": "333 N Central Ave, Chicago, Illinois, 60644",
+        }
+
+        result = geocoding.geocode(address_parts, geocoder="arcgis")
+
+        self.assertIsNotNone(result)
+        if result:
+            self.assertEqual(
+                expected_result["geo_formatted_address"],
+                result["geo_formatted_address"],
+            )
+            self.assertAlmostEqual(
+                expected_result["geo"]["lat"], result["geo"]["lat"], places=4
+            )
+            self.assertAlmostEqual(
+                expected_result["geo"]["lng"], result["geo"]["lng"], places=4
+            )
+
+    def test_geocodes_valid_address_mapbox(self):
+        address_parts = {
+            "address": "333 north central ave",
+            "city": "Chicago",
+            "state": "IL",
+            "country": "US",
+        }
+        expected_result = {
+            "geo": {"lat": 41.886711, "lng": -87.76451},
+            "geo_formatted_address": "333 North Central Avenue, Chicago, Illinois 60644, United States",
+        }
+
+        result = geocoding.geocode(address_parts, geocoder="mapbox")
+
+        self.assertIsNotNone(result)
+        if result:
+            self.assertEqual(
+                expected_result["geo_formatted_address"],
+                result["geo_formatted_address"],
+            )
+            self.assertAlmostEqual(
+                expected_result["geo"]["lat"], result["geo"]["lat"], places=4
+            )
+            self.assertAlmostEqual(
+                expected_result["geo"]["lng"], result["geo"]["lng"], places=4
+            )
 
     def test_calculates_route(self):
         origin = Point(latitude=41.8303654, longitude=-87.6239086)

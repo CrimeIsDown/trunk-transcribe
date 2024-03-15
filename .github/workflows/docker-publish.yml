@@ -145,7 +145,7 @@ jobs:
         sed -i 's/^# AWS_ACCESS_KEY_ID=$/AWS_ACCESS_KEY_ID=root/g' .env
         sed -i 's/^# AWS_SECRET_ACCESS_KEY=$/AWS_SECRET_ACCESS_KEY=password/g' .env
         sed -i 's/^# S3_ENDPOINT=$/S3_ENDPOINT=http:\/\/minio:9000/g' .env
-        sed -i 's/^# GOOGLE_GEOCODING_BOUNDS="41.6,-87.9|42,-87.5"$/GOOGLE_GEOCODING_BOUNDS="41.6,-87.9|42,-87.5"/g' .env
+        sed -i 's/^# GEOCODING_BOUNDS="41.6,-87.9|42,-87.5"$/GEOCODING_BOUNDS="41.6,-87.9|42,-87.5"/g' .env
         sed -i 's/^# GEOCODING_CITY=Chicago$/GEOCODING_CITY=Chicago/g' .env
         sed -i 's/^# GEOCODING_STATE=IL$/GEOCODING_STATE=IL/g' .env
         sed -i 's/^# GEOCODING_COUNTRY=US$/GEOCODING_COUNTRY=US/g' .env
@@ -157,6 +157,7 @@ jobs:
         sed -i 's/^# OPENAI_API_KEY=$/OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}/g' .env
         sed -i 's/^# GOOGLE_GEMINI_API_KEY=$/GOOGLE_GEMINI_API_KEY=${{ secrets.GOOGLE_GEMINI_API_KEY }}/g' .env
         sed -i 's/^# GOOGLE_MAPS_API_KEY=$/GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }}/g' .env
+        sed -i 's/^# MAPBOX_API_KEY=$/MAPBOX_API_KEY=${{ secrets.MAPBOX_API_KEY }}/g' .env
         sed -i 's/^# GEOCODIO_API_KEY=$/GEOCODIO_API_KEY=${{ secrets.GEOCODIO_API_KEY }}/g' .env
         sed -i 's/^# ARCGIS_USERNAME=$/ARCGIS_USERNAME=${{ secrets.ARCGIS_USERNAME }}/g' .env
         sed -i 's/^# ARCGIS_PASSWORD=$/ARCGIS_PASSWORD=${{ secrets.ARCGIS_PASSWORD }}/g' .env

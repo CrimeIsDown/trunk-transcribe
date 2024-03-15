@@ -2,14 +2,13 @@ import logging
 import re
 import os
 import sys
-from typing import Tuple, TypedDict
+from typing import TypedDict
 
+import requests
 import sentry_sdk
 from geopy.point import Point
 from geopy.exc import GeocoderQueryError
 from geopy.geocoders import get_geocoder_for_service
-from google.api_core.client_options import ClientOptions
-from google.maps import routing_v2
 
 from .metadata import Metadata
 from .transcript import Transcript
@@ -70,6 +69,14 @@ def geocode(
                 "country": address_parts["country"],
             }
         }
+    elif geocoder == "mapbox" or (os.getenv("MAPBOX_API_KEY") and geocoder is None):
+        geocoder = "mapbox"
+        config = {"api_key": os.getenv("MAPBOX_API_KEY")}
+        query = {
+            "query": f"{address_parts['address']}, {address_parts['city']}, {address_parts['state']}",
+            "country": address_parts["country"],
+            "bbox": address_parts.get("bounds"),
+        }
     elif geocoder == "googlev3" or (
         os.getenv("GOOGLE_MAPS_API_KEY") and geocoder is None
     ):
@@ -120,11 +127,17 @@ def geocode(
             "state",
         ]:
             return None
+    elif geocoder == "mapbox":
+        if "address" not in location.raw["place_type"]:
+            return None
     elif geocoder == "googlev3":
         if location.raw["geometry"]["location_type"] in [
             "APPROXIMATE",
             "GEOMETRIC_CENTER",
         ]:
+            return None
+    elif geocoder == "arcgis":
+        if location.raw["score"] < 50:
             return None
 
     return {
@@ -147,7 +160,7 @@ def lookup_geo(
             "state": os.getenv("GEOCODING_STATE"),
             "country": os.getenv("GEOCODING_COUNTRY", "US"),
         }
-        bounds_raw = os.getenv("GOOGLE_GEOCODING_BOUNDS")
+        bounds_raw = os.getenv("GEOCODING_BOUNDS")
         if bounds_raw:
             default_address_parts["bounds"] = [
                 Point(bound) for bound in bounds_raw.split("|")
@@ -182,36 +195,22 @@ def lookup_geo(
 
 
 def calculate_route_duration(origin: Point, destination: Point) -> int:
-    # Create a client
-    options = ClientOptions(api_key=os.getenv("GOOGLE_MAPS_API_KEY"))
-    client = routing_v2.RoutesClient(client_options=options)
+    profile = "mapbox/driving-traffic"
+    coordinates = f"{origin.longitude},{origin.latitude};{destination.longitude},{destination.latitude}"
+    url = f"https://api.mapbox.com/directions/v5/{profile}/{coordinates}"
 
-    # Initialize request argument(s)
-    request = routing_v2.ComputeRoutesRequest(
-        origin=routing_v2.Waypoint(
-            location=routing_v2.Location(
-                lat_lng={"latitude": origin.latitude, "longitude": origin.longitude}
-            )
-        ),
-        destination=routing_v2.Waypoint(
-            location=routing_v2.Location(
-                lat_lng={
-                    "latitude": destination.latitude,
-                    "longitude": destination.longitude,
-                }
-            )
-        ),
-        travel_mode=routing_v2.RouteTravelMode.DRIVE,
-        routing_preference=routing_v2.RoutingPreference.TRAFFIC_AWARE,
+    response = requests.get(
+        url,
+        params={
+            "access_token": os.getenv("MAPBOX_API_KEY"),
+            "overview": "false",
+        },
     )
+    response.raise_for_status()
+    mapbox_response = response.json()
 
-    # Make the request
-    response = client.compute_routes(
-        request=request, metadata=[("x-goog-fieldmask", "routes.duration")]
-    )
-
-    if len(response.routes):
-        return response.routes[0].duration.seconds
+    if len(mapbox_response["routes"]):
+        return mapbox_response["routes"][0]["duration"]
 
     # If there are no routes, give the maximum possible time - this simplifies logic using this method
     return sys.maxsize
