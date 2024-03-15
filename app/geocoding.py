@@ -157,23 +157,28 @@ def lookup_geo(
 
         llm_model = llm.create_model()
 
-        for segment in transcript.transcript:
-            address_parts = default_address_parts.copy()
-            address_parts["address"] = extract_address(segment[1])
+        transcript_txt = transcript.txt_nosrc
 
-            if llm_model and not address_parts["address"]:
-                result = llm.extract_address(llm_model, segment[1], metadata)
-                if result:
-                    address_parts.update(result)
+        address_parts = default_address_parts.copy()
+        address_parts["address"] = extract_address(transcript_txt)
 
-            if address_parts["address"]:
-                try:
-                    return geocode(address_parts, geocoder=geocoder)
-                except Exception as e:
-                    sentry_sdk.capture_exception(e)
-                    logging.error(
-                        f"Got exception while geocoding: {repr(e)}", exc_info=e
-                    )
+        # If we did not find the address through our regex, then we use the LLM model to extract it as long as the transcript contains a number (possibly indicating an address)
+        if (
+            llm_model
+            and not address_parts["address"]
+            and re.search(r"[0-9]", transcript_txt)
+            and len(transcript_txt) > 20
+        ):
+            result = llm.extract_address(llm_model, transcript_txt, metadata)
+            if result:
+                address_parts.update(result)
+
+        if address_parts["address"]:
+            try:
+                return geocode(address_parts, geocoder=geocoder)
+            except Exception as e:
+                sentry_sdk.capture_exception(e)
+                logging.error(f"Got exception while geocoding: {repr(e)}", exc_info=e)
 
 
 def calculate_route_duration(origin: Point, destination: Point) -> int:

@@ -55,6 +55,10 @@ class Transcript:
             ]
         )
 
+    @property
+    def txt_nosrc(self):
+        return "\n".join([transcript for _, transcript in self.transcript])
+
     def append(self, transcript: str, src: SrcListItem | None = None):
         if len(transcript):
             self.transcript.append((src, transcript))
