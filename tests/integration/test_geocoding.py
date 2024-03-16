@@ -58,14 +58,14 @@ class TestGeocoding(unittest.TestCase):
 
     def test_geocodes_valid_address_geocodio(self):
         address_parts = {
-            "address": "333 north central",
+            "address": "Clinton and Jackson",
             "city": "Chicago",
             "state": "IL",
             "country": "US",
         }
         expected_result = {
-            "geo": {"lat": 41.886719, "lng": -87.764503},
-            "geo_formatted_address": "333 N Central Ave, Chicago, IL 60644",
+            "geo": {"lat": 41.878026, "lng": -87.641069},
+            "geo_formatted_address": "S Clinton St and W Jackson Blvd, Chicago, IL 60661",
         }
 
         result = geocoding.geocode(address_parts, geocoder="geocodio")

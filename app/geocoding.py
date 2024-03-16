@@ -6,6 +6,7 @@ from typing import TypedDict
 
 import requests
 import sentry_sdk
+from geopy.location import Location
 from geopy.point import Point
 from geopy.exc import GeocoderQueryError
 from geopy.geocoders import get_geocoder_for_service
@@ -111,42 +112,56 @@ def geocode(
     cls = get_geocoder_for_service(geocoder)
     geolocator = cls(**config)
     try:
-        location = geolocator.geocode(**query)
+        locations: list[Location] = geolocator.geocode(exactly_one=False, **query)
     except GeocoderQueryError:
         # Probably got "Could not geocode address. No matches found."
         return None
 
-    if not location:
+    if not locations:
         return None
 
-    if geocoder == "geocodio":
-        if location.raw.get("accuracy_type", []) in [
-            "street_center",
-            "place",
-            "county",
-            "state",
-        ]:
-            return None
-    elif geocoder == "mapbox":
-        if "address" not in location.raw["place_type"]:
-            return None
-    elif geocoder == "googlev3":
-        if location.raw["geometry"]["location_type"] in [
-            "APPROXIMATE",
-            "GEOMETRIC_CENTER",
-        ]:
-            return None
-    elif geocoder == "arcgis":
-        if location.raw["score"] < 50:
-            return None
+    def is_location_valid(location: Location) -> bool:
+        if geocoder == "geocodio":
+            if location.raw.get("accuracy_type", []) in [
+                "street_center",
+                "place",
+                "county",
+                "state",
+            ]:
+                return False
+        elif geocoder == "mapbox":
+            if "address" not in location.raw["place_type"]:
+                return False
+        elif geocoder == "googlev3":
+            if location.raw["geometry"]["location_type"] in [
+                "APPROXIMATE",
+                "GEOMETRIC_CENTER",
+            ]:
+                return False
+        elif geocoder == "arcgis":
+            if location.raw["score"] < 50:
+                return False
 
-    return {
-        "geo": {
-            "lat": location.latitude,
-            "lng": location.longitude,
-        },
-        "geo_formatted_address": location.address,
-    }
+        if address_parts["city"] not in location.address:
+            return False
+        # TODO: check state as well
+
+        return True
+
+    possible_locations = filter(is_location_valid, locations)
+    # This assumes the locations are sorted by most accurate first
+    location = next(possible_locations, None)
+
+    if location:
+        return {
+            "geo": {
+                "lat": location.latitude,
+                "lng": location.longitude,
+            },
+            "geo_formatted_address": location.address,
+        }
+
+    return None
 
 
 def lookup_geo(
