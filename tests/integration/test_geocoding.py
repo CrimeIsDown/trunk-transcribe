@@ -35,14 +35,14 @@ class TestGeocoding(unittest.TestCase):
     def test_lookup_geo(self):
         metadata = Metadata(
             {
-                "short_name": "chi_cfd",
-                "talkgroup_description": "Fire North",
-                "talkgroup_group": "Chicago Fire Department",
+                "short_name": "sc21102",
+                "talkgroup_description": "3 East: Elmhurst, Oakbrook Terrace Police",
+                "talkgroup_group": "DuPage County - DuPage Public Safety Communications (DU-COMM)",
             }  # type: ignore
         )
         transcript = Transcript(
             [
-                (None, "Take the fire at 333 north central."),
+                (None, "Oakbrook Care is here to advise your FDs enroute to 1 Tower Lane for a fire alarm."),
             ]
         )
 
@@ -53,7 +53,7 @@ class TestGeocoding(unittest.TestCase):
         if result:
             self.assertEqual(
                 result["geo_formatted_address"],
-                "333 North Central Avenue, Chicago, Illinois 60644, United States",
+                "1 Tower Ln, Oakbrook Terrace, Illinois 60181",
             )
 
     def test_geocodes_valid_address_geocodio(self):

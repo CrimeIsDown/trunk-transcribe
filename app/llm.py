@@ -15,10 +15,10 @@ def create_model() -> genai.GenerativeModel | None:
 
     # Set up the model
     generation_config = genai.GenerationConfig(
-        temperature=0,
+        temperature=0.9,
         max_output_tokens=2048,
         top_p=1.0,
-        top_k=40,
+        top_k=1,
     )
 
     safety_settings = [

@@ -146,11 +146,11 @@ jobs:
         sed -i 's/^# AWS_ACCESS_KEY_ID=$/AWS_ACCESS_KEY_ID=root/g' .env
         sed -i 's/^# AWS_SECRET_ACCESS_KEY=$/AWS_SECRET_ACCESS_KEY=password/g' .env
         sed -i 's/^# S3_ENDPOINT=$/S3_ENDPOINT=http:\/\/minio:9000/g' .env
-        sed -i 's/^# GEOCODING_BOUNDS="41.6,-87.9|42,-87.5"$/GEOCODING_BOUNDS="41.6,-87.9|42,-87.5"/g' .env
+        sed -i 's/^# GEOCODING_BOUNDS="41.6,-87.9|42,-87.5"$/GEOCODING_BOUNDS="41,-88.5|42.5,-87.5"/g' .env
         sed -i 's/^# GEOCODING_CITY=Chicago$/GEOCODING_CITY=Chicago/g' .env
         sed -i 's/^# GEOCODING_STATE=IL$/GEOCODING_STATE=IL/g' .env
         sed -i 's/^# GEOCODING_COUNTRY=US$/GEOCODING_COUNTRY=US/g' .env
-        sed -i 's/^# GEOCODING_ENABLED_SYSTEMS="system1,system2"$/GEOCODING_ENABLED_SYSTEMS="chi_cpd,chi_cfd,chi_oemc"/g' .env
+        sed -i 's/^# GEOCODING_ENABLED_SYSTEMS="system1,system2"$/GEOCODING_ENABLED_SYSTEMS="chi_cpd,chi_cfd,chi_oemc,sc21102"/g' .env
         echo "VERSION=${{ github.sha }}" >> .env
         cat .env
 
