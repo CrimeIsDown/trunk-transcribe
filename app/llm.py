@@ -72,5 +72,5 @@ def extract_address(
                 "city": result["city"],
                 "state": result["state"],
             }
-    except json.JSONDecodeError:
+    except:
         return None
