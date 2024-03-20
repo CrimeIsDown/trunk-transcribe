@@ -42,7 +42,10 @@ class TestGeocoding(unittest.TestCase):
         )
         transcript = Transcript(
             [
-                (None, "Oakbrook Care is here to advise your FDs enroute to 1 Tower Lane for a fire alarm."),
+                (
+                    None,
+                    "Oakbrook Care is here to advise your FDs enroute to 1 Tower Lane for a fire alarm.",
+                ),
             ]
         )
 
