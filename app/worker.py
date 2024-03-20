@@ -100,7 +100,7 @@ def transcribe(
     model_lock,
     metadata: Metadata,
     audio_file: str,
-) -> Tuple[Transcript | None, GeoResponse | None]:
+) -> Transcript | None:
     try:
         if (
             metadata["audio_type"] == "digital"
@@ -113,12 +113,10 @@ def transcribe(
             raise Reject(f"Audio type {metadata['audio_type']} not supported")
     except RuntimeError as e:
         logging.warn(e)
-        return None, None
+        return None
     logging.debug(transcript.json)
 
-    geo = lookup_geo(metadata, transcript)
-
-    return transcript, geo
+    return transcript
 
 
 def transcribe_and_index(
@@ -229,7 +227,7 @@ def transcribe_from_db_task(
         os.unlink(mp3_file.name)
 
     try:
-        transcript, geo = transcribe(
+        transcript = transcribe(
             transcribe_task.model(whisper_implementation),
             transcribe_task.model_lock,
             metadata,
@@ -239,12 +237,10 @@ def transcribe_from_db_task(
         os.unlink(audio_file)
 
     if transcript:
-        call = api_client.call(
+        api_client.call(
             "patch",
             f"calls/{id}",
-            json={"raw_transcript": transcript.transcript, "geo": geo},
+            json={"raw_transcript": transcript.transcript},
         )
-
-        make_next_index()
 
         return transcript.txt

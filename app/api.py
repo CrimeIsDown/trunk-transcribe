@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 load_dotenv()
 
-from . import crud, models, schemas, storage, search, notification
+from . import crud, geocoding, models, schemas, storage, search, notification
 from .database import SessionLocal, engine
 from .metadata import Metadata
 from .transcript import Transcript
@@ -166,10 +166,12 @@ def update_call(call_id: int, call: schemas.CallUpdate, db: Session = Depends(ge
     db_call = crud.get_call(db, call_id=call_id)
     if db_call is None:
         raise HTTPException(status_code=404, detail="Call not found")
-    db_call = crud.update_call(db=db, call=call, db_call=db_call)
 
     metadata = Metadata(db_call.raw_metadata)  # type: ignore
-    transcript = Transcript(db_call.raw_transcript)  # type: ignore
+    transcript = Transcript(call.raw_transcript)  # type: ignore
+    call.geo = geocoding.lookup_geo(metadata, transcript)
+
+    db_call = crud.update_call(db=db, call=call, db_call=db_call)
 
     search_url = search.index_call(
         db_call.id,  # type: ignore
@@ -182,6 +184,8 @@ def update_call(call_id: int, call: schemas.CallUpdate, db: Session = Depends(ge
     notification.send_notifications(
         db_call.raw_audio_url, metadata, transcript, db_call.geo, search_url  # type: ignore
     )
+
+    search.make_next_index()
 
     return db_call
 

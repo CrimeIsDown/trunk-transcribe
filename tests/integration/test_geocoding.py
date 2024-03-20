@@ -32,7 +32,7 @@ class TestGeocoding(unittest.TestCase):
                 logging.info("Waiting for API to come online...")
                 sleep(1)
 
-    def test_lookup_geo(self):
+    def test_lookup_geo_with_llm(self):
         metadata = Metadata(
             {
                 "short_name": "sc21102",
@@ -53,7 +53,7 @@ class TestGeocoding(unittest.TestCase):
         if result:
             self.assertEqual(
                 result["geo_formatted_address"],
-                "1 Tower Ln, Oakbrook Terrace, Illinois 60181",
+                "1 Tower Ln, Oakbrook Terrace, Illinois 60181, United States",
             )
 
     def test_geocodes_valid_address_geocodio(self):
