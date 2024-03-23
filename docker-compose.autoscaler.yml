@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   autoscaler:
     image: ghcr.io/crimeisdown/trunk-transcribe:${VERSION:-main}
