@@ -111,7 +111,9 @@ class InsanelyFastWhisper(BaseWhisper):
         from transformers import pipeline
         from transformers.utils import is_flash_attn_2_available
 
-        device = os.getenv("TORCH_DEVICE", "cuda:0" if torch.cuda.is_available() else "cpu")
+        device = os.getenv(
+            "TORCH_DEVICE", "cuda:0" if torch.cuda.is_available() else "cpu"
+        )
         torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
 
         model_id = f"openai/whisper-{model_name}"
