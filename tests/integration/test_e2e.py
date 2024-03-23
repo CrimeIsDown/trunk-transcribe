@@ -103,6 +103,8 @@ class TestEndToEnd(unittest.TestCase):
         self.assertEqual("SUCCESS", result["task_status"])
         self.assertTrue("E96: " in result["task_result"])
 
+        sleep(2)  # Wait for search to update
+
         result = self.search("96 central", {"filter": ["units = E96"]})
 
         self.assertEqual(1, len(result["hits"]))
@@ -128,6 +130,8 @@ class TestEndToEnd(unittest.TestCase):
         self.assertEqual("SUCCESS", result["task_status"])
         self.assertTrue("2011" in result["task_result"])
         self.assertTrue("\n" in result["task_result"])
+
+        sleep(2)  # Wait for search to update
 
         result = self.search(
             "2011", {"filter": ["short_name = chi_cpd", "audio_type = analog"]}
@@ -158,6 +162,8 @@ class TestEndToEnd(unittest.TestCase):
 
         self.assertEqual("SUCCESS", result["task_status"])
         self.assertTrue("1904399: " in result["task_result"])
+
+        sleep(2)  # Wait for search to update
 
         result = self.search(
             "additional information",
