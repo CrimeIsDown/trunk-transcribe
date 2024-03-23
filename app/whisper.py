@@ -6,7 +6,7 @@ import subprocess
 from csv import DictReader
 from threading import Lock
 import time
-from typing import Optional, TypedDict
+from typing_extensions import Optional, TypedDict
 
 from .config import get_transcript_cleanup_config, get_ttl_hash, get_whisper_config
 from .task import Task
@@ -74,8 +74,8 @@ class WhisperTask(Task):
                 )
             if model_class == "faster-whisper":
                 return FasterWhisper(model)
-            if model_class == "distil-whisper":
-                return DistilWhisper(model)
+            if model_class == "insanely-fast-whisper":
+                return InsanelyFastWhisper(model)
             if model_class == "whisper":
                 return Whisper(model)
             if model_class == "openai":
@@ -105,36 +105,25 @@ class Whisper(BaseWhisper):
         )
 
 
-class DistilWhisper(BaseWhisper):
+class InsanelyFastWhisper(BaseWhisper):
     def __init__(self, model_name: str):
         import torch
-        from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
+        from transformers import pipeline
+        from transformers.utils import is_flash_attn_2_available
 
-        device = "cuda:0" if torch.cuda.is_available() else "cpu"
+        device = os.getenv("TORCH_DEVICE", "cuda:0" if torch.cuda.is_available() else "cpu")
         torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
 
-        model_id = f"distil-whisper/distil-{model_name}"
-
-        model = AutoModelForSpeechSeq2Seq.from_pretrained(
-            model_id,
-            torch_dtype=torch_dtype,
-            low_cpu_mem_usage=True,
-            use_safetensors=True,
-        )
-        model.to(device)
-
-        processor = AutoProcessor.from_pretrained(model_id)
+        model_id = f"openai/whisper-{model_name}"
 
         self.pipe = pipeline(
             "automatic-speech-recognition",
-            model=model,
-            tokenizer=processor.tokenizer,
-            feature_extractor=processor.feature_extractor,
-            max_new_tokens=128,
-            chunk_length_s=15,
-            batch_size=16,
+            model=model_id,
             torch_dtype=torch_dtype,
             device=device,
+            model_kwargs={"attn_implementation": "flash_attention_2"}
+            if is_flash_attn_2_available()
+            else {"attn_implementation": "sdpa"},
         )
 
     def transcribe(
@@ -144,7 +133,9 @@ class DistilWhisper(BaseWhisper):
         initial_prompt: str | None = None,
         **decode_options,
     ) -> WhisperResult:
-        output = self.pipe(audio, return_timestamps=True)
+        output = self.pipe(
+            audio, chunk_length_s=30, batch_size=24, return_timestamps=True
+        )
         result = {
             "segments": [],
             "text": output["text"],  # type: ignore

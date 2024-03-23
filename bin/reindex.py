@@ -10,7 +10,7 @@ import re
 from functools import lru_cache
 import tempfile
 from time import sleep
-from typing import Tuple, TypedDict
+from typing_extensions import Tuple, TypedDict
 
 from celery.result import AsyncResult
 from dotenv import load_dotenv

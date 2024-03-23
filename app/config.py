@@ -2,7 +2,7 @@ import json
 import os
 from functools import lru_cache
 from time import time
-from typing import Optional, TypedDict
+from typing_extensions import Optional, TypedDict
 
 from . import api_client
 from .geocoding import Geo

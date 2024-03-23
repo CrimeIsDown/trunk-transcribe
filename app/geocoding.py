@@ -2,7 +2,7 @@ import logging
 import re
 import os
 import sys
-from typing import TypedDict
+from typing_extensions import TypedDict
 
 import requests
 import sentry_sdk
