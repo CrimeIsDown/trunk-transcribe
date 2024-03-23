@@ -157,14 +157,16 @@ class FasterWhisper(BaseWhisper):
     vad_filter = False
 
     def __init__(self, model_name: str):
-        if "cpu" in os.getenv("DESIRED_CUDA", ""):
-            device = "cpu"
+        import torch
+        from faster_whisper import WhisperModel
+
+        device = os.getenv(
+            "TORCH_DEVICE", "cuda:0" if torch.cuda.is_available() else "cpu"
+        )
+        if "cpu" in os.getenv("TORCH_DEVICE", ""):
             compute_type = "int8"
         else:
-            device = "cuda"
             compute_type = "float16"
-
-        from faster_whisper import WhisperModel
 
         self.model = WhisperModel(model_name, device=device, compute_type=compute_type)
 
