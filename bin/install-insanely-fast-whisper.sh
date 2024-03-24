@@ -20,7 +20,7 @@ else
     EXTRA_INDEX_URL=""
 fi
 
-pip3 install --upgrade torch torchvision torchaudio transformers optimum accelerate
+pip3 install --upgrade $EXTRA_INDEX_URL torch torchvision torchaudio transformers optimum accelerate
 if [[ "$DESIRED_CUDA" != "cpu" ]]; then
     pip3 install packaging ninja
     pip3 install flash-attn --no-build-isolation
