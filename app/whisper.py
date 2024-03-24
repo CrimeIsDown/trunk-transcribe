@@ -32,7 +32,7 @@ class BaseWhisper(ABC):
         language: str = "en",
         initial_prompt: str | None = None,
         **decode_options,
-    ) -> dict:
+    ) -> WhisperResult:
         pass
 
 
@@ -40,7 +40,7 @@ class WhisperTask(Task):
     _models = {}
     model_lock = Lock()
 
-    def model(self, implementation: str | None = None):
+    def model(self, implementation: str | None = None) -> BaseWhisper:
         if not implementation:
             implementation = self.default_implementation
         if implementation not in self._models:
@@ -55,8 +55,8 @@ class WhisperTask(Task):
                 return f"whisper.cpp:{model_name}"
             if os.getenv("FASTERWHISPER"):
                 return f"faster-whisper:{model_name}"
-            if os.getenv("DISTILWHISPER"):
-                return f"distil-whisper:{model_name}"
+            if os.getenv("INSANELYFASTWHISPER"):
+                return f"insanely-fast-whisper:{model_name}"
             return f"whisper:{model_name}"
 
         if os.getenv("OPENAI_API_KEY"):
@@ -114,7 +114,7 @@ class InsanelyFastWhisper(BaseWhisper):
         device = os.getenv(
             "TORCH_DEVICE", "cuda:0" if torch.cuda.is_available() else "cpu"
         )
-        torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+        torch_dtype = os.getenv("TORCH_DTYPE", torch.float16)
 
         model_id = f"openai/whisper-{model_name}"
 
@@ -128,6 +128,9 @@ class InsanelyFastWhisper(BaseWhisper):
             else {"attn_implementation": "sdpa"},
         )
 
+        if device == "mps":
+            torch.mps.empty_cache()
+
     def transcribe(
         self,
         audio: str,
@@ -138,7 +141,7 @@ class InsanelyFastWhisper(BaseWhisper):
         output = self.pipe(
             audio, chunk_length_s=30, batch_size=24, return_timestamps=True
         )
-        result = {
+        result: WhisperResult = {
             "segments": [],
             "text": output["text"],  # type: ignore
         }
@@ -163,10 +166,7 @@ class FasterWhisper(BaseWhisper):
         device = os.getenv(
             "TORCH_DEVICE", "cuda:0" if torch.cuda.is_available() else "cpu"
         )
-        if "cpu" in os.getenv("TORCH_DEVICE", ""):
-            compute_type = "int8"
-        else:
-            compute_type = "float16"
+        compute_type = os.getenv("TORCH_DTYPE", "int8" if "cpu" in os.getenv("TORCH_DEVICE", "") else "float16")
 
         self.model = WhisperModel(model_name, device=device, compute_type=compute_type)
 

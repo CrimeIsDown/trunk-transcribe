@@ -13,7 +13,10 @@ elif [ "$1" = 'worker' ]; then
     disown
 
     if [ -z "${CELERY_HOSTNAME-}" ]; then
-        CELERY_HOSTNAME="celery-${GIT_COMMIT::7}"
+        CELERY_HOSTNAME="celery"
+        if [ -n "${GIT_COMMIT-}" ]; then
+            CELERY_HOSTNAME="$CELERY_HOSTNAME-${GIT_COMMIT::7}"
+        fi
         if [ -f /root/.vast_containerlabel ]; then
             CELERY_HOSTNAME="$CELERY_HOSTNAME@$(cat /root/.vast_containerlabel)"
         else
