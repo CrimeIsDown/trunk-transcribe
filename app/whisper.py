@@ -166,7 +166,10 @@ class FasterWhisper(BaseWhisper):
         device = os.getenv(
             "TORCH_DEVICE", "cuda:0" if torch.cuda.is_available() else "cpu"
         )
-        compute_type = os.getenv("TORCH_DTYPE", "int8" if "cpu" in os.getenv("TORCH_DEVICE", "") else "float16")
+        compute_type = os.getenv(
+            "TORCH_DTYPE",
+            "int8" if "cpu" in os.getenv("TORCH_DEVICE", "") else "float16",
+        )
 
         self.model = WhisperModel(model_name, device=device, compute_type=compute_type)
 
