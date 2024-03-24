@@ -1,6 +1,7 @@
 import unittest
 import csv
 import json
+from app.exceptions import WhisperException
 from app.transcript import RawTranscript
 from app.whisper import WhisperResult, cleanup_transcript
 
@@ -28,7 +29,7 @@ class TestTranscript(unittest.TestCase):
             hallucinations = json.load(file)
 
         for h in hallucinations:
-            with self.assertRaises(RuntimeError):
+            with self.assertRaises(WhisperException):
                 whisperresult = {
                     "text": "\n".join(h),
                     "segments": [
@@ -55,7 +56,7 @@ class TestTranscript(unittest.TestCase):
                     transformed_result = cleanup_transcript(original_result)
                     if original_text != transformed_result["text"]:
                         edited_count += 1
-                except RuntimeError:
+                except WhisperException:
                     hallucination_count += 1
 
             # Row count: 12790 / Edited count: 1655 / Full hallucination count: 3378

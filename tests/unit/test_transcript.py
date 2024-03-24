@@ -1,5 +1,6 @@
 import unittest
 import json
+from app.exceptions import WhisperException
 from app.transcript import Transcript, RawTranscript, SrcListItem
 
 
@@ -89,7 +90,7 @@ class TestTranscript(unittest.TestCase):
     def test_validate(self):
         # Test with an empty transcript
         transcript = Transcript()
-        with self.assertRaises(RuntimeError):
+        with self.assertRaises(WhisperException):
             transcript.validate()
 
     def test_update_src(self):
