@@ -1,6 +1,7 @@
 import json
 from typing import Tuple, TypeAlias, Union
 
+from .exceptions import WhisperException
 from .metadata import SrcListItem
 
 RawTranscript: TypeAlias = list[Tuple[Union[None, SrcListItem], str]]
@@ -69,12 +70,12 @@ class Transcript:
 
     def validate(self):
         if self.empty():
-            raise RuntimeError("Transcript empty/null")
+            raise WhisperException("Transcript empty/null")
         if (
             len(" ".join([transcript for _, transcript in self.transcript]))
             < Transcript.MIN_LENGTH
         ):
-            raise RuntimeError("Transcript too short")
+            raise WhisperException("Transcript too short")
         return self
 
     def update_src(self, newSrc: SrcListItem):

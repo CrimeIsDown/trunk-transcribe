@@ -8,6 +8,7 @@ from threading import Lock
 import time
 from typing_extensions import Optional, TypedDict
 
+from .exceptions import WhisperException
 from .config import get_transcript_cleanup_config, get_ttl_hash, get_whisper_config
 from .task import Task
 
@@ -62,7 +63,7 @@ class WhisperTask(Task):
         if os.getenv("OPENAI_API_KEY"):
             return "openai:whisper-1"
 
-        raise RuntimeError("WHISPER_MODEL env or OPENAI_API_KEY env must be set")
+        raise WhisperException("WHISPER_MODEL env or OPENAI_API_KEY env must be set")
 
     def initialize_model(self, implementation: str) -> BaseWhisper:
         with self.model_lock:
@@ -81,7 +82,7 @@ class WhisperTask(Task):
             if model_class == "openai":
                 return WhisperApi(os.getenv("OPENAI_API_KEY", ""))
 
-            raise RuntimeError(f"Unknown implementation {implementation}")
+            raise WhisperException(f"Unknown implementation {implementation}")
 
 
 class Whisper(BaseWhisper):
@@ -327,7 +328,7 @@ def cleanup_transcript(result: WhisperResult) -> WhisperResult:
                 break
     # Do not proceed any further if the entire transcript appears to be hallucinations
     if len(result["segments"]) == hallucination_count:
-        raise RuntimeError("Transcript invalid, 100% hallucination")
+        raise WhisperException("Transcript invalid, 100% hallucination")
 
     prev_seg_text = ""
     times_seg_repeated = 0

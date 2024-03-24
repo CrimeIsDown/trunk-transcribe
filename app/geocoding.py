@@ -11,6 +11,7 @@ from geopy.point import Point
 from geopy.exc import GeocoderQueryError
 from geopy.geocoders import get_geocoder_for_service
 
+from .exceptions import GeocodingException
 from .metadata import Metadata
 from .transcript import Transcript
 from . import llm
@@ -107,7 +108,7 @@ def geocode(
             "query": f"{address_parts['address']}, {address_parts['city']}, {address_parts['state']}, {address_parts['country']}"
         }
     else:
-        raise RuntimeError("Unsupported geocoder or no geocoding envs defined")
+        raise GeocodingException("Unsupported geocoder or no geocoding envs defined")
 
     cls = get_geocoder_for_service(geocoder)
     geolocator = cls(**config)

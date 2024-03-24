@@ -215,7 +215,7 @@ class Autoscaler:
 
         mem_util_factor = 1
         # Decrease the memory needed for certain forks
-        if os.getenv("DESIRED_CUDA") == "fw" or os.getenv("DESIRED_CUDA") == "cpu-cpp":
+        if self.envs["DESIRED_CUDA"] == "fw" or self.envs["DESIRED_CUDA"] == "cpu-cpp":
             mem_util_factor = 0.4
 
         vram_requirements = {

@@ -23,7 +23,8 @@ from . import api_client
 from .analog import transcribe_call as transcribe_analog
 from .conversion import convert_to_wav
 from .digital import transcribe_call as transcribe_digital
-from .geocoding import GeoResponse, lookup_geo
+from .exceptions import WhisperException
+from .geocoding import lookup_geo
 from .metadata import Metadata
 from .notification import send_notifications
 from .search import index_call, make_next_index
@@ -111,7 +112,7 @@ def transcribe(
             transcript = transcribe_analog(model, model_lock, audio_file)
         else:
             raise Reject(f"Audio type {metadata['audio_type']} not supported")
-    except RuntimeError as e:
+    except WhisperException as e:
         logging.warn(e)
         return None
     logging.debug(transcript.json)
@@ -138,7 +139,7 @@ def transcribe_and_index(
             transcript = transcribe_analog(model, model_lock, audio_file)
         else:
             raise Reject(f"Audio type {metadata['audio_type']} not supported")
-    except RuntimeError as e:
+    except WhisperException as e:
         return repr(e)
     logging.debug(transcript.json)
 
