@@ -78,7 +78,7 @@ jobs:
     strategy:
       matrix:
         include:
-        - model: small.en
+          - model: small.en
             platform: linux/amd64
             desired_cuda: cpu
             variant: whisper
