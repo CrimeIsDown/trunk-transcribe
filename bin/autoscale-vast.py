@@ -215,7 +215,7 @@ class Autoscaler:
 
         mem_util_factor = 1
         # Decrease the memory needed for certain forks
-        if self.envs["DESIRED_CUDA"] == "fw" or self.envs["DESIRED_CUDA"] == "cpu-cpp":
+        if self.envs["WHISPER_IMPLEMENTATION"] == "faster-whisper" or self.envs["WHISPER_IMPLEMENTATION"] == "whisper.cpp":
             mem_util_factor = 0.4
 
         vram_requirements = {
@@ -225,6 +225,7 @@ class Autoscaler:
             "medium.en": 6.5 * 1024 * mem_util_factor,
             "large": 12 * 1024 * mem_util_factor,
             "large-v2": 12 * 1024 * mem_util_factor,
+            "large-v3": 12 * 1024 * mem_util_factor,
         }
 
         vram_required = vram_requirements[self.model]
