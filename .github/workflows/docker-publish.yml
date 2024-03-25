@@ -76,6 +76,8 @@ jobs:
   build-worker:
     runs-on: ubuntu-latest
     strategy:
+      # Docker builds are very slow, so we want to have as many complete as possible
+      fail-fast: false
       matrix:
         include:
           - model: small.en
