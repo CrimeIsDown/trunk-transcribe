@@ -15,7 +15,7 @@ services:
       - --interval
       - ${AUTOSCALE_INTERVAL:-60}
       - --image
-      - ghcr.io/crimeisdown/trunk-transcribe:main-${WHISPER_MODEL:-medium.en}-${DESIRED_CUDA:-cu117}
+      - ghcr.io/crimeisdown/trunk-transcribe:main-${WHISPER_IMPLEMENTATION:-whisper}-${WHISPER_MODEL:-large-v2}-${DESIRED_CUDA:-cu117}
     env_file: .env
     volumes:
       - ./app:/src/app

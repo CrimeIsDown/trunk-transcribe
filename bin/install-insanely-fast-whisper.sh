@@ -2,8 +2,6 @@
 
 set -eou pipefail
 
-pip3 install -U pip setuptools wheel
-
 if [ -z "${DESIRED_CUDA:-}" ]; then
     if command -v nvidia-smi >/dev/null 2>&1; then
         # We could try to read the nvidia-smi output but there aren't many compatible PyTorch versions anyway
@@ -14,14 +12,12 @@ if [ -z "${DESIRED_CUDA:-}" ]; then
     fi
 fi
 
-if [[ "$DESIRED_CUDA" != "cu117" ]]; then
+if [[ -n "${DESIRED_CUDA-}" ]]; then
     EXTRA_INDEX_URL="--extra-index-url https://download.pytorch.org/whl/$DESIRED_CUDA"
 else
     EXTRA_INDEX_URL=""
 fi
 
-pip3 install --upgrade $EXTRA_INDEX_URL torch torchvision torchaudio transformers optimum accelerate
-if [[ "$DESIRED_CUDA" != "cpu" ]]; then
-    pip3 install packaging ninja
-    pip3 install flash-attn --no-build-isolation
-fi
+pip3 install $EXTRA_INDEX_URL -U torch torchvision torchaudio transformers optimum accelerate
+pip3 install packaging ninja setuptools wheel
+pip3 install flash-attn --no-build-isolation

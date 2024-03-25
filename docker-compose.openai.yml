@@ -9,3 +9,5 @@ services:
         - ghcr.io/crimeisdown/trunk-transcribe:main
       args: []
     command: worker
+    environment:
+      - WHISPER_IMPLEMENTATION=openai

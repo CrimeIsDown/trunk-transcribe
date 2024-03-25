@@ -3,7 +3,7 @@
 #
 # PLEASE DO NOT EDIT IT DIRECTLY.
 #
-FROM nvidia/cuda:12.1.1-cudnn8-devel-ubuntu22.04
+FROM nvidia/cuda:11.7.1-devel-ubuntu22.04
 
 RUN apt-get update && \
     apt-get -y upgrade && \
@@ -19,16 +19,16 @@ RUN apt-get update && \
 
 RUN pip3 install poetry>=1.3.2
 
-# Install Faster Whisper
-COPY bin/install-faster-whisper.sh /usr/local/bin/install-whisper.sh
+# Install Insanely-Fast-Whisper
+COPY bin/install-insanely-fast-whisper.sh /usr/local/bin/install-whisper.sh
 ARG DESIRED_CUDA
 RUN install-whisper.sh
 
 ARG WHISPER_MODEL=base.en
 ENV WHISPER_MODEL=${WHISPER_MODEL}
 # Pre-download the Whisper model
-RUN python3 -c "from faster_whisper import WhisperModel; import os; WhisperModel(os.getenv('WHISPER_MODEL'))"
-ENV WHISPER_IMPLEMENTATION=faster-whisper
+# RUN python3 -c "from faster_whisper import WhisperModel; import os; WhisperModel(os.getenv('WHISPER_MODEL'))"
+ENV WHISPER_IMPLEMENTATION=insanely-fast-whisper
 
 WORKDIR /src
 COPY pyproject.toml poetry.lock ./

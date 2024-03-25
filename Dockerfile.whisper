@@ -29,6 +29,7 @@ ARG WHISPER_MODEL=base.en
 ENV WHISPER_MODEL=${WHISPER_MODEL}
 # Pre-download the Whisper model
 RUN python3 -c "import whisper; import os; whisper.load_model(os.getenv('WHISPER_MODEL'))"
+ENV WHISPER_IMPLEMENTATION=whisper
 
 WORKDIR /src
 COPY pyproject.toml poetry.lock ./

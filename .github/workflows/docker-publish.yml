@@ -77,42 +77,57 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        # GPU variants
-        model: ["small.en", "medium.en", "large"]
-        platform: ["linux/amd64"]
-        desired_cuda: ["cu117"]
-        # desired_cuda: ["cu116", "cu117"]
-        dockerfile: ["Dockerfile.whisper"]
-        # CPU variants
         include:
-          - model: small.en
+        - model: small.en
             platform: linux/amd64
             desired_cuda: cpu
+            variant: whisper
             dockerfile: Dockerfile.whisper
           - model: small.en
             platform: linux/amd64
-            desired_cuda: cpu-cpp
-            dockerfile: Dockerfile.whispercpp
-          - model: medium.en
-            platform: linux/amd64
-            desired_cuda: cpu-cpp
-            dockerfile: Dockerfile.whispercpp
-          - model: large-v2
-            platform: linux/amd64
-            desired_cuda: cpu-cpp
-            dockerfile: Dockerfile.whispercpp
+            desired_cuda: cu117
+            variant: whisper
+            dockerfile: Dockerfile.whisper
           - model: small.en
             platform: linux/amd64
-            desired_cuda: fw
-            dockerfile: Dockerfile.fasterwhisper
+            desired_cuda: cu117
+            variant: whisper
+            dockerfile: Dockerfile.whisper
           - model: medium.en
             platform: linux/amd64
-            desired_cuda: fw
+            desired_cuda: cu117
+            variant: whisper
+            dockerfile: Dockerfile.whisper
+          - model: large-v2
+            platform: linux/amd64
+            desired_cuda: cu117
+            variant: whisper
+            dockerfile: Dockerfile.whisper
+          - model: medium.en
+            platform: linux/amd64
+            desired_cuda: cpu
+            variant: whisper.cpp
+            dockerfile: Dockerfile.whispercpp
+          - model: large-v2
+            platform: linux/amd64
+            desired_cuda: cpu
+            variant: whisper.cpp
+            dockerfile: Dockerfile.whispercpp
+          - model: medium.en
+            platform: linux/amd64
+            desired_cuda: cu121
+            variant: fasterwhisper
             dockerfile: Dockerfile.fasterwhisper
           - model: large-v2
             platform: linux/amd64
-            desired_cuda: fw
+            desired_cuda: cu121
+            variant: fasterwhisper
             dockerfile: Dockerfile.fasterwhisper
+          - model: large-v3
+            platform: linux/amd64
+            desired_cuda: cu117
+            variant: insanelyfastwhisper
+            dockerfile: Dockerfile.insanelyfastwhisper
     steps:
     # https://github.com/orgs/community/discussions/25678#discussioncomment-5242449
     - name: Delete huge unnecessary tools folder
@@ -132,7 +147,7 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
     - name: Build and test image
       # Only test the small.en model, and do not run builds where we expect a GPU
-      if: matrix.model == 'small.en' && matrix.desired_cuda != 'cu117' && matrix.desired_cuda != 'fw' && github.event_name != 'release'
+      if: matrix.model == 'small.en' && matrix.desired_cuda == 'cpu' && matrix.variant == 'whisper' && github.event_name != 'release'
       run: |
         set -x
         cp .env.example .env
@@ -178,11 +193,11 @@ jobs:
         context: .
         file: ${{ matrix.dockerfile }}
         push: true
-        tags: "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}-${{ matrix.model }}-${{ matrix.desired_cuda }}"
+        tags: "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}-${{ matrix.variant }}-${{ matrix.model }}-${{ matrix.desired_cuda }}"
         platforms: ${{ matrix.platform }}
         build-args: |
           WHISPER_MODEL=${{ matrix.model }}
           DESIRED_CUDA=${{ matrix.desired_cuda }}
           GIT_COMMIT=${{ github.sha }}
-        cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}-${{ matrix.model }}-${{ matrix.desired_cuda }}
+        cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}-${{ matrix.variant }}-${{ matrix.model }}-${{ matrix.desired_cuda }}
         cache-to: type=inline

@@ -12,7 +12,7 @@ if [ -z "${DESIRED_CUDA:-}" ]; then
     fi
 fi
 
-if [[ "$DESIRED_CUDA" != "cu117" ]]; then
+if [[ -n "${DESIRED_CUDA-}" ]]; then
     EXTRA_INDEX_URL="--extra-index-url https://download.pytorch.org/whl/$DESIRED_CUDA"
 else
     EXTRA_INDEX_URL=""

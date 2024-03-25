@@ -6,7 +6,7 @@ import subprocess
 from csv import DictReader
 from threading import Lock
 import time
-from typing_extensions import Optional, TypedDict
+from typing_extensions import Optional, List, TypedDict
 
 from .exceptions import WhisperException
 from .config import get_transcript_cleanup_config, get_ttl_hash, get_whisper_config
@@ -21,7 +21,7 @@ class WhisperSegment(TypedDict):
 
 class WhisperResult(TypedDict):
     text: str
-    segments: list[WhisperSegment]
+    segments: List[WhisperSegment]
     language: Optional[str]
 
 
@@ -50,37 +50,42 @@ class WhisperTask(Task):
 
     @property
     def default_implementation(self) -> str:
+        whisper_implementation = os.getenv("WHISPER_IMPLEMENTATION")
+        if not whisper_implementation:
+            raise WhisperException("WHISPER_IMPLEMENTATION env must be set.")
+
         model_name = os.getenv("WHISPER_MODEL")
-        if model_name:
-            if os.getenv("WHISPERCPP"):
-                return f"whisper.cpp:{model_name}"
-            if os.getenv("FASTERWHISPER"):
-                return f"faster-whisper:{model_name}"
-            if os.getenv("INSANELYFASTWHISPER"):
-                return f"insanely-fast-whisper:{model_name}"
-            return f"whisper:{model_name}"
 
-        if os.getenv("OPENAI_API_KEY"):
-            return "openai:whisper-1"
+        if whisper_implementation == "openai":
+            model_name = "whisper-1"
 
-        raise WhisperException("WHISPER_MODEL env or OPENAI_API_KEY env must be set")
+        if whisper_implementation == "deepgram" and not model_name:
+            model_name = "nova-2"
+
+        return f"{whisper_implementation}:{model_name}"
 
     def initialize_model(self, implementation: str) -> BaseWhisper:
         with self.model_lock:
-            model_class, model = implementation.split(":", 1)
-            if model_class == "whisper.cpp":
+            implementation, model = implementation.split(":", 1)
+            if implementation == "whisper.cpp":
                 return WhisperCpp(
                     model,
                     os.getenv("WHISPERCPP_MODEL_DIR", "/usr/local/lib/whisper-models"),
                 )
-            if model_class == "faster-whisper":
+            if implementation == "faster-whisper":
                 return FasterWhisper(model)
-            if model_class == "insanely-fast-whisper":
+            if implementation == "insanely-fast-whisper":
                 return InsanelyFastWhisper(model)
-            if model_class == "whisper":
+            if implementation == "whisper":
                 return Whisper(model)
-            if model_class == "openai":
+            if implementation == "openai":
+                if not os.getenv("OPENAI_API_KEY"):
+                    raise WhisperException("OPENAI_API_KEY env must be set.")
                 return WhisperApi(os.getenv("OPENAI_API_KEY", ""))
+            if implementation == "deepgram":
+                if not os.getenv("DEEPGRAM_API_KEY"):
+                    raise WhisperException("DEEPGRAM_API_KEY env must be set.")
+                return DeepgramApi(os.getenv("DEEPGRAM_API_KEY", ""), model)
 
             raise WhisperException(f"Unknown implementation {implementation}")
 
@@ -142,10 +147,7 @@ class InsanelyFastWhisper(BaseWhisper):
         output = self.pipe(
             audio, chunk_length_s=30, batch_size=24, return_timestamps=True
         )
-        result: WhisperResult = {
-            "segments": [],
-            "text": output["text"],  # type: ignore
-        }
+        result: WhisperResult = {"segments": [], "text": output["text"]}
         for chunk in output["chunks"]:  # type: ignore
             result["segments"].append(
                 {
@@ -193,10 +195,7 @@ class FasterWhisper(BaseWhisper):
         )
         segments = list(segments)  # The transcription will actually run here.
 
-        result = {
-            "segments": [],
-            "text": None,
-        }
+        result = {"segments": [], "text": None, "language": language}
         if len(segments):
             result["segments"] = [dict(segment._asdict()) for segment in segments]
             result["text"] = "\n".join(
@@ -241,7 +240,7 @@ class WhisperCpp(BaseWhisper):
         p = subprocess.run(args)
         p.check_returncode()
 
-        result = {"segments": [], "text": None}
+        result: WhisperResult = {"segments": [], "text": "", "language": language}
 
         with open(f"{audio}.csv", newline="") as csvfile:
             transcript = DictReader(csvfile)
@@ -295,6 +294,52 @@ class WhisperApi(BaseWhisper):
             response_format="verbose_json",
             language=language,
         ).model_dump()  # type: ignore
+
+
+class DeepgramApi(BaseWhisper):
+    def __init__(self, api_key: str, model: str = "nova-2"):
+        from deepgram import DeepgramClient
+
+        self.client = DeepgramClient(api_key=api_key)
+        self.model = model
+
+    def transcribe(
+        self,
+        audio: str,
+        language: str = "en",
+        initial_prompt: str | None = None,
+        **decode_options,
+    ) -> WhisperResult:
+        from deepgram import FileSource, PrerecordedOptions, PrerecordedResponse
+
+        with open(audio, "rb") as audio_file:
+            payload: FileSource = {"buffer": audio_file.read()}
+
+        options = PrerecordedOptions(
+            model=self.model,
+            utterances=True,
+            smart_format=True,
+            language=language,
+            keywords=initial_prompt,
+        )
+        response: PrerecordedResponse = self.client.listen.prerecorded.v(
+            "1"
+        ).transcribe_file(payload, options, timeout=120)
+
+        if (
+            response.results
+            and response.results.utterances
+            and response.results.channels
+        ):
+            return {
+                "segments": [
+                    {"start": u.start, "end": u.end, "text": u.transcript}
+                    for u in response.results.utterances
+                ],
+                "text": response.results.channels[0].alternatives[0].transcript,
+                "language": language,
+            }
+        return {"segments": [], "text": "", "language": language}
 
 
 def cleanup_transcript(result: WhisperResult) -> WhisperResult:
