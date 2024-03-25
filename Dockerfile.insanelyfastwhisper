@@ -28,7 +28,7 @@ ARG WHISPER_MODEL=base.en
 ENV WHISPER_MODEL=${WHISPER_MODEL}
 COPY tests/data/1-1673118015_477787500-call_1.wav /tmp/test.wav
 # Pre-download the Whisper model
-RUN python3 -c "from transformers import pipeline; import os; model_id = 'openai/whisper-' + os.getenv('WHISPER_MODEL'); print(pipeline('automatic-speech-recognition', model=model_id, device='cpu')('/tmp/test.wav', generate_kwargs={'task': 'transcribe', 'language': 'en}))"
+RUN python3 -c "from transformers import pipeline; import os; model_id = 'openai/whisper-' + os.getenv('WHISPER_MODEL'); print(pipeline('automatic-speech-recognition', model=model_id, device='cpu')('/tmp/test.wav', generate_kwargs={'task': 'transcribe', 'language': 'en'}))"
 ENV WHISPER_IMPLEMENTATION=insanely-fast-whisper
 
 WORKDIR /src
