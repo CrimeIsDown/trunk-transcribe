@@ -215,7 +215,10 @@ class Autoscaler:
 
         mem_util_factor = 1
         # Decrease the memory needed for certain forks
-        if self.envs["WHISPER_IMPLEMENTATION"] == "faster-whisper" or self.envs["WHISPER_IMPLEMENTATION"] == "whisper.cpp":
+        if (
+            self.envs["WHISPER_IMPLEMENTATION"] == "faster-whisper"
+            or self.envs["WHISPER_IMPLEMENTATION"] == "whisper.cpp"
+        ):
             mem_util_factor = 0.4
 
         vram_requirements = {
