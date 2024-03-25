@@ -147,9 +147,17 @@ class InsanelyFastWhisper(BaseWhisper):
         # TODO: Find a way to support prompts, possibly following this https://github.com/huggingface/distil-whisper/issues/20#issuecomment-1823217041
         generate_kwargs = {"task": "transcribe", "language": language}
         output = self.pipe(
-            audio, chunk_length_s=30, batch_size=24, return_timestamps=True, generate_kwargs=generate_kwargs
+            audio,
+            chunk_length_s=30,
+            batch_size=24,
+            return_timestamps=True,
+            generate_kwargs=generate_kwargs,
         )
-        result: WhisperResult = {"segments": [], "text": output["text"], "language": language}
+        result: WhisperResult = {
+            "segments": [],
+            "text": output["text"],
+            "language": language,
+        }
         for chunk in output["chunks"]:  # type: ignore
             result["segments"].append(
                 {

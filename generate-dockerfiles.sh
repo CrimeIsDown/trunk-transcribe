@@ -72,7 +72,7 @@ RUN install-whisper.sh
 ARG WHISPER_MODEL=base.en
 ENV WHISPER_MODEL=\${WHISPER_MODEL}
 # Pre-download the Whisper model
-# RUN python3 -c \"from faster_whisper import WhisperModel; import os; WhisperModel(os.getenv('WHISPER_MODEL'))\"
+RUN python3 -c \"from transformers import pipeline; import os; model_id = 'openai/whisper-' + os.getenv('WHISPER_MODEL'); pipeline('automatic-speech-recognition', model=model_id, device='cpu', model_kwargs={'attn_implementation': 'sdpa'})\"
 ENV WHISPER_IMPLEMENTATION=insanely-fast-whisper"
 
 envsubst '$WHISPER_INSTALL_INSTRUCTIONS' < Dockerfile >> Dockerfile.insanelyfastwhisper
