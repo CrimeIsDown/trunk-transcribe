@@ -300,16 +300,17 @@ class Autoscaler:
         )
         deletable_instances = []
         bad_instances = []
+        MAX_LOADING_DURATION = 1200
 
         for instance in instances:
             is_disconnected = (
                 instance["actual_status"] == "running"
-                and time.time() - instance["start_date"] > 1200
+                and time.time() - instance["start_date"] > MAX_LOADING_DURATION + 300
                 and self._make_instance_hostname(instance) not in online_workers
             )
             is_stuck = (
                 instance["actual_status"] == "loading"
-                and time.time() - instance["start_date"] > 900
+                and time.time() - instance["start_date"] > MAX_LOADING_DURATION
             )
             is_full = (
                 instance["disk_usage"] / instance["disk_space"] > 0.9
