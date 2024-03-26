@@ -146,6 +146,8 @@ class InsanelyFastWhisper(BaseWhisper):
         **decode_options,
     ) -> WhisperResult:
         generate_kwargs = decode_options.copy()
+        if "beam_size" in generate_kwargs:
+            generate_kwargs["num_beams"] = generate_kwargs.pop("beam_size")
         # TODO: Find a way to support prompts, possibly following this https://github.com/huggingface/distil-whisper/issues/20#issuecomment-1823217041
         generate_kwargs["task"] = "transcribe"
         generate_kwargs["language"] = language
