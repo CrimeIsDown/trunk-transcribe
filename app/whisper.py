@@ -122,7 +122,8 @@ class InsanelyFastWhisper(BaseWhisper):
         )
         torch_dtype = os.getenv("TORCH_DTYPE", torch.float16)
 
-        model_id = f"openai/whisper-{model_name}"
+        # Use the whole model name if there's a slash, so custom HuggingFace models can be used
+        model_id = model_name if "/" in model_name else f"openai/whisper-{model_name}"
 
         self.pipe = pipeline(
             "automatic-speech-recognition",
@@ -144,8 +145,10 @@ class InsanelyFastWhisper(BaseWhisper):
         initial_prompt: str | None = None,
         **decode_options,
     ) -> WhisperResult:
+        generate_kwargs = decode_options.copy()
         # TODO: Find a way to support prompts, possibly following this https://github.com/huggingface/distil-whisper/issues/20#issuecomment-1823217041
-        generate_kwargs = {"task": "transcribe", "language": language}
+        generate_kwargs["task"] = "transcribe"
+        generate_kwargs["language"] = language
         output = self.pipe(
             audio,
             chunk_length_s=30,
