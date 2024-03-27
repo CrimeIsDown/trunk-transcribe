@@ -146,6 +146,9 @@ class InsanelyFastWhisper(BaseWhisper):
         **decode_options,
     ) -> WhisperResult:
         generate_kwargs = decode_options.copy()
+        if "compression_ratio_threshold" in generate_kwargs:
+            # This gives a warning for short-form transcription so we need to remove it
+            del generate_kwargs["compression_ratio_threshold"]
         if "beam_size" in generate_kwargs:
             generate_kwargs["num_beams"] = generate_kwargs.pop("beam_size")
         # TODO: Find a way to support prompts, possibly following this https://github.com/huggingface/distil-whisper/issues/20#issuecomment-1823217041

@@ -86,11 +86,6 @@ jobs:
             desired_cuda: cu117
             variant: whisper
             dockerfile: Dockerfile.whisper
-          - model: small.en
-            platform: linux/amd64
-            desired_cuda: cu117
-            variant: whisper
-            dockerfile: Dockerfile.whisper
           - model: medium.en
             platform: linux/amd64
             desired_cuda: cu117
