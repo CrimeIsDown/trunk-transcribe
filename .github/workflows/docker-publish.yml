@@ -205,7 +205,7 @@ jobs:
           - model: large-v3
             platform: linux/amd64
             desired_cuda: cu117
-            variant: insanelyfastwhisper
+            variant: insanely-fast-whisper
             dockerfile: Dockerfile.insanelyfastwhisper
     steps:
     # https://github.com/orgs/community/discussions/25678#discussioncomment-5242449
