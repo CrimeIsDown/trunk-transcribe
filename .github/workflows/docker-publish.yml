@@ -101,12 +101,22 @@ jobs:
             desired_cuda: cu117
             variant: whisper
             dockerfile: Dockerfile.whisper
+          - model: large-v3
+            platform: linux/amd64
+            desired_cuda: cu117
+            variant: whisper
+            dockerfile: Dockerfile.whisper
           - model: medium.en
             platform: linux/amd64
             desired_cuda: cpu
             variant: whisper.cpp
             dockerfile: Dockerfile.whispercpp
           - model: large-v2
+            platform: linux/amd64
+            desired_cuda: cpu
+            variant: whisper.cpp
+            dockerfile: Dockerfile.whispercpp
+          - model: large-v3
             platform: linux/amd64
             desired_cuda: cpu
             variant: whisper.cpp
