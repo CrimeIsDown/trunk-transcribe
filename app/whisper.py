@@ -189,13 +189,22 @@ class FasterWhisper(BaseWhisper):
         )
         device = torch_device.split(":")[0]
         device_index = torch_device.split(":")[1] if ":" in torch_device else "0"
-        device_index = [int(i) for i in device_index.split(",")] if "," in device_index else int(device_index)
+        device_index = (
+            [int(i) for i in device_index.split(",")]
+            if "," in device_index
+            else int(device_index)
+        )
         compute_type = os.getenv(
             "TORCH_DTYPE",
             "int8" if "cpu" in os.getenv("TORCH_DEVICE", "") else "float16",
         )
 
-        self.model = WhisperModel(model_name, device=device, device_index=device_index, compute_type=compute_type)
+        self.model = WhisperModel(
+            model_name,
+            device=device,
+            device_index=device_index,
+            compute_type=compute_type,
+        )
 
         if os.getenv("FASTER_WHISPER_VAD_FILTER"):
             self.vad_filter = True
