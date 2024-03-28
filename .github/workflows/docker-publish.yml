@@ -209,6 +209,11 @@ jobs:
             dockerfile: Dockerfile.fasterwhisper
           - model: large-v3
             platform: linux/amd64
+            desired_cuda: cu121
+            variant: faster-whisper
+            dockerfile: Dockerfile.fasterwhisper
+          - model: large-v3
+            platform: linux/amd64
             desired_cuda: cu117
             variant: insanely-fast-whisper
             dockerfile: Dockerfile.insanelyfastwhisper
