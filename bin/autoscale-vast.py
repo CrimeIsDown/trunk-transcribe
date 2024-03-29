@@ -73,7 +73,11 @@ class Autoscaler:
 
         desired_cuda = os.getenv("DESIRED_CUDA", "cu121")
         cuda_version_matches = re.match(r"cu(\d\d)(\d)", desired_cuda)
-        self.cuda_version = f"{cuda_version_matches.group(1)}.{cuda_version_matches.group(2)}" if cuda_version_matches else "11.7"
+        self.cuda_version = (
+            f"{cuda_version_matches.group(1)}.{cuda_version_matches.group(2)}"
+            if cuda_version_matches
+            else "11.7"
+        )
 
         if image:
             self.image = image
