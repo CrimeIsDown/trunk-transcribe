@@ -4,6 +4,7 @@ import argparse
 import json
 import logging
 import os
+import re
 import subprocess
 import time
 from functools import lru_cache
@@ -67,16 +68,17 @@ class Autoscaler:
 
         self.envs = dotenv_values(".env.vast")  # type: ignore
 
-        self.model = (
-            self.envs["WHISPER_MODEL"]
-            if "WHISPER_MODEL" in self.envs and self.envs["WHISPER_MODEL"]
-            else "medium.en"
-        )
+        self.model = os.getenv("WHISPER_MODEL", "large-v3")
+        self.implementation = os.getenv("WHISPER_IMPLEMENTATION", "faster-whisper")
+
+        desired_cuda = os.getenv("DESIRED_CUDA", "cu121")
+        cuda_version_matches = re.match(r"cu(\d\d)(\d)", desired_cuda)
+        self.cuda_version = f"{cuda_version_matches.group(1)}.{cuda_version_matches.group(2)}" if cuda_version_matches else "11.7"
 
         if image:
             self.image = image
         else:
-            self.image = f"ghcr.io/crimeisdown/trunk-transcribe:main-{self.model}-{self.envs['DESIRED_CUDA']}"
+            self.image = f"ghcr.io/crimeisdown/trunk-transcribe:main-{self.implementation}-{self.model}-{desired_cuda}"
 
         if os.path.isfile(FORBIDDEN_INSTANCE_CONFIG):
             with open(FORBIDDEN_INSTANCE_CONFIG) as config:
@@ -177,7 +179,7 @@ class Autoscaler:
             "rentable": {"eq": "true"},
             "num_gpus": {"eq": "1"},
             "gpu_ram": {"gte": f"{vram_needed:.1f}"},
-            "cuda_max_good": {"gte": "11.7"},
+            "cuda_max_good": {"gte": self.cuda_version},
             "order": [["dph_total", "asc"]],
             "type": "ask" if os.getenv("VAST_ONDEMAND") else "bid",
         }
@@ -216,8 +218,8 @@ class Autoscaler:
         mem_util_factor = 1
         # Decrease the memory needed for certain forks
         if (
-            self.envs["WHISPER_IMPLEMENTATION"] == "faster-whisper"
-            or self.envs["WHISPER_IMPLEMENTATION"] == "whisper.cpp"
+            self.implementation == "faster-whisper"
+            or self.implementation == "whisper.cpp"
         ):
             mem_util_factor = 0.4
 
