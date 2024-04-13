@@ -12,6 +12,7 @@ from http.client import HTTPConnection
 from math import floor
 from statistics import mean
 from threading import Thread
+from typing import Tuple
 
 from celery import Celery
 import requests
@@ -404,10 +405,12 @@ class Autoscaler:
             if len(self.message_rates) > self.interval / 2:
                 self.message_rates.pop(0)
 
-    def calculate_needed_instances(self, current_instances: int):
-        needed_instances = current_instances
-
+    def calculate_needed_instances(self) -> Tuple[int, int]:
         queue = self.get_queue_status()
+
+        current_instances = queue["consumers"] + len(self.pending_instances)
+
+        needed_instances = current_instances
 
         if len(self.message_rates):
             message_rate = mean(self.message_rates)
@@ -423,14 +426,12 @@ class Autoscaler:
         elif message_rate < -0.5 and queue["messages_ready"] < 10:
             needed_instances -= 1
 
-        return needed_instances
+        return current_instances, needed_instances
 
     def maybe_scale(self) -> int:
         self.delete_instances(delete_exited=True, delete_errored=True)
 
-        current_instances = len(self.running_instances)
-
-        needed_instances = self.calculate_needed_instances(current_instances)
+        current_instances, needed_instances = self.calculate_needed_instances()
         target_instances = min(max(needed_instances, self.min), self.max)
 
         if target_instances > current_instances:
