@@ -59,6 +59,7 @@ services:
     hostname: "rabbitmq"
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
+      - ./rabbitmq-timeout.conf:/etc/rabbitmq/conf.d/30-timeout.conf
     ports:
       - 5672:5672
       - 15672:15672
