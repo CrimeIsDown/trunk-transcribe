@@ -74,8 +74,8 @@ class WhisperTask(Task):
                 )
             if implementation == "faster-whisper":
                 return FasterWhisper(model)
-            if implementation == "insanely-fast-whisper":
-                return InsanelyFastWhisper(model)
+            if implementation == "whispers2t":
+                return WhisperS2T(model)
             if implementation == "whisper":
                 return Whisper(model)
             if implementation == "openai":
@@ -111,32 +111,35 @@ class Whisper(BaseWhisper):
         )
 
 
-class InsanelyFastWhisper(BaseWhisper):
+class WhisperS2T(BaseWhisper):
     def __init__(self, model_name: str):
         import torch
-        from transformers import pipeline
-        from transformers.utils import is_flash_attn_2_available
+        import whisper_s2t
+        from whisper_s2t.backends.ctranslate2.model import BEST_ASR_CONFIG
 
-        device = os.getenv(
+        torch_device = os.getenv(
             "TORCH_DEVICE", "cuda:0" if torch.cuda.is_available() else "cpu"
         )
-        torch_dtype = os.getenv("TORCH_DTYPE", torch.float16)
-
-        # Use the whole model name if there's a slash, so custom HuggingFace models can be used
-        model_id = model_name if "/" in model_name else f"openai/whisper-{model_name}"
-
-        self.pipe = pipeline(
-            "automatic-speech-recognition",
-            model=model_id,
-            torch_dtype=torch_dtype,
-            device=device,
-            model_kwargs={"attn_implementation": "flash_attention_2"}
-            if is_flash_attn_2_available()
-            else {"attn_implementation": "sdpa"},
+        device = torch_device.split(":")[0]
+        device_index = torch_device.split(":")[1] if ":" in torch_device else "0"
+        device_index = (
+            [int(i) for i in device_index.split(",")]
+            if "," in device_index
+            else int(device_index)
+        )
+        compute_type = os.getenv(
+            "TORCH_DTYPE",
+            "int8" if "cpu" in os.getenv("TORCH_DEVICE", "") else "float16",
         )
 
-        if device == "mps":
-            torch.mps.empty_cache()
+        model_kwargs = {
+            "asr_options": BEST_ASR_CONFIG,
+            "device": device,
+            "device_index": device_index,
+            "compute_type": compute_type,
+        }
+        backend = "CTranslate2"
+        self.model = whisper_s2t.load_model(model_identifier=model_name, backend=backend, **model_kwargs)
 
     def transcribe(
         self,
@@ -145,35 +148,25 @@ class InsanelyFastWhisper(BaseWhisper):
         initial_prompt: str | None = None,
         **decode_options,
     ) -> WhisperResult:
-        generate_kwargs = decode_options.copy()
-        if "compression_ratio_threshold" in generate_kwargs:
-            # This gives a warning for short-form transcription so we need to remove it
-            del generate_kwargs["compression_ratio_threshold"]
-        if "beam_size" in generate_kwargs:
-            generate_kwargs["num_beams"] = generate_kwargs.pop("beam_size")
-        # TODO: Find a way to support prompts, possibly following this https://github.com/huggingface/distil-whisper/issues/20#issuecomment-1823217041
-        generate_kwargs["task"] = "transcribe"
-        generate_kwargs["language"] = language
-        output = self.pipe(
-            audio,
-            chunk_length_s=30,
-            batch_size=24,
-            return_timestamps=True,
-            generate_kwargs=generate_kwargs,
-        )
+        output = self.model.transcribe_with_vad([audio],
+                                lang_codes=[language],
+                                tasks=['transcribe'],
+                                initial_prompts=[initial_prompt],
+                                batch_size=16)
         result: WhisperResult = {
             "segments": [],
-            "text": output["text"],
+            "text": "",
             "language": language,
         }
-        for chunk in output["chunks"]:  # type: ignore
+        for chunk in output[0]:  # type: ignore
             result["segments"].append(
                 {
-                    "start": chunk["timestamp"][0],
-                    "end": chunk["timestamp"][1],
+                    "start": chunk["start_time"],
+                    "end": chunk["end_time"],
                     "text": chunk["text"],
                 }
             )
+            result["text"] += chunk["text"] + "\n"
         return result
 
 

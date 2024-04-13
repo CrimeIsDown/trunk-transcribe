@@ -4,34 +4,18 @@ services:
     image: ghcr.io/crimeisdown/trunk-transcribe:${VERSION:-main}
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: docker/Dockerfile
       cache_from:
         - ghcr.io/crimeisdown/trunk-transcribe:main
     ports:
-      - 8000:8000
+      - ${API_PORT:-8000}:8000
     command: api
     volumes:
       - ./app:/src/app
       - ./bin:/src/bin
       - ./config:/src/config
       - ./tests:/src/tests
-      - ./bin/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
-    env_file: .env
-    restart: always
-
-  worker:
-    image: ghcr.io/crimeisdown/trunk-transcribe:${VERSION:-main}-${WHISPER_IMPLEMENTATION:-whisper}-${WHISPER_MODEL:-small.en}-${DESIRED_CUDA:-cpu}
-    build:
-      context: .
-      dockerfile: ${WORKER_DOCKERFILE:-Dockerfile.whisper}
-      cache_from:
-        - ghcr.io/crimeisdown/trunk-transcribe:main-${WHISPER_IMPLEMENTATION:-whisper}-${WHISPER_MODEL:-small.en}-${DESIRED_CUDA:-cpu}
-      args:
-        WHISPER_MODEL: ${WHISPER_MODEL:-small.en}
-    volumes:
-      - ./app:/src/app
-      - ./config:/src/config
-      - ./bin/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
+      - ./docker/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
     env_file: .env
     restart: always
 
@@ -39,10 +23,10 @@ services:
     image: ghcr.io/crimeisdown/trunk-transcribe:${VERSION:-main}
     command: flower
     volumes:
-      - ./bin/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
+      - ./docker/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
       - flower-data:/src/data
     ports:
-      - 5555:5555
+      - ${FLOWER_PORT:-5555}:5555
     environment:
       - CELERY_BROKER_URL
       - CELERY_RESULT_BACKEND
@@ -59,10 +43,10 @@ services:
     hostname: "rabbitmq"
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
-      - ./rabbitmq-timeout.conf:/etc/rabbitmq/conf.d/30-timeout.conf
+      - ./docker/rabbitmq-timeout.conf:/etc/rabbitmq/conf.d/30-timeout.conf
     ports:
-      - 5672:5672
-      - 15672:15672
+      - ${RABBITMQ_PORT:-5672}:5672
+      - ${RABBITMQ_MGMT_PORT:-15672}:15672
     environment:
       - RABBITMQ_DEFAULT_USER
       - RABBITMQ_DEFAULT_PASS
@@ -71,7 +55,7 @@ services:
   meilisearch:
     image: 'getmeili/meilisearch:${MEILI_VERSION:-latest}'
     ports:
-      - 7700:7700
+      - ${MEILI_PORT:-7700}:7700
     environment:
       - MEILI_MASTER_KEY
     volumes:
@@ -85,7 +69,7 @@ services:
   postgres:
     image: postgres:${POSTGRES_VERSION:-latest}
     ports:
-      - 5432:5432
+      - ${POSTGRES_PORT:-5432}:5432
     environment:
       - POSTGRES_USER
       - POSTGRES_PASSWORD

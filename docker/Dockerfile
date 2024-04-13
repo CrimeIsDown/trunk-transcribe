@@ -6,6 +6,7 @@ RUN apt-get update && \
     curl \
     python3 \
     python3-pip \
+    python3-dev \
     git \
     ffmpeg \
     sox \
@@ -24,7 +25,7 @@ RUN poetry config virtualenvs.create false && \
 COPY app app
 COPY config config
 COPY bin bin
-COPY bin/docker-entrypoint.sh /usr/local/bin/
+COPY docker/docker-entrypoint.sh /usr/local/bin/
 
 ENV PYTHONPATH=/src
 

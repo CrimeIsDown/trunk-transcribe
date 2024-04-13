@@ -10,7 +10,7 @@ RUN apt-get update && \
     && \
     rm -rf /var/lib/apt/lists/*
 
-ARG WHISPERCPP_VERSION=v1.5.2
+ARG WHISPERCPP_VERSION=v1.5.4
 RUN git clone --depth 1 --branch $WHISPERCPP_VERSION https://github.com/ggerganov/whisper.cpp.git
 
 WORKDIR /whisper.cpp

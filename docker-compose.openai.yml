@@ -4,7 +4,7 @@ services:
     image: ghcr.io/crimeisdown/trunk-transcribe:${VERSION:-main}
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: ./docker/Dockerfile
       cache_from:
         - ghcr.io/crimeisdown/trunk-transcribe:main
       args: []

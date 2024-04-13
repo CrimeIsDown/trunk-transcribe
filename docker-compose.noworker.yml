@@ -1,6 +1,0 @@
-services:
-
-  worker:
-    image: ghcr.io/crimeisdown/trunk-transcribe:${VERSION:-main}
-    deploy:
-      replicas: 0

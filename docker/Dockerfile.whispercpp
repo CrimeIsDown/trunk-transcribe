@@ -15,7 +15,7 @@ RUN apt-get update && \
     && \
     rm -rf /var/lib/apt/lists/*
 
-ARG WHISPERCPP_VERSION=v1.5.2
+ARG WHISPERCPP_VERSION=v1.5.4
 RUN git clone --depth 1 --branch $WHISPERCPP_VERSION https://github.com/ggerganov/whisper.cpp.git
 
 WORKDIR /whisper.cpp
@@ -34,6 +34,7 @@ RUN apt-get update && \
     curl \
     python3 \
     python3-pip \
+    python3-dev \
     git \
     ffmpeg \
     sox \
@@ -56,7 +57,7 @@ RUN poetry config virtualenvs.create false && \
 COPY app app
 COPY config config
 COPY bin bin
-COPY bin/docker-entrypoint.sh /usr/local/bin/
+COPY docker/docker-entrypoint.sh /usr/local/bin/
 
 ENV PYTHONPATH=/src
 

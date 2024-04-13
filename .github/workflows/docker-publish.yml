@@ -139,10 +139,10 @@ jobs:
       run: |
         set -x
         cp .env.example .env
-        sed -i 's/^COMPOSE_FILE=docker-compose.yml:docker-compose.gpu.yml$/COMPOSE_FILE=docker-compose.yml:docker-compose.minio.yml/g' .env
+        sed -i 's/^COMPOSE_FILE=docker-compose.server.yml:docker-compose.worker.yml:docker-compose.gpu.yml$/COMPOSE_FILE=docker-compose.yml:docker-compose.minio.yml/g' .env
         sed -i 's/^WHISPER_MODEL=small.en$/WHISPER_MODEL=${{ matrix.model }}/g' .env
         sed -i 's/^DESIRED_CUDA=cu117$/DESIRED_CUDA=${{ matrix.desired_cuda }}/g' .env
-        sed -i 's/^# WORKER_DOCKERFILE=Dockerfile.whispercpp$/WORKER_DOCKERFILE=${{ matrix.dockerfile }}/g' .env
+        sed -i 's/^WORKER_DOCKERFILE=Dockerfile.whisper$/WORKER_DOCKERFILE=${{ matrix.dockerfile }}/g' .env
         sed -i 's/^# POSTGRES/POSTGRES/g' .env
         sed -i 's/^# S3_BUCKET=my-bucket$/S3_BUCKET=trunk-transcribe/g' .env
         sed -i -E 's/^# S3_PUBLIC_URL=https(.*)$/S3_PUBLIC_URL=http:\/\/minio:9000\/trunk-transcribe/g' .env
@@ -214,9 +214,9 @@ jobs:
             dockerfile: Dockerfile.fasterwhisper
           - model: large-v3
             platform: linux/amd64
-            desired_cuda: cu117
-            variant: insanely-fast-whisper
-            dockerfile: Dockerfile.insanelyfastwhisper
+            desired_cuda: cu121
+            variant: whispers2t
+            dockerfile: Dockerfile.whispers2t
     steps:
     # https://github.com/orgs/community/discussions/25678#discussioncomment-5242449
     - name: Delete huge unnecessary tools folder

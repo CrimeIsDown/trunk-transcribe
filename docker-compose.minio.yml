@@ -13,7 +13,7 @@ services:
     command: /usr/bin/minio-entrypoint.sh
     volumes:
       - minio-storage:/data
-      - ./bin/minio-entrypoint.sh:/usr/bin/minio-entrypoint.sh
+      - ./docker/minio-entrypoint.sh:/usr/bin/minio-entrypoint.sh
     restart: always
 
 volumes:
