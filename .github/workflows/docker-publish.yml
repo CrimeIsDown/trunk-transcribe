@@ -179,7 +179,7 @@ jobs:
       if: github.ref == 'refs/heads/main' || github.event_name == 'release'
       with:
         context: .
-        file: ${{ matrix.dockerfile }}
+        file: docker/${{ matrix.dockerfile }}
         push: true
         tags: "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}-${{ matrix.variant }}-${{ matrix.model }}-${{ matrix.desired_cuda }}"
         platforms: ${{ matrix.platform }}
@@ -239,7 +239,7 @@ jobs:
       if: github.ref == 'refs/heads/main' || github.event_name == 'release'
       with:
         context: .
-        file: ${{ matrix.dockerfile }}
+        file: docker/${{ matrix.dockerfile }}
         push: true
         tags: "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}-${{ matrix.variant }}-${{ matrix.model }}-${{ matrix.desired_cuda }}"
         platforms: ${{ matrix.platform }}
