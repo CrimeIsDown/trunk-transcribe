@@ -139,7 +139,7 @@ jobs:
       run: |
         set -x
         cp .env.example .env
-        sed -i 's/^COMPOSE_FILE=docker-compose.server.yml:docker-compose.worker.yml:docker-compose.gpu.yml$/COMPOSE_FILE=docker-compose.yml:docker-compose.minio.yml/g' .env
+        sed -i 's/^COMPOSE_FILE=docker-compose.server.yml:docker-compose.worker.yml:docker-compose.gpu.yml$/COMPOSE_FILE=docker-compose.server.yml:docker-compose.worker.yml:docker-compose.minio.yml/g' .env
         sed -i 's/^WHISPER_MODEL=small.en$/WHISPER_MODEL=${{ matrix.model }}/g' .env
         sed -i 's/^DESIRED_CUDA=cu117$/DESIRED_CUDA=${{ matrix.desired_cuda }}/g' .env
         sed -i 's/^WORKER_DOCKERFILE=Dockerfile.whisper$/WORKER_DOCKERFILE=${{ matrix.dockerfile }}/g' .env
