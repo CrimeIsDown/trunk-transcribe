@@ -42,7 +42,7 @@ RUN install-whisper.sh
 ARG WHISPER_MODEL=base.en
 ENV WHISPER_MODEL=\${WHISPER_MODEL}
 # Pre-download the Whisper model
-RUN python3 -c \"from faster_whisper import WhisperModel; import os; WhisperModel(os.getenv('WHISPER_MODEL'))\"
+RUN python3 -c \"import os; from faster_whisper.utils import download_model; download_model(os.getenv('WHISPER_MODEL'))\"
 ENV WHISPER_IMPLEMENTATION=faster-whisper"
 
 envsubst '$WHISPER_INSTALL_INSTRUCTIONS' < Dockerfile >> Dockerfile.fasterwhisper
@@ -73,9 +73,8 @@ RUN install-whisper.sh
 
 ARG WHISPER_MODEL=base.en
 ENV WHISPER_MODEL=\${WHISPER_MODEL}
-COPY tests/data/1-1673118015_477787500-call_1.wav /tmp/test.wav
 # Pre-download the Whisper model
-RUN python3 -c \"import whisper_s2t; model = whisper_s2t.load_model(model_identifier=os.getenv('WHISPER_MODEL'), backend='CTranslate2'); model.transcribe('/tmp/test.wav', lang_codes=['en'], tasks=['transcribe'], initial_prompts=[''], batch_size=1)\"
+RUN python3 -c \"import os; from whisper_s2t.backends.ctranslate2.hf_utils import download_model; download_model(os.getenv('WHISPER_MODEL'))\"
 ENV WHISPER_IMPLEMENTATION=whispers2t"
 
 envsubst '$WHISPER_INSTALL_INSTRUCTIONS' < Dockerfile >> Dockerfile.whispers2t
