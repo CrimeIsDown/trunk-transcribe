@@ -39,4 +39,5 @@ pip3 install /tmp/mpi4py-${MPI4PY_VERSION}
 rm -rf /tmp/mpi4py*
 
 ###########################[ Installing TensorRT-LLM ]###########################
-pip3 install --no-cache-dir tensorrt_llm==0.9.0 --extra-index-url https://pypi.nvidia.com
+# Pin to version due to https://github.com/NVIDIA/TensorRT-LLM/issues/1442
+pip3 install --no-cache-dir tensorrt_llm==0.9.0.dev2024040200 --extra-index-url https://pypi.nvidia.com
