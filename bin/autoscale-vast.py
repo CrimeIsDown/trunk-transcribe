@@ -408,7 +408,7 @@ class Autoscaler:
     def calculate_needed_instances(self) -> Tuple[int, int]:
         queue = self.get_queue_status()
 
-        current_instances = queue["consumers"] + len(self.pending_instances)
+        current_instances = queue["consumers"]
 
         needed_instances = current_instances
 
