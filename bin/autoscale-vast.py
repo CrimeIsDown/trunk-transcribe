@@ -226,7 +226,7 @@ class Autoscaler:
             self.implementation == "faster-whisper"
             or self.implementation == "whisper.cpp"
         ):
-            mem_util_factor = 0.4
+            mem_util_factor = 0.3
 
         vram_requirements = {
             "tiny.en": 1.5 * 1024 * mem_util_factor,
@@ -418,7 +418,7 @@ class Autoscaler:
             message_rate = queue["messages_details"]["rate"]
 
         logging.info(
-            f"Current avg message rate: {message_rate:.2f} / Current message count: {queue['messages_ready']}"
+            f"Current avg message rate: {message_rate:.2f} / Current message count: {queue['messages_ready']} / Current instances: {current_instances}"
         )
 
         if message_rate > 0.2 or queue["messages_ready"] > 1000:
