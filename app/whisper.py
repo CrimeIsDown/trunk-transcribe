@@ -32,6 +32,7 @@ class BaseWhisper(ABC):
         audio: str,
         language: str = "en",
         initial_prompt: str | None = None,
+        vad_filter: bool = False,
         **decode_options,
     ) -> WhisperResult:
         pass
@@ -101,6 +102,7 @@ class Whisper(BaseWhisper):
         audio: str,
         language: str = "en",
         initial_prompt: str | None = None,
+        vad_filter: bool = False,
         **decode_options,
     ) -> WhisperResult:
         return self.model.transcribe(
@@ -139,20 +141,34 @@ class WhisperS2T(BaseWhisper):
             "compute_type": compute_type,
         }
         backend = "CTranslate2"
-        self.model = whisper_s2t.load_model(model_identifier=model_name, backend=backend, **model_kwargs)
+        self.model = whisper_s2t.load_model(
+            model_identifier=model_name, backend=backend, **model_kwargs
+        )
 
     def transcribe(
         self,
         audio: str,
         language: str = "en",
         initial_prompt: str | None = None,
+        vad_filter: bool = False,
         **decode_options,
     ) -> WhisperResult:
-        output = self.model.transcribe_with_vad([audio],
-                                lang_codes=[language],
-                                tasks=['transcribe'],
-                                initial_prompts=[initial_prompt],
-                                batch_size=16)
+        if vad_filter:
+            output = self.model.transcribe_with_vad(
+                [audio],
+                lang_codes=[language],
+                tasks=["transcribe"],
+                initial_prompts=[initial_prompt],
+                batch_size=16,
+            )
+        else:
+            output = self.model.transcribe(
+                [audio],
+                lang_codes=[language],
+                tasks=["transcribe"],
+                initial_prompts=[initial_prompt],
+                batch_size=16,
+            )
         result: WhisperResult = {
             "segments": [],
             "text": "",
@@ -171,8 +187,6 @@ class WhisperS2T(BaseWhisper):
 
 
 class FasterWhisper(BaseWhisper):
-    vad_filter = False
-
     def __init__(self, model_name: str):
         import torch
         from faster_whisper import WhisperModel
@@ -207,13 +221,14 @@ class FasterWhisper(BaseWhisper):
         audio: str,
         language: str = "en",
         initial_prompt: str | None = None,
+        vad_filter: bool = False,
         **decode_options,
     ) -> WhisperResult:
         segments, _ = self.model.transcribe(
             audio=audio,
             language=language,
             initial_prompt=initial_prompt,
-            vad_filter=self.vad_filter,
+            vad_filter=vad_filter,
             **decode_options,
         )
         segments = list(segments)  # The transcription will actually run here.
@@ -238,6 +253,7 @@ class WhisperCpp(BaseWhisper):
         audio: str,
         language: str = "en",
         initial_prompt: str | None = None,
+        vad_filter: bool = False,
         **decode_options,
     ) -> WhisperResult:
         args = [
@@ -302,6 +318,7 @@ class WhisperApi(BaseWhisper):
         audio: str,
         language: str = "en",
         initial_prompt: str | None = None,
+        vad_filter: bool = False,
         **decode_options,
     ) -> WhisperResult:
         audio_file = open(audio, "rb")
@@ -331,6 +348,7 @@ class DeepgramApi(BaseWhisper):
         audio: str,
         language: str = "en",
         initial_prompt: str | None = None,
+        vad_filter: bool = False,
         **decode_options,
     ) -> WhisperResult:
         from deepgram import FileSource, PrerecordedOptions, PrerecordedResponse
@@ -429,11 +447,12 @@ def cleanup_transcript(result: WhisperResult) -> WhisperResult:
 
 
 def transcribe(
-    model,
+    model: BaseWhisper,
     model_lock: Lock,
     audio_file: str,
     initial_prompt: str = "",
     cleanup: bool = False,
+    vad_filter: bool = False,
 ) -> WhisperResult:
     whisper_kwargs = get_whisper_config(get_ttl_hash(cache_seconds=60))
     # TODO: Remove the lock if we are using Whisper.cpp
@@ -442,7 +461,11 @@ def transcribe(
         start_time = time.time()
 
         result = model.transcribe(
-            audio_file, language="en", initial_prompt=initial_prompt, **whisper_kwargs
+            audio_file,
+            language="en",
+            initial_prompt=initial_prompt,
+            vad_filter=vad_filter,
+            **whisper_kwargs,
         )
         os.unlink(audio_file)
         logging.debug(
