@@ -75,7 +75,8 @@ ARG WHISPER_MODEL=base.en
 ENV WHISPER_MODEL=\${WHISPER_MODEL}
 # Pre-download the Whisper model
 RUN python3 -c \"import os; from whisper_s2t.backends.ctranslate2.hf_utils import download_model; download_model(os.getenv('WHISPER_MODEL'))\"
-ENV WHISPER_IMPLEMENTATION=whispers2t"
+ENV WHISPER_IMPLEMENTATION=whispers2t
+ENV TQDM_DISABLE=1"
 
 envsubst '$WHISPER_INSTALL_INSTRUCTIONS' < Dockerfile >> Dockerfile.whispers2t
 
