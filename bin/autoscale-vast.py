@@ -222,11 +222,8 @@ class Autoscaler:
 
         mem_util_factor = 1
         # Decrease the memory needed for certain forks
-        if (
-            self.implementation == "faster-whisper"
-            or self.implementation == "whisper.cpp"
-        ):
-            mem_util_factor = 0.3
+        if self.implementation in ["faster-whisper", "whispers2t", "whisper.cpp"]:
+            mem_util_factor = 0.4
 
         vram_requirements = {
             "tiny.en": 1.5 * 1024 * mem_util_factor,
