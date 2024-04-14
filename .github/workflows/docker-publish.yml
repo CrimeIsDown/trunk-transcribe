@@ -85,22 +85,22 @@ jobs:
             dockerfile: Dockerfile.whisper
           - model: small.en
             platform: linux/amd64
-            desired_cuda: cu117
+            desired_cuda: cu121
             variant: whisper
             dockerfile: Dockerfile.whisper
           - model: medium.en
             platform: linux/amd64
-            desired_cuda: cu117
+            desired_cuda: cu121
             variant: whisper
             dockerfile: Dockerfile.whisper
           - model: large-v2
             platform: linux/amd64
-            desired_cuda: cu117
+            desired_cuda: cu121
             variant: whisper
             dockerfile: Dockerfile.whisper
           - model: large-v3
             platform: linux/amd64
-            desired_cuda: cu117
+            desired_cuda: cu121
             variant: whisper
             dockerfile: Dockerfile.whisper
           - model: medium.en
@@ -143,7 +143,7 @@ jobs:
         cp .env.example .env
         sed -i 's/^COMPOSE_FILE=docker-compose.server.yml:docker-compose.worker.yml:docker-compose.gpu.yml$/COMPOSE_FILE=docker-compose.server.yml:docker-compose.worker.yml:docker-compose.minio.yml/g' .env
         sed -i 's/^WHISPER_MODEL=small.en$/WHISPER_MODEL=${{ matrix.model }}/g' .env
-        sed -i 's/^DESIRED_CUDA=cu117$/DESIRED_CUDA=${{ matrix.desired_cuda }}/g' .env
+        sed -i 's/^DESIRED_CUDA=cu121$/DESIRED_CUDA=${{ matrix.desired_cuda }}/g' .env
         sed -i 's/^WORKER_DOCKERFILE=Dockerfile.whisper$/WORKER_DOCKERFILE=${{ matrix.dockerfile }}/g' .env
         sed -i 's/^# POSTGRES/POSTGRES/g' .env
         sed -i 's/^# S3_BUCKET=my-bucket$/S3_BUCKET=trunk-transcribe/g' .env

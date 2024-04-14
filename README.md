@@ -23,7 +23,7 @@ This is experimental alpha-version software, use at your own risk. Expect breaki
 *Prerequsites:*
 
 - Docker and Docker Compose should be installed
-- If using a GPU for OpenAI Whisper, also install the appropriate CUDA drivers (CUDA 11.7 currently supported)
+- If using a GPU for OpenAI Whisper, also install the appropriate CUDA drivers (CUDA 12.1 currently supported)
 - For Windows users running the worker: install [ffmpeg](https://www.gyan.dev/ffmpeg/builds/) and [sox](https://sourceforge.net/projects/sox/). Make sure these are added to your Windows PATH so they can be called directly from Python.
 
 *Setup process:*
