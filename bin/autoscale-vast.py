@@ -77,7 +77,7 @@ class Autoscaler:
         self.cuda_version = (
             f"{cuda_version_matches.group(1)}.{cuda_version_matches.group(2)}"
             if cuda_version_matches
-            else "11.7"
+            else "12.1"
         )
 
         if image:
