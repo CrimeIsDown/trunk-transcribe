@@ -4,8 +4,10 @@ import logging
 import os
 import subprocess
 from csv import DictReader
+import sys
 from threading import Lock
 import time
+import sentry_sdk
 from typing_extensions import Optional, List, TypedDict
 
 from .exceptions import WhisperException
@@ -460,14 +462,24 @@ def transcribe(
         # measure transcription time
         start_time = time.time()
 
-        result = model.transcribe(
-            audio_file,
-            language="en",
-            initial_prompt=initial_prompt,
-            vad_filter=vad_filter,
-            **whisper_kwargs,
-        )
-        os.unlink(audio_file)
+        try:
+            result = model.transcribe(
+                audio_file,
+                language="en",
+                initial_prompt=initial_prompt,
+                vad_filter=vad_filter,
+                **whisper_kwargs,
+            )
+        except RuntimeError as e:
+            if "CUDA error:" in str(e):
+                logging.error(e)
+                sentry_sdk.capture_exception(e)
+                # Exit the worker process to avoid further errors by triggering Docker to automatically restart the worker
+                sys.exit(1)
+            else:
+                raise e
+        finally:
+            os.unlink(audio_file)
         logging.debug(
             f"{audio_file} transcription result: " + json.dumps(result, indent=4)
         )
