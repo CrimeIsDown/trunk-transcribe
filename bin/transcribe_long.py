@@ -31,6 +31,7 @@ def initialize_model(model_name: str = "large-v2", backend: str = "CTranslate2")
         "device_index": device_index,
         "compute_type": compute_type,
     }
+    model_kwargs["asr_options"]["without_timestamps"] = False
     model_kwargs["asr_options"]["word_timestamps"] = True
     return whisper_s2t.load_model(
         model_identifier=model_name, backend=backend, **model_kwargs
