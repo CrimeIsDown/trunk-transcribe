@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
 import json
+import logging
 import os
+import sys
 import tempfile
 
 import sentry_sdk
@@ -40,6 +42,15 @@ if os.getenv("POSTGRES_DB") is not None:
     models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+stream_handler = logging.StreamHandler(sys.stdout)
+log_formatter = logging.Formatter(
+    "%(asctime)s [%(processName)s: %(process)d] [%(threadName)s: %(thread)d] [%(levelname)s] %(name)s: %(message)s"
+)
+stream_handler.setFormatter(log_formatter)
+logger.addHandler(stream_handler)
 
 # Dependency
 def get_db():
