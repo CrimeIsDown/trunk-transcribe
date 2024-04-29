@@ -3,6 +3,7 @@ import os
 import re
 from datetime import datetime
 from sys import platform
+import sys
 from time import time
 from typing import Tuple
 
@@ -10,13 +11,13 @@ import pytz
 from apprise import Apprise, AppriseAttachment, NotifyFormat
 from geopy import distance, point
 
+from . import geocoding
 from .config import (
     AlertConfig,
     NotificationConfig,
     get_notifications_config,
     get_ttl_hash,
 )
-from .geocoding import GeoResponse, calculate_route_duration
 from .metadata import Metadata
 from .transcript import Transcript
 
@@ -102,7 +103,7 @@ def send_notifications(
     raw_audio_url: str,
     metadata: Metadata,
     transcript: Transcript,
-    geo: GeoResponse | None,
+    geo: geocoding.GeoResponse | None,
     search_url: str,
 ):  # pragma: no cover
     # If delayed over our MAX_CALL_AGE, don't bother sending to Telegram
@@ -161,7 +162,7 @@ def notify(
 
 
 def should_send_alert(
-    config: AlertConfig, transcript: str, geo: GeoResponse | None
+    config: AlertConfig, transcript: str, geo: geocoding.GeoResponse | None
 ) -> Tuple[bool, str, str]:
     """
     Notification options:
@@ -214,18 +215,36 @@ def should_send_alert(
                 )
 
         if travel_time_max := location.get("travel_time"):
-            duration = calculate_route_duration(user_location, incident_location)
-            match = duration < int(travel_time_max)
+            travel_time_max = int(travel_time_max)
+            approximate_duration = True
+            if os.getenv("TRAVEL_TIME_CALCULATION_METHOD") == "directions":
+                duration = geocoding.calculate_route_duration_via_directions(
+                    user_location, incident_location
+                )
+                approximate_duration = False
+            elif travel_time_max <= 60 * 60:
+                duration = geocoding.calculate_route_duration_via_isochrone(
+                    user_location, incident_location, travel_time_max
+                )
+            else:
+                duration = sys.maxsize
+            match = duration < travel_time_max
             logging.debug(
                 f"Compared travel time to incident {duration}s with max travel time {travel_time_max}s, got {match}"
             )
             condition_results.append(match)
             if match:
                 duration_min = duration / 60
-                title = (
-                    title
-                    + f" Location {geo['geo_formatted_address']} ({duration_min:.0f} minutes away) detected in transcript"
-                )
+                if approximate_duration:
+                    title = (
+                        title
+                        + f" Location {geo['geo_formatted_address']} (under {duration_min:.0f} minutes away) detected in transcript"
+                    )
+                else:
+                    title = (
+                        title
+                        + f" Location {geo['geo_formatted_address']} ({duration_min:.0f} minutes away) detected in transcript"
+                    )
 
     # if config.get("custom_gpt_prompt"):
     # TODO: send the prompt and transcript to the LLM to determine if we should notify

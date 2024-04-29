@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 
 import google.generativeai as genai
@@ -72,5 +73,6 @@ def extract_address(
                 "city": result["city"],
                 "state": result["state"],
             }
-    except:
+    except Exception as e:
+        logging.debug(e)
         return None
