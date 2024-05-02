@@ -60,6 +60,45 @@ def extract_address(transcript: str, ignore_case: bool = False) -> str | None:
     return None
 
 
+def contains_address(transcript: str):
+    street_suffixes = [
+        "street",
+        "avenue",
+        "road",
+        "drive",
+        "court",
+        "boulevard",
+        "circle",
+        "lane",
+        "way",
+        "place",
+        "terrace",
+        "parkway",
+        "highway",
+        "expressway",
+        "trail",
+        "loop",
+        "crescent",
+        "path",
+        "plaza",
+        "square",
+        "alley",
+        "drive",
+        "park",
+        "turnpike",
+        "pike",
+        "route",
+    ]
+    cardinal_directions = ["north", "south", "east", "west"]
+    return (
+        bool(re.search(ADDRESS_REGEX, transcript, re.IGNORECASE))
+        or any(suffix in transcript.lower() for suffix in street_suffixes)
+        or any(direction in transcript.lower() for direction in cardinal_directions)
+        or ("block of" in transcript.lower())
+        or ("intersection" in transcript.lower())
+    )
+
+
 def geocode(
     address_parts: dict, geocoder: str | None = None
 ) -> GeoResponse | None:  # pragma: no cover
@@ -106,7 +145,7 @@ def geocode(
         geocoder = "nominatim"
         config = {
             "timeout": 10,
-            "user_agent": "trunk-transcribe v0 (https://github.com/CrimeIsDown/trunk-transcribe)"
+            "user_agent": "trunk-transcribe v0 (https://github.com/CrimeIsDown/trunk-transcribe)",
         }
     else:
         raise GeocodingException("Unsupported geocoder or no geocoding envs defined")
@@ -124,12 +163,16 @@ def geocode(
 
     def is_location_valid(location: Location) -> bool:
         if geocoder == "geocodio":
-            if location.raw.get("accuracy_type", []) in [
-                "street_center",
-                "place",
-                "county",
-                "state",
-            ] or location.raw.get("accuracy", 0) < 0.5:
+            if (
+                location.raw.get("accuracy_type", [])
+                in [
+                    "street_center",
+                    "place",
+                    "county",
+                    "state",
+                ]
+                or location.raw.get("accuracy", 0) < 0.5
+            ):
                 return False
         elif geocoder == "mapbox":
             if "address" not in location.raw["place_type"]:
@@ -245,7 +288,9 @@ def calculate_route_duration_via_isochrone(
         max_travel_time * 0.75,
         max_travel_time,
     ]
-    duration_thresholds = list(set([max(round(threshold / 60), 1) for threshold in duration_thresholds]))
+    duration_thresholds = list(
+        set([max(round(threshold / 60), 1) for threshold in duration_thresholds])
+    )
     contours_minutes = ",".join([str(x) for x in duration_thresholds])
     url = f"https://api.mapbox.com/isochrone/v1/{profile}/{coordinates}"
 
