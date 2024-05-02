@@ -6,8 +6,8 @@ import logging
 import os
 import signal
 import tempfile
-from typing import Tuple
 
+# from celery_batches import Batches
 import requests
 import sentry_sdk
 from celery import Celery, signals, states
@@ -103,10 +103,7 @@ def transcribe(
     audio_file: str,
 ) -> Transcript | None:
     try:
-        if (
-            metadata["audio_type"] == "digital"
-            or metadata["audio_type"] == "digital tdma"
-        ):
+        if "digital" in metadata["audio_type"]:
             transcript = transcribe_digital(model, model_lock, audio_file, metadata)
         elif metadata["audio_type"] == "analog":
             transcript = transcribe_analog(model, model_lock, audio_file)
@@ -195,7 +192,10 @@ def transcribe_task(
             index_name,
         )
     finally:
-        os.unlink(audio_file)
+        try:
+            os.unlink(audio_file)
+        except OSError:
+            pass
 
     make_next_index()
 
@@ -235,7 +235,10 @@ def transcribe_from_db_task(
             audio_file,
         )
     finally:
-        os.unlink(audio_file)
+        try:
+            os.unlink(audio_file)
+        except OSError:
+            pass
 
     if transcript:
         api_client.call(

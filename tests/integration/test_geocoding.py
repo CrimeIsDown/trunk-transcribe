@@ -33,31 +33,65 @@ class TestGeocoding(unittest.TestCase):
                 sleep(1)
 
     def test_lookup_geo_with_llm(self):
-        metadata = Metadata(
-            {
-                "short_name": "sc21102",
-                "talkgroup_description": "3 East: Elmhurst, Oakbrook Terrace Police",
-                "talkgroup_group": "DuPage County - DuPage Public Safety Communications (DU-COMM)",
-            }  # type: ignore
-        )
-        transcript = Transcript(
-            [
-                (
-                    None,
-                    "Oakbrook Care is here to advise your FDs enroute to 1 Tower Lane for a fire alarm.",
+        transmissions = [
+            (
+                Metadata(
+                    {
+                        "short_name": "sc21102",
+                        "talkgroup_description": "3 East: Elmhurst, Oakbrook Terrace Police",
+                        "talkgroup_group": "DuPage County - DuPage Public Safety Communications (DU-COMM)",
+                    }  # type: ignore
                 ),
-            ]
-        )
+                Transcript(
+                    [
+                        (
+                            None,
+                            "Oakbrook Care is here to advise your FDs enroute to 1 Tower Lane for a fire alarm.",
+                        ),
+                    ]
+                ),
+                "Oakbrook Terrace Tower, 1, Drury Lane, Oakbrook Terrace, DuPage County, Illinois, 60181, United States",
+                "nominatim",
+            ),
+            # (
+            #     Metadata(
+            #         {
+            #             "short_name": "chisuburbs",
+            #             "talkgroup_description": "Fire Dispatch: South",
+            #             "talkgroup_group": "Regional Emergency Dispatch - RED Center (Northbrook)",
+            #         }  # type: ignore
+            #     ),
+            #     Transcript(
+            #         [
+            #             (
+            #                 {
+            #                     "pos": 0,
+            #                     "src": 1,
+            #                     "tag": "",
+            #                     "time": 1714540304,
+            #                     "emergency": 0,
+            #                     "signal_system": "",
+            #                     "transcript_prompt": "",
+            #                 },
+            #                 "Ambulance 62, side patient, Rivers Casino, 3000, South Des Plaines River Road, in Des Plaines, grid 6284, 3000, South Des Plaines River Road, side patient, Ambulance 62."
+            #             ),
+            #         ]
+            #     ),
+            #     "3000 South River Road, Des Plaines, Illinois 60018, United States",
+            #     "geocodio",
+            # ),
+        ]
 
-        result = geocoding.lookup_geo(metadata, transcript, geocoder="mapbox")
+        for metadata, transcript, address, geocoder in transmissions:
+            result = geocoding.lookup_geo(metadata, transcript, geocoder)
 
-        self.assertIsNotNone(result)
+            self.assertIsNotNone(result, f"Expected to get {address} but got None")
 
-        if result:
-            self.assertEqual(
-                result["geo_formatted_address"],
-                "1 Tower Ln, Oakbrook Terrace, Illinois 60181, United States",
-            )
+            if result:
+                self.assertEqual(
+                    result["geo_formatted_address"],
+                    address,
+                )
 
     def test_geocodes_valid_address_geocodio(self):
         address_parts = {
@@ -185,8 +219,6 @@ class TestGeocoding(unittest.TestCase):
         duration = geocoding.calculate_route_duration_via_isochrone(
             origin, destination, threshold
         )
-
-        print(duration)
 
         self.assertLess(duration, threshold * 60)
 

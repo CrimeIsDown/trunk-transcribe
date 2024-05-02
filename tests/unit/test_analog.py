@@ -19,10 +19,8 @@ class TestAnalog(unittest.TestCase):
             ],
         }
 
-    @patch("app.analog.pad_silence")
     @patch("app.analog.transcribe")
-    def test_transcribe_call(self, mock_transcribe, mock_pad_silence):
-        mock_pad_silence.return_value = "padded_audio.wav"
+    def test_transcribe_call(self, mock_transcribe):
         mock_transcribe.return_value = self.response
 
         expected_transcript = Transcript()
@@ -31,11 +29,10 @@ class TestAnalog(unittest.TestCase):
 
         result = transcribe_call(self.model, self.model_lock, self.audio_file)
 
-        mock_pad_silence.assert_called_once_with(self.audio_file)
         mock_transcribe.assert_called_once_with(
             model=self.model,
             model_lock=self.model_lock,
-            audio_file="padded_audio.wav",
+            audio_file=self.audio_file,
             cleanup=True,
             vad_filter=True,
         )

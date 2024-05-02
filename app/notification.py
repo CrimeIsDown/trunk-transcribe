@@ -222,7 +222,7 @@ def should_send_alert(
                     user_location, incident_location
                 )
                 approximate_duration = False
-            elif travel_time_max <= 60 * 60:
+            elif travel_time_max > 60 and travel_time_max <= 60 * 60:
                 duration = geocoding.calculate_route_duration_via_isochrone(
                     user_location, incident_location, travel_time_max
                 )

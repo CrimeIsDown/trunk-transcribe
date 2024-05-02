@@ -63,17 +63,12 @@ def extract_address(transcript: str, ignore_case: bool = False) -> str | None:
 def geocode(
     address_parts: dict, geocoder: str | None = None
 ) -> GeoResponse | None:  # pragma: no cover
+    query = {
+        "query": f"{address_parts['address']}, {address_parts['city']}, {address_parts['state']}, {address_parts['country']}"
+    }
     if geocoder == "geocodio" or (os.getenv("GEOCODIO_API_KEY") and geocoder is None):
         geocoder = "geocodio"
         config = {"api_key": os.getenv("GEOCODIO_API_KEY")}
-        query = {
-            "query": {
-                "street": address_parts["address"],
-                "city": address_parts["city"],
-                "state": address_parts["state"],
-                "country": address_parts["country"],
-            }
-        }
     elif geocoder == "mapbox" or (os.getenv("MAPBOX_API_KEY") and geocoder is None):
         geocoder = "mapbox"
         config = {"api_key": os.getenv("MAPBOX_API_KEY")}
@@ -107,8 +102,11 @@ def geocode(
             "password": os.getenv("ARCGIS_PASSWORD"),
             "referer": os.getenv("API_BASE_URL"),
         }
-        query = {
-            "query": f"{address_parts['address']}, {address_parts['city']}, {address_parts['state']}, {address_parts['country']}"
+    elif geocoder == "nominatim":
+        geocoder = "nominatim"
+        config = {
+            "timeout": 10,
+            "user_agent": "trunk-transcribe v0 (https://github.com/CrimeIsDown/trunk-transcribe)"
         }
     else:
         raise GeocodingException("Unsupported geocoder or no geocoding envs defined")
@@ -131,7 +129,7 @@ def geocode(
                 "place",
                 "county",
                 "state",
-            ]:
+            ] or location.raw.get("accuracy", 0) < 0.5:
                 return False
         elif geocoder == "mapbox":
             if "address" not in location.raw["place_type"]:
@@ -171,8 +169,9 @@ def geocode(
 def lookup_geo(
     metadata: Metadata, transcript: Transcript, geocoder: str | None = None
 ) -> GeoResponse | None:
-    if metadata["short_name"] in filter(
-        lambda name: len(name), os.getenv("GEOCODING_ENABLED_SYSTEMS", "").split(",")
+    geocoding_systems = os.getenv("GEOCODING_ENABLED_SYSTEMS", "")
+    if geocoding_systems == "*" or metadata["short_name"] in filter(
+        lambda name: len(name), geocoding_systems.split(",")
     ):
         default_address_parts = {
             "city": os.getenv("GEOCODING_CITY"),
@@ -246,7 +245,7 @@ def calculate_route_duration_via_isochrone(
         max_travel_time * 0.75,
         max_travel_time,
     ]
-    duration_thresholds = [round(threshold / 60) for threshold in duration_thresholds]
+    duration_thresholds = list(set([max(round(threshold / 60), 1) for threshold in duration_thresholds]))
     contours_minutes = ",".join([str(x) for x in duration_thresholds])
     url = f"https://api.mapbox.com/isochrone/v1/{profile}/{coordinates}"
 

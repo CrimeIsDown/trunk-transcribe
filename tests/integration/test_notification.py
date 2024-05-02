@@ -52,7 +52,7 @@ class TestNotification(unittest.TestCase):
         self.assertTrue(should_send)
         self.assertRegex(
             title,
-            r"96 detected in transcript Location 333 N Central Ave, Chicago, IL 60644 \(([0-9]+) minutes away\) detected in transcript",
+            r"96 detected in transcript Location 333 N Central Ave, Chicago, IL 60644 \(under ([0-9]+) minutes away\) detected in transcript",
         )
         self.assertEqual(transcript, body)
 
@@ -64,7 +64,7 @@ class TestNotification(unittest.TestCase):
             "keywords": ["abc"],
             "location": {
                 "geo": {"lat": 41.872321, "lng": -87.764948},
-                "travel_time": 1,
+                "travel_time": 60,
             },
         }
         transcript = "E96: Engine company 96 in the truck 333 north central"

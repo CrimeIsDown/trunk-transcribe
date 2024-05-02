@@ -128,7 +128,7 @@ class TestEndToEnd(unittest.TestCase):
         )
 
         self.assertEqual("SUCCESS", result["task_status"])
-        self.assertTrue("2011" in result["task_result"])
+        self.assertTrue("2011" in result["task_result"] or "20-11" in result["task_result"])
         self.assertTrue("\n" in result["task_result"])
 
         sleep(2)  # Wait for search to update

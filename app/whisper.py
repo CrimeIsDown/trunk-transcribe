@@ -328,7 +328,7 @@ class WhisperApi(BaseWhisper):
             "OPENAI_PROMPT", "This is a police radio dispatch transcript."
         )
         if initial_prompt:
-            prompt += "The following words may appear: " + initial_prompt
+            prompt += " The following words may appear: " + initial_prompt
         return self.client.audio.transcriptions.create(
             model="whisper-1",
             file=audio_file,
