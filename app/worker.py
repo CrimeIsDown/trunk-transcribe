@@ -298,3 +298,5 @@ def transcribe_from_db_batch_task(requests):
             if not isinstance(e, WhisperException):
                 sentry_sdk.capture_exception(e)
             continue
+
+    return [result["text"] for result in results if result]
