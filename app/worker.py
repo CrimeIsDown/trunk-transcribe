@@ -55,7 +55,7 @@ celery = Celery(
     task_cls="app.whisper:WhisperTask",
     task_acks_late=True,
     worker_cancel_long_running_tasks_on_connection_loss=True,
-    worker_prefetch_multiplier=1,
+    worker_prefetch_multiplier=os.getenv("CELERY_PREFETCH_MULTIPLIER", 1),
     timezone="UTC",
 )
 
@@ -236,8 +236,8 @@ def transcribe_from_db_task(
 @celery.task(
     name="transcribe_db_batch",
     base=whisper.WhisperBatchTask,
-    flush_every=50,
-    flush_interval=10,
+    flush_every=20,
+    flush_interval=20,
 )
 def transcribe_from_db_batch_task(requests):
     calls: list[tuple[int, Metadata, dict]] = []
