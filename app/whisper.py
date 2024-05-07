@@ -197,9 +197,11 @@ class WhisperS2T(BaseWhisper):
         method = self.model.transcribe
         if vad_filter:
             method = self.model.transcribe_with_vad
+        if not lang_codes:
+            lang_codes = ["en" for _ in audio_files]
         output = method(
             audio_files,
-            lang_codes=lang_codes if lang_codes else ["en" for _ in audio_files],
+            lang_codes=lang_codes,
             tasks=["transcribe" for _ in audio_files],
             initial_prompts=initial_prompts
             if initial_prompts
