@@ -11,7 +11,6 @@ from app import geocoding
 from app.metadata import Metadata
 from app.transcript import Transcript
 
-load_dotenv(".env.testing")
 load_dotenv()
 
 
