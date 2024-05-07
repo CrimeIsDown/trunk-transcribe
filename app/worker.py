@@ -146,19 +146,9 @@ def transcribe_and_index(
     id: str | None = None,
     index_name: str | None = None,
 ) -> str:
-    try:
-        if (
-            metadata["audio_type"] == "digital"
-            or metadata["audio_type"] == "digital tdma"
-        ):
-            transcript = transcribe_digital(model, model_lock, audio_file, metadata)
-        elif metadata["audio_type"] == "analog":
-            transcript = transcribe_analog(model, model_lock, audio_file)
-        else:
-            raise Reject(f"Audio type {metadata['audio_type']} not supported")
-    except WhisperException as e:
-        return repr(e)
-    logging.debug(transcript.json)
+    transcript = transcribe(model, model_lock, metadata, audio_file)
+    if not transcript:
+        return ""
 
     geo = lookup_geo(metadata, transcript)
 
