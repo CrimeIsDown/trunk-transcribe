@@ -61,6 +61,8 @@ celery = Celery(
 
 task_counts = {}
 
+logger = logging.getLogger(__name__)
+
 
 @signals.task_prerun.connect
 def task_prerun(**kwargs):
@@ -72,7 +74,7 @@ def task_prerun(**kwargs):
             if state in states.EXCEPTION_STATES and count > 5
         ]
     ):
-        logging.fatal("Exceeded job failure threshold, exiting...\n" + str(task_counts))
+        logger.fatal("Exceeded job failure threshold, exiting...\n" + str(task_counts))
         os.kill(
             os.getppid(),
             signal.SIGQUIT if hasattr(signal, "SIGQUIT") else signal.SIGTERM,
@@ -88,8 +90,8 @@ def task_postrun(**kwargs):
 
 @signals.task_unknown.connect
 def task_unknown(**kwargs):
-    logging.exception(kwargs["exc"])
-    logging.fatal("Unknown job, exiting...")
+    logger.exception(kwargs["exc"])
+    logger.fatal("Unknown job, exiting...")
     os.kill(os.getpid(), signal.SIGQUIT)
 
 
@@ -109,9 +111,9 @@ def transcribe(
         else:
             raise Reject(f"Audio type {metadata['audio_type']} not supported")
     except WhisperException as e:
-        logging.warn(e)
+        logger.warn(e)
         return None
-    logging.debug(transcript.json)
+    logger.debug(transcript.json)
 
     return transcript
 
@@ -243,6 +245,7 @@ def transcribe_from_db_batch_task(requests):
     vad_filter = True
 
     for request in requests:
+        logger.info(f"Transcribing call {request.kwargs['id']}")
         call = api_client.call("get", f"calls/{request.kwargs['id']}")
         metadata = call["raw_metadata"]
         audio_url = call["raw_audio_url"]
@@ -293,8 +296,11 @@ def transcribe_from_db_batch_task(requests):
                 f"calls/{id}",
                 json={"raw_transcript": transcript.transcript},
             )
+            logger.info(
+                f"Transcribed call {id}: [{metadata['talkgroup_tag']}] {transcript.txt[:100]}"
+            )
         except Exception as e:
-            logging.error(e)
+            logger.error(e)
             if not isinstance(e, WhisperException):
                 sentry_sdk.capture_exception(e)
             continue

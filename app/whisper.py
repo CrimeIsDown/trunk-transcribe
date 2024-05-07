@@ -581,4 +581,4 @@ def transcribe_bulk(
                 except WhisperException:
                     cleaned_results.append(None)
             return cleaned_results
-        return results # type: ignore
+        return results  # type: ignore
