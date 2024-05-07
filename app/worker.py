@@ -238,7 +238,7 @@ def transcribe_from_db_task(
     flush_interval=10,
 )
 def transcribe_from_db_batch_task(requests):
-    calls = []
+    calls: list[tuple[int, Metadata, dict]] = []
     # TODO: consider splitting to one function for analog and another for digital
     vad_filter = True
 
@@ -273,7 +273,7 @@ def transcribe_from_db_batch_task(requests):
         transcribe_from_db_batch_task.model(),
         transcribe_from_db_batch_task.model_lock,
         audio_files=[kwargs["audio_file"] for _, _, kwargs in calls],
-        initial_prompts=[kwargs["initial_prompt"] for _, _, kwargs in calls],
+        initial_prompts=[kwargs.get("initial_prompt", "") for _, _, kwargs in calls],
         cleanup=calls[0][2]["cleanup"],
         vad_filter=vad_filter,
     )
