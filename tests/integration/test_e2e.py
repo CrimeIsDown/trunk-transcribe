@@ -10,7 +10,6 @@ from meilisearch.errors import MeilisearchApiError
 
 from app import search
 
-load_dotenv(".env.testing")
 load_dotenv()
 
 

@@ -57,7 +57,7 @@ To use the paid Whisper API by OpenAI instead of running the worker on a machine
 
 ```
 # To use the paid OpenAI Whisper API instead of running the model locally
-COMPOSE_FILE=docker-compose.yml:docker-compose.openai.yml
+COMPOSE_FILE=docker-compose.server.yml:docker-compose.worker.yml:docker-compose.openai.yml
 
 # OpenAI API key, if using the paid Whisper API
 OPENAI_API_KEY=my-api-key
@@ -89,7 +89,7 @@ Run `bin/autoscale-vast.py` to start workers and autoscale them as needed. Run `
 To keep the autoscaler running, set the following in your `.env`:
 
 ```bash
-COMPOSE_FILE=COMPOSE_FILE=docker-compose.yml:docker-compose.noworker.yml:docker-compose.autoscaler.yml
+COMPOSE_FILE=COMPOSE_FILE=docker-compose.server.yml:docker-compose.autoscaler.yml
 # your API key from vast.ai, or omit to have it read from ~/.vast_api_key
 VAST_API_KEY=
 # Tune these settings as needed

@@ -140,22 +140,10 @@ jobs:
       if: matrix.model == 'small.en' && matrix.desired_cuda == 'cpu' && matrix.variant == 'whisper' && github.event_name != 'release'
       run: |
         set -x
-        cp .env.example .env
-        sed -i 's/^COMPOSE_FILE=docker-compose.server.yml:docker-compose.worker.yml:docker-compose.gpu.yml$/COMPOSE_FILE=docker-compose.server.yml:docker-compose.worker.yml:docker-compose.minio.yml/g' .env
+        cp .env.testing .env
         sed -i 's/^WHISPER_MODEL=small.en$/WHISPER_MODEL=${{ matrix.model }}/g' .env
         sed -i 's/^DESIRED_CUDA=cu121$/DESIRED_CUDA=${{ matrix.desired_cuda }}/g' .env
         sed -i 's/^WORKER_DOCKERFILE=Dockerfile.whisper$/WORKER_DOCKERFILE=${{ matrix.dockerfile }}/g' .env
-        sed -i 's/^# POSTGRES/POSTGRES/g' .env
-        sed -i 's/^# S3_BUCKET=my-bucket$/S3_BUCKET=trunk-transcribe/g' .env
-        sed -i -E 's/^# S3_PUBLIC_URL=https(.*)$/S3_PUBLIC_URL=http:\/\/minio:9000\/trunk-transcribe/g' .env
-        sed -i 's/^# AWS_ACCESS_KEY_ID=$/AWS_ACCESS_KEY_ID=root/g' .env
-        sed -i 's/^# AWS_SECRET_ACCESS_KEY=$/AWS_SECRET_ACCESS_KEY=password/g' .env
-        sed -i 's/^# S3_ENDPOINT=$/S3_ENDPOINT=http:\/\/minio:9000/g' .env
-        sed -i 's/^# GEOCODING_BOUNDS="41.6,-87.9|42,-87.5"$/GEOCODING_BOUNDS="41,-88.5|42.5,-87.5"/g' .env
-        sed -i 's/^# GEOCODING_CITY=Chicago$/GEOCODING_CITY=Chicago/g' .env
-        sed -i 's/^# GEOCODING_STATE=IL$/GEOCODING_STATE=IL/g' .env
-        sed -i 's/^# GEOCODING_COUNTRY=US$/GEOCODING_COUNTRY=US/g' .env
-        sed -i 's/^# GEOCODING_ENABLED_SYSTEMS="system1,system2"$/GEOCODING_ENABLED_SYSTEMS="chi_cpd,chi_cfd,chi_oemc,sc21102"/g' .env
         echo "VERSION=${{ github.sha }}" >> .env
         cat .env
 

@@ -5,11 +5,9 @@ from time import sleep
 
 import requests
 from dotenv import load_dotenv
-from geopy.point import Point
 
 from app import notification
 
-load_dotenv(".env.testing")
 load_dotenv()
 
 
