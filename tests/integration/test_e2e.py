@@ -187,6 +187,9 @@ class TestEndToEnd(unittest.TestCase):
         self.assertEqual("audio/mpeg", r.headers.get("content-type"))
 
     def test_transcribes_in_batch(self):
+        if os.getenv("WHISPER_IMPLEMENTATION") != "whispers2t":
+            self.skipTest("WHISPER_IMPLEMENTATION must be whispers2t to test")
+
         result = self.transcribe(
             "tests/data/9051-1699224861_773043750.0-call_20452.wav",
             "tests/data/9051-1699224861_773043750.0-call_20452.json",

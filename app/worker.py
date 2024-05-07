@@ -242,7 +242,10 @@ def transcribe_from_db_task(
 
 
 @celery.task(
-    name="transcribe_db_batch", base=whisper.WhisperBatchTask, flush_every=50, flush_interval=10
+    name="transcribe_db_batch",
+    base=whisper.WhisperBatchTask,
+    flush_every=50,
+    flush_interval=10,
 )
 def transcribe_from_db_batch_task(requests):
     calls = []
