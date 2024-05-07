@@ -279,15 +279,22 @@ def transcribe_from_db_batch_task(requests):
     )
 
     for (id, metadata, _), result in zip(calls, results):
-        if "digital" in metadata["audio_type"]:
-            transcript = digital.process_response(result, metadata)
-        elif metadata["audio_type"] == "analog":
-            transcript = analog.process_response(result)
-        else:
-            raise Reject(f"Audio type {metadata['audio_type']} not supported")
+        if not result:
+            continue
 
-        api_client.call(
-            "patch",
-            f"calls/{id}",
-            json={"raw_transcript": transcript.transcript},
-        )
+        try:
+            if "digital" in metadata["audio_type"]:
+                transcript = digital.process_response(result, metadata)
+            elif metadata["audio_type"] == "analog":
+                transcript = analog.process_response(result)
+
+            api_client.call(
+                "patch",
+                f"calls/{id}",
+                json={"raw_transcript": transcript.transcript},
+            )
+        except Exception as e:
+            logging.error(e)
+            if not isinstance(e, WhisperException):
+                sentry_sdk.capture_exception(e)
+            continue

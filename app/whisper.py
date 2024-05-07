@@ -540,7 +540,7 @@ def transcribe_bulk(
     initial_prompts: list[str] = [],
     cleanup: bool = False,
     vad_filter: bool = False,
-) -> list[WhisperResult]:
+) -> list[Optional[WhisperResult]]:
     whisper_kwargs = get_whisper_config(get_ttl_hash(cache_seconds=60))
     # TODO: Remove the lock if we are using Whisper.cpp
     with model_lock:
@@ -573,6 +573,12 @@ def transcribe_bulk(
         execution_time = end_time - start_time
         logging.debug(f"Transcription execution time: {execution_time} seconds")
 
-        return (
-            [cleanup_transcript(result) for result in results] if cleanup else results
-        )
+        if cleanup:
+            cleaned_results = []
+            for result in results:
+                try:
+                    cleaned_results.append(cleanup_transcript(result))
+                except WhisperException:
+                    cleaned_results.append(None)
+            return cleaned_results
+        return results # type: ignore
