@@ -186,6 +186,37 @@ class TestEndToEnd(unittest.TestCase):
         self.assertEqual(200, r.status_code)
         self.assertEqual("audio/mpeg", r.headers.get("content-type"))
 
+    def test_transcribes_in_batch(self):
+        result = self.transcribe(
+            "tests/data/9051-1699224861_773043750.0-call_20452.wav",
+            "tests/data/9051-1699224861_773043750.0-call_20452.json",
+            extra_params={"batch": "true"},
+        )
+
+        self.assertEqual("SUCCESS", result["task_status"])
+        self.assertTrue("1904399: " in result["task_result"])
+
+        sleep(2)  # Wait for search to update
+
+        result = self.search(
+            "additional information",
+            {"filter": ['talkgroup_group = "ISP Troop 3 - Chicago"']},
+        )
+
+        self.assertEqual(1, len(result["hits"]))
+        self.assertTrue(
+            '<i data-src="1904399">1904399:</i> ' in result["hits"][0]["transcript"]
+        )
+
+        self.assertTrue(isinstance(json.loads(result["hits"][0]["raw_metadata"]), dict))
+        self.assertTrue(
+            isinstance(json.loads(result["hits"][0]["raw_transcript"]), list)
+        )
+
+        r = requests.get(result["hits"][0]["raw_audio_url"])
+        self.assertEqual(200, r.status_code)
+        self.assertEqual("audio/mpeg", r.headers.get("content-type"))
+
 
 if __name__ == "__main__":
     unittest.main()

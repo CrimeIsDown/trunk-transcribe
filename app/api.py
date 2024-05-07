@@ -20,7 +20,11 @@ from .database import SessionLocal, engine
 from .metadata import Metadata
 from .transcript import Transcript
 from .worker import celery as celery_app
-from .worker import transcribe_task, transcribe_from_db_task
+from .worker import (
+    transcribe_task,
+    transcribe_from_db_task,
+    transcribe_from_db_batch_task,
+)
 
 sentry_dsn = os.getenv("SENTRY_DSN")
 if sentry_dsn:
@@ -140,6 +144,7 @@ def create_call(
     call_json: UploadFile,
     db: Session = Depends(get_db),
     whisper_implementation: str | None = None,
+    batch: bool = False,
 ):
     metadata = json.loads(call_json.file.read())
 
@@ -165,10 +170,21 @@ def create_call(
 
     db_call = crud.create_call(db=db, call=call)
 
-    task = transcribe_from_db_task.apply_async(
-        queue="transcribe",
-        kwargs={"id": db_call.id, "whisper_implementation": whisper_implementation},
-    )
+    if batch:
+        if os.getenv("WHISPER_IMPLEMENTATION") != "whispers2t":
+            raise HTTPException(
+                status_code=400,
+                detail="Batch transcription only supported with whispers2t",
+            )
+        task = transcribe_from_db_batch_task.apply_async(
+            queue="transcribe",
+            kwargs={"id": db_call.id},
+        )
+    else:
+        task = transcribe_from_db_task.apply_async(
+            queue="transcribe",
+            kwargs={"id": db_call.id, "whisper_implementation": whisper_implementation},
+        )
     return JSONResponse({"task_id": task.id}, status_code=201)
 
 
