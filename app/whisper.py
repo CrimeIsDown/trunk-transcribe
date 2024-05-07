@@ -7,6 +7,7 @@ from csv import DictReader
 import sys
 from threading import Lock
 import time
+from celery_batches import Batches
 import sentry_sdk
 from typing_extensions import Optional, List, TypedDict
 
@@ -93,6 +94,10 @@ class WhisperTask(Task):
             raise WhisperException(f"Unknown implementation {implementation}")
 
 
+class WhisperBatchTask(Batches, WhisperTask):
+    pass
+
+
 class Whisper(BaseWhisper):
     def __init__(self, model_name: str):
         import whisper
@@ -155,22 +160,16 @@ class WhisperS2T(BaseWhisper):
         vad_filter: bool = False,
         **decode_options,
     ) -> WhisperResult:
+        method = self.model.transcribe
         if vad_filter:
-            output = self.model.transcribe_with_vad(
-                [audio],
-                lang_codes=[language],
-                tasks=["transcribe"],
-                initial_prompts=[initial_prompt],
-                batch_size=16,
-            )
-        else:
-            output = self.model.transcribe(
-                [audio],
-                lang_codes=[language],
-                tasks=["transcribe"],
-                initial_prompts=[initial_prompt],
-                batch_size=16,
-            )
+            method = self.model.transcribe_with_vad
+        output = method(
+            [audio],
+            lang_codes=[language],
+            tasks=["transcribe"],
+            initial_prompts=[initial_prompt],
+            batch_size=16,
+        )
         result: WhisperResult = {
             "segments": [],
             "text": "",
@@ -186,6 +185,47 @@ class WhisperS2T(BaseWhisper):
             )
             result["text"] += chunk["text"] + "\n"
         return result
+
+    def transcribe_bulk(
+        self,
+        audio_files: list[str],
+        lang_codes: list[str] = [],
+        initial_prompts: list[str] = [],
+        vad_filter: bool = False,
+        **decode_options,
+    ) -> list[WhisperResult]:
+        method = self.model.transcribe
+        if vad_filter:
+            method = self.model.transcribe_with_vad
+        output = method(
+            audio_files,
+            lang_codes=lang_codes if lang_codes else ["en" for _ in audio_files],
+            tasks=["transcribe" for _ in audio_files],
+            initial_prompts=initial_prompts
+            if initial_prompts
+            else [None for _ in audio_files],
+            batch_size=16,
+        )
+        results: list[WhisperResult] = []
+
+        for i, item in enumerate(output):
+            result: WhisperResult = {
+                "segments": [],
+                "text": "",
+                "language": lang_codes[i],
+            }
+            for chunk in item:  # type: ignore
+                result["segments"].append(
+                    {
+                        "start": chunk["start_time"],
+                        "end": chunk["end_time"],
+                        "text": chunk["text"],
+                    }
+                )
+                result["text"] += chunk["text"] + "\n"
+            results.append(result)
+
+        return results
 
 
 class FasterWhisper(BaseWhisper):
@@ -489,3 +529,48 @@ def transcribe(
         logging.debug(f"Transcription execution time: {execution_time} seconds")
 
         return cleanup_transcript(result) if cleanup else result
+
+
+def transcribe_bulk(
+    model: WhisperS2T,
+    model_lock: Lock,
+    audio_files: list[str],
+    initial_prompts: list[str] = [],
+    cleanup: bool = False,
+    vad_filter: bool = False,
+) -> list[WhisperResult]:
+    whisper_kwargs = get_whisper_config(get_ttl_hash(cache_seconds=60))
+    # TODO: Remove the lock if we are using Whisper.cpp
+    with model_lock:
+        # measure transcription time
+        start_time = time.time()
+
+        try:
+            results = model.transcribe_bulk(
+                audio_files=audio_files,
+                initial_prompts=initial_prompts,
+                vad_filter=vad_filter,
+                **whisper_kwargs,
+            )
+        except RuntimeError as e:
+            if "CUDA error:" in str(e):
+                logging.error(e)
+                sentry_sdk.capture_exception(e)
+                # Exit the worker process to avoid further errors by triggering Docker to automatically restart the worker
+                sys.exit(1)
+            else:
+                raise e
+        finally:
+            for audio_file in audio_files:
+                os.unlink(audio_file)
+        logging.debug(
+            f"{audio_files} transcription result: " + json.dumps(results, indent=4)
+        )
+
+        end_time = time.time()
+        execution_time = end_time - start_time
+        logging.debug(f"Transcription execution time: {execution_time} seconds")
+
+        return (
+            [cleanup_transcript(result) for result in results] if cleanup else results
+        )

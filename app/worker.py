@@ -7,7 +7,6 @@ import os
 import signal
 import tempfile
 
-# from celery_batches import Batches
 import requests
 import sentry_sdk
 from celery import Celery, signals, states
@@ -19,10 +18,8 @@ from sentry_sdk.integrations.celery import CeleryIntegration
 
 load_dotenv()
 
-from . import api_client
-from .analog import transcribe_call as transcribe_analog
+from . import api_client, analog, digital, whisper
 from .conversion import convert_to_wav
-from .digital import transcribe_call as transcribe_digital
 from .exceptions import WhisperException
 from .geocoding import lookup_geo
 from .metadata import Metadata
@@ -104,9 +101,11 @@ def transcribe(
 ) -> Transcript | None:
     try:
         if "digital" in metadata["audio_type"]:
-            transcript = transcribe_digital(model, model_lock, audio_file, metadata)
+            transcript = digital.transcribe_call(
+                model, model_lock, audio_file, metadata
+            )
         elif metadata["audio_type"] == "analog":
-            transcript = transcribe_analog(model, model_lock, audio_file)
+            transcript = analog.transcribe_call(model, model_lock, audio_file)
         else:
             raise Reject(f"Audio type {metadata['audio_type']} not supported")
     except WhisperException as e:
@@ -115,6 +114,27 @@ def transcribe(
     logging.debug(transcript.json)
 
     return transcript
+
+
+def fetch_audio(audio_url: str) -> str:
+    mp3_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
+    if audio_url.startswith("data:"):
+        uri = DataURI(audio_url)
+        mp3_file.write(uri.data)  # type: ignore
+        mp3_file.close()
+    else:
+        with requests.get(audio_url, stream=True) as r:
+            r.raise_for_status()
+            for chunk in r.iter_content(chunk_size=1024 * 1024):
+                mp3_file.write(chunk)
+            mp3_file.close()
+
+    try:
+        audio_file = convert_to_wav(mp3_file.name)
+    finally:
+        os.unlink(mp3_file.name)
+
+    return audio_file
 
 
 def transcribe_and_index(
@@ -165,21 +185,7 @@ def transcribe_task(
     index_name: str | None = None,
     whisper_implementation: str | None = None,
 ) -> str:
-    mp3_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
-    if audio_url.startswith("data:"):
-        uri = DataURI(audio_url)
-        mp3_file.write(uri.data)  # type: ignore
-        mp3_file.close()
-    else:
-        with requests.get(audio_url, stream=True) as r:
-            r.raise_for_status()
-            for chunk in r.iter_content(chunk_size=1024 * 1024):
-                mp3_file.write(chunk)
-            mp3_file.close()
-
-    audio_file = convert_to_wav(mp3_file.name)
-
-    os.unlink(mp3_file.name)
+    audio_file = fetch_audio(audio_url)
 
     try:
         result = transcribe_and_index(
@@ -210,27 +216,12 @@ def transcribe_from_db_task(
     metadata = call["raw_metadata"]
     audio_url = call["raw_audio_url"]
 
-    mp3_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
-    if audio_url.startswith("data:"):
-        uri = DataURI(audio_url)
-        mp3_file.write(uri.data)  # type: ignore
-        mp3_file.close()
-    else:
-        with requests.get(audio_url, stream=True) as r:
-            r.raise_for_status()
-            for chunk in r.iter_content(chunk_size=1024 * 1024):
-                mp3_file.write(chunk)
-            mp3_file.close()
-
-    try:
-        audio_file = convert_to_wav(mp3_file.name)
-    finally:
-        os.unlink(mp3_file.name)
+    audio_file = fetch_audio(audio_url)
 
     try:
         transcript = transcribe(
-            transcribe_task.model(whisper_implementation),
-            transcribe_task.model_lock,
+            transcribe_from_db_task.model(whisper_implementation),
+            transcribe_from_db_task.model_lock,
             metadata,
             audio_file,
         )
@@ -248,3 +239,62 @@ def transcribe_from_db_task(
         )
 
         return transcript.txt
+
+
+@celery.task(
+    name="transcribe_db_batch", base=whisper.WhisperBatchTask, flush_every=50, flush_interval=10
+)
+def transcribe_from_db_batch_task(requests):
+    calls = []
+    # TODO: consider splitting to one function for analog and another for digital
+    vad_filter = True
+
+    for request in requests:
+        call = api_client.call("get", f"calls/{request.kwargs['id']}")
+        metadata = call["raw_metadata"]
+        audio_url = call["raw_audio_url"]
+
+        audio_file = fetch_audio(audio_url)
+
+        if "digital" in metadata["audio_type"]:
+            calls.append(
+                (
+                    request.kwargs["id"],
+                    metadata,
+                    digital.build_transcribe_kwargs(audio_file, metadata),
+                )
+            )
+            vad_filter = False
+        elif metadata["audio_type"] == "analog":
+            calls.append(
+                (
+                    request.kwargs["id"],
+                    metadata,
+                    analog.build_transcribe_kwargs(audio_file),
+                )
+            )
+        else:
+            raise Reject(f"Audio type {metadata['audio_type']} not supported")
+
+    results = whisper.transcribe_bulk(
+        transcribe_from_db_batch_task.model(),
+        transcribe_from_db_batch_task.model_lock,
+        audio_files=[kwargs["audio_file"] for _, _, kwargs in calls],
+        initial_prompts=[kwargs["initial_prompt"] for _, _, kwargs in calls],
+        cleanup=calls[0][2]["cleanup"],
+        vad_filter=vad_filter,
+    )
+
+    for (id, metadata, _), result in zip(calls, results):
+        if "digital" in metadata["audio_type"]:
+            transcript = digital.process_response(result, metadata)
+        elif metadata["audio_type"] == "analog":
+            transcript = analog.process_response(result)
+        else:
+            raise Reject(f"Audio type {metadata['audio_type']} not supported")
+
+        api_client.call(
+            "patch",
+            f"calls/{id}",
+            json={"raw_transcript": transcript.transcript},
+        )
