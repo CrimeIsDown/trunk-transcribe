@@ -108,6 +108,12 @@
         "is_hallucination": true
     },
     {
+        "match_type": "partial",
+        "pattern": "Subtitles by",
+        "action": "delete",
+        "is_hallucination": true
+    },
+    {
         "match_type": "full",
         "pattern": "Bye.",
         "action": "delete",
