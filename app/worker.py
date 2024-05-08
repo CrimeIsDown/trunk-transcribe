@@ -242,7 +242,11 @@ def transcribe_from_db_task(
     flush_every=20,
     flush_interval=20,
 )
-async def transcribe_from_db_batch_task(requests: Collection[Request]):
+def transcribe_from_db_batch_task(requests: Collection[Request]):
+    return asyncio.run(transcribe_from_db_batch_task_async(requests))
+
+
+async def transcribe_from_db_batch_task_async(requests: Collection[Request]):
     def process_task(task: Request) -> Tuple[int, Metadata, dict]:
         logger.info(f"Transcribing call {task.kwargs['id']}")
         call = api_client.call("get", f"calls/{task.kwargs['id']}")
@@ -316,6 +320,6 @@ async def transcribe_from_db_batch_task(requests: Collection[Request]):
             asyncio.to_thread(process_result, id, metadata, result)
             for (id, metadata, _), result in zip(calls, results)
         )
-    ) # type: ignore
+    )  # type: ignore
 
     return [transcript.txt for transcript in transcripts if transcript]
