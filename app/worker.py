@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
 
 from hashlib import sha256
+import asyncio
 import json
 import logging
 import os
 import signal
 import tempfile
+from typing import Collection, Optional, Tuple
 
 import requests
 import sentry_sdk
 from celery import Celery, signals, states
 from celery.exceptions import Reject
+from celery.worker.request import Request
 from datauri import DataURI
 from dotenv import load_dotenv
 from sentry_sdk.integrations.celery import CeleryIntegration
@@ -239,38 +242,39 @@ def transcribe_from_db_task(
     flush_every=20,
     flush_interval=20,
 )
-def transcribe_from_db_batch_task(requests):
-    calls: list[tuple[int, Metadata, dict]] = []
-    # TODO: consider splitting to one function for analog and another for digital
-    vad_filter = True
-
-    for request in requests:
-        logger.info(f"Transcribing call {request.kwargs['id']}")
-        call = api_client.call("get", f"calls/{request.kwargs['id']}")
+async def transcribe_from_db_batch_task(requests: Collection[Request]):
+    def process_task(task: Request) -> Tuple[int, Metadata, dict]:
+        logger.info(f"Transcribing call {task.kwargs['id']}")
+        call = api_client.call("get", f"calls/{task.kwargs['id']}")
         metadata = call["raw_metadata"]
         audio_url = call["raw_audio_url"]
 
         audio_file = fetch_audio(audio_url)
 
         if "digital" in metadata["audio_type"]:
-            calls.append(
-                (
-                    request.kwargs["id"],
-                    metadata,
-                    digital.build_transcribe_kwargs(audio_file, metadata),
-                )
+            return (
+                task.kwargs["id"],
+                metadata,
+                digital.build_transcribe_kwargs(audio_file, metadata),
             )
-            vad_filter = False
         elif metadata["audio_type"] == "analog":
-            calls.append(
-                (
-                    request.kwargs["id"],
-                    metadata,
-                    analog.build_transcribe_kwargs(audio_file),
-                )
+            return (
+                task.kwargs["id"],
+                metadata,
+                analog.build_transcribe_kwargs(audio_file),
             )
         else:
             raise Reject(f"Audio type {metadata['audio_type']} not supported")
+
+    calls: list[tuple[int, Metadata, dict]] = await asyncio.gather(
+        *(asyncio.to_thread(process_task, task) for task in requests)
+    )
+
+    vad_filter = True
+    for (_, metadata, _) in calls:
+        if "digital" in metadata["audio_type"]:
+            vad_filter = False
+            break
 
     results = whisper.transcribe_bulk(
         transcribe_from_db_batch_task.model(),
@@ -281,9 +285,9 @@ def transcribe_from_db_batch_task(requests):
         vad_filter=vad_filter,
     )
 
-    for (id, metadata, _), result in zip(calls, results):
+    def process_result(id, metadata, result) -> Optional[Transcript]:
         if not result:
-            continue
+            return None
 
         try:
             if "digital" in metadata["audio_type"]:
@@ -303,6 +307,15 @@ def transcribe_from_db_batch_task(requests):
             logger.error(e)
             if not isinstance(e, WhisperException):
                 sentry_sdk.capture_exception(e)
-            continue
+            return None
 
-    return [result["text"] for result in results if result]
+        return transcript
+
+    transcripts: list[Transcript] = await asyncio.gather(
+        *(
+            asyncio.to_thread(process_result, id, metadata, result)
+            for (id, metadata, _), result in zip(calls, results)
+        )
+    ) # type: ignore
+
+    return [transcript.txt for transcript in transcripts if transcript]
