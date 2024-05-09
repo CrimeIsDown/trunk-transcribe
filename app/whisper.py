@@ -203,9 +203,9 @@ class WhisperS2T(BaseWhisper):
             audio_files,
             lang_codes=lang_codes,
             tasks=["transcribe" for _ in audio_files],
-            initial_prompts=initial_prompts
-            if initial_prompts
-            else [None for _ in audio_files],
+            initial_prompts=(
+                initial_prompts if initial_prompts else [None for _ in audio_files]
+            ),
             batch_size=16,
         )
         results: list[WhisperResult] = []

@@ -24,9 +24,11 @@ class Transcript:
     def html(self):
         return "<br>".join(
             [
-                f'<i data-src="{src["src"]}">{src["tag"] if len(src["tag"]) else src["src"]}:</i> {transcript}'
-                if src
-                else transcript
+                (
+                    f'<i data-src="{src["src"]}">{src["tag"] if len(src["tag"]) else src["src"]}:</i> {transcript}'
+                    if src
+                    else transcript
+                )
                 for src, transcript in self.transcript
             ]
         )
@@ -38,9 +40,11 @@ class Transcript:
         """
         return "\n".join(
             [
-                f'_{src["tag"] if len(src["tag"]) else src["src"]}:_ {transcript}'
-                if src
-                else transcript
+                (
+                    f'_{src["tag"] if len(src["tag"]) else src["src"]}:_ {transcript}'
+                    if src
+                    else transcript
+                )
                 for src, transcript in self.transcript
             ]
         )
@@ -49,9 +53,11 @@ class Transcript:
     def txt(self):
         return "\n".join(
             [
-                f'{src["tag"] if len(src["tag"]) else src["src"]}: {transcript}'
-                if src
-                else transcript
+                (
+                    f'{src["tag"] if len(src["tag"]) else src["src"]}: {transcript}'
+                    if src
+                    else transcript
+                )
                 for src, transcript in self.transcript
             ]
         )

@@ -6,8 +6,6 @@ class FreqListItem(TypedDict):
     time: int
     pos: float
     len: float
-    error_count: int
-    spike_count: int
 
 
 class SrcListItem(TypedDict):

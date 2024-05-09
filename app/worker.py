@@ -275,7 +275,7 @@ async def transcribe_from_db_batch_task_async(requests: Collection[Request]):
     )
 
     vad_filter = True
-    for (_, metadata, _) in calls:
+    for _, metadata, _ in calls:
         if "digital" in metadata["audio_type"]:
             vad_filter = False
             break
