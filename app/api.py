@@ -150,7 +150,7 @@ def create_call_from_sdrtrunk(
     if duration < float(os.getenv("MIN_CALL_LENGTH", "2")):
         raise HTTPException(status_code=400, detail="Call too short to transcribe")
 
-    start_time = round(datetime.strptime(dateTime, "%Y-%m-%d %H:%M:%S.%f").timestamp())
+    start_time = int(dateTime)
     stop_time = round(start_time + duration)
 
     metadata: Metadata = {
