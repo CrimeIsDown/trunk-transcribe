@@ -20,7 +20,7 @@ RUN pip3 install poetry>=1.3.2
 WORKDIR /src
 COPY pyproject.toml poetry.lock ./
 RUN poetry config virtualenvs.create false && \
-    poetry install --all-extras --without dev --no-root --no-interaction --no-ansi
+    poetry install --without dev --no-root --no-interaction --no-ansi
 
 COPY app app
 COPY config config

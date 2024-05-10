@@ -26,4 +26,4 @@ class Call(CallBase):
     geo: Optional[GeoResponse] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
