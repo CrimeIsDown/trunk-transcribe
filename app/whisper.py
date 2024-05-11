@@ -512,8 +512,8 @@ def transcribe(
                 vad_filter=vad_filter,
                 **whisper_kwargs,
             )
-        except RuntimeError as e:
-            if "CUDA error:" in str(e):
+        except Exception as e:
+            if "CUDA error:" in str(e) or "CUDA out of memory" in str(e):
                 logging.error(e)
                 sentry_sdk.capture_exception(e)
                 # Exit the worker process to avoid further errors by triggering Docker to automatically restart the worker
