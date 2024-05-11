@@ -78,7 +78,7 @@ async def authenticate(request: Request, call_next):
     api_key = os.getenv("API_KEY", "")
 
     if (
-        request.url.path != "/api/call-upload"
+        request.url.path not in ["/api/call-upload", "/healthz"]
         and api_key
         and request.headers.get("Authorization", "") != f"Bearer {api_key}"
     ):
@@ -95,6 +95,11 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         except:
             pass
     return await request_validation_exception_handler(request, exc)
+
+
+@app.get("/healthz")
+def healthz():
+    return JSONResponse({"status": "ok"})
 
 
 @app.post("/api/call-upload")

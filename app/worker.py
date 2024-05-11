@@ -248,7 +248,6 @@ def transcribe_from_db_batch_task(requests: Collection[Request]):
 
 async def transcribe_from_db_batch_task_async(requests: Collection[Request]):
     def process_task(task: Request) -> Tuple[int, Metadata, dict]:
-        logger.info(f"Transcribing call {task.kwargs['id']}")
         call = api_client.call("get", f"calls/{task.kwargs['id']}")
         metadata = call["raw_metadata"]
         audio_url = call["raw_audio_url"]
@@ -269,6 +268,10 @@ async def transcribe_from_db_batch_task_async(requests: Collection[Request]):
             )
         else:
             raise Reject(f"Audio type {metadata['audio_type']} not supported")
+
+    logger.info(
+        f"Transcribing call(s) {', '.join([task.kwargs['id'] for task in requests])}"
+    )
 
     calls: list[tuple[int, Metadata, dict]] = await asyncio.gather(
         *(asyncio.to_thread(process_task, task) for task in requests)
@@ -305,7 +308,7 @@ async def transcribe_from_db_batch_task_async(requests: Collection[Request]):
                 json={"raw_transcript": transcript.transcript},
             )
             logger.info(
-                f"Transcribed call {id}: [{metadata['talkgroup_tag']}] {transcript.txt[:100]}"
+                f"Transcribed call {id}: [{metadata['talkgroup_tag']}] {transcript.txt[:100] + '...' if len(transcript.txt) > 100 else transcript.txt}"
             )
         except Exception as e:
             logger.error(e)

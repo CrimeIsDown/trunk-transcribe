@@ -16,8 +16,13 @@ services:
       - ./config:/src/config
       - ./tests:/src/tests
       - ./docker/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
+      - ./docker/healthcheck.sh:/usr/local/bin/healthcheck.sh
     env_file: .env
     restart: always
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh"]
+      timeout: 1m
+      interval: 1m
 
   flower:
     image: ghcr.io/crimeisdown/trunk-transcribe:${VERSION:-main}

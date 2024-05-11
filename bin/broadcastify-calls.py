@@ -234,6 +234,9 @@ def process_call(
                         "POST",
                         "calls",
                         files={"call_json": metadata_file, "call_audio": audio_file},
+                        params={"batch": "true"}
+                        if os.getenv("WHISPER_IMPLEMENTATION") == "whispers2t"
+                        else {},
                     )
                     audio_file.seek(0)
                 except requests.exceptions.HTTPError as e:
