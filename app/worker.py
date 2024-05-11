@@ -270,7 +270,7 @@ async def transcribe_from_db_batch_task_async(requests: Collection[Request]):
             raise Reject(f"Audio type {metadata['audio_type']} not supported")
 
     logger.info(
-        f"Transcribing call(s) {', '.join([task.kwargs['id'] for task in requests])}"
+        f"Transcribing call(s) {', '.join([str(task.kwargs['id']) for task in requests])}"
     )
 
     calls: list[tuple[int, Metadata, dict]] = await asyncio.gather(
