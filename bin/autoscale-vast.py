@@ -21,21 +21,21 @@ from dotenv import dotenv_values, load_dotenv
 
 load_dotenv()
 
-# sentry_dsn = os.getenv("SENTRY_DSN")
-# if sentry_dsn:
-#     sentry_sdk.init(
-#         dsn=sentry_dsn,
-#         release=os.getenv("GIT_COMMIT"),
-#         # Set traces_sample_rate to 1.0 to capture 100%
-#         # of transactions for performance monitoring.
-#         # We recommend adjusting this value in production.
-#         traces_sample_rate=float(os.getenv("SENTRY_TRACE_SAMPLE_RATE", "0.1")),
-#         _experiments={
-#             "profiles_sample_rate": float(
-#                 os.getenv("SENTRY_PROFILE_SAMPLE_RATE", "0.1")
-#             ),
-#         },
-#     )
+sentry_dsn = os.getenv("SENTRY_DSN")
+if sentry_dsn:
+    sentry_sdk.init(
+        dsn=sentry_dsn,
+        release=os.getenv("GIT_COMMIT"),
+        # Set traces_sample_rate to 1.0 to capture 100%
+        # of transactions for performance monitoring.
+        # We recommend adjusting this value in production.
+        traces_sample_rate=float(os.getenv("SENTRY_TRACE_SAMPLE_RATE", "0.1")),
+        _experiments={
+            "profiles_sample_rate": float(
+                os.getenv("SENTRY_PROFILE_SAMPLE_RATE", "0.1")
+            ),
+        },
+    )
 
 
 DEFAULT_MIN_INSTANCES = 1
@@ -247,7 +247,9 @@ class Autoscaler:
         if "@" not in image:
             try:
                 image = self._get_image_digest(image)
-            except:
+            except Exception as e:
+                logging.exception(e)
+                sentry_sdk.capture_exception(e)
                 pass
 
         while count and len(instances):
@@ -417,12 +419,17 @@ class Autoscaler:
             message_rate = queue["messages_details"]["rate"]
 
         logging.info(
-            f"Current avg message rate: {message_rate:.2f} / Current message count: {queue['messages_ready']} / Current instances: {current_instances}"
+            f"Current avg message rate: {message_rate:.2f} / Current message count: {queue['messages']} / Current instances: {current_instances}"
         )
 
-        if message_rate > 0.2 or queue["messages_ready"] > 1000:
+        if message_rate > 0.4:
             needed_instances += 1
-        elif message_rate < -0.5 and queue["messages_ready"] < 10:
+        elif queue["messages"] > 400:
+            ack_rate_per_consumer = queue["message_stats"]["ack_details"]["rate"] / queue["consumers"]
+            time_to_clear_queue = queue["messages"] / ack_rate_per_consumer
+            if time_to_clear_queue > 120:
+                needed_instances += 1
+        elif message_rate < -0.5 and queue["messages"] < 10:
             needed_instances -= 1
 
         return current_instances, needed_instances

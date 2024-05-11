@@ -573,7 +573,7 @@ def transcribe_bulk(
 
 def handle_exception(e: Exception):
     if "CUDA error:" in str(e) or "CUDA out of memory" in str(e):
-        logging.error(e)
+        logging.exception(e)
         sentry_sdk.capture_exception(e)
         # Exit the worker process to avoid further errors by triggering Docker to automatically restart the worker
         sys.exit(1)
