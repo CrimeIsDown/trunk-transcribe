@@ -513,13 +513,7 @@ def transcribe(
                 **whisper_kwargs,
             )
         except Exception as e:
-            if "CUDA error:" in str(e) or "CUDA out of memory" in str(e):
-                logging.error(e)
-                sentry_sdk.capture_exception(e)
-                # Exit the worker process to avoid further errors by triggering Docker to automatically restart the worker
-                sys.exit(1)
-            else:
-                raise e
+            handle_exception(e)
         finally:
             os.unlink(audio_file)
         logging.debug(
@@ -554,14 +548,8 @@ def transcribe_bulk(
                 vad_filter=vad_filter,
                 **whisper_kwargs,
             )
-        except RuntimeError as e:
-            if "CUDA error:" in str(e):
-                logging.error(e)
-                sentry_sdk.capture_exception(e)
-                # Exit the worker process to avoid further errors by triggering Docker to automatically restart the worker
-                sys.exit(1)
-            else:
-                raise e
+        except Exception as e:
+            handle_exception(e)
         finally:
             for audio_file in audio_files:
                 os.unlink(audio_file)
@@ -582,3 +570,12 @@ def transcribe_bulk(
                     cleaned_results.append(None)
             return cleaned_results
         return results  # type: ignore
+
+def handle_exception(e: Exception):
+    if "CUDA error:" in str(e) or "CUDA out of memory" in str(e):
+        logging.error(e)
+        sentry_sdk.capture_exception(e)
+        # Exit the worker process to avoid further errors by triggering Docker to automatically restart the worker
+        sys.exit(1)
+    else:
+        raise e
