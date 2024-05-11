@@ -105,14 +105,10 @@ class Autoscaler:
             },
         )
         r.raise_for_status()
-        for manifest in r.json()["manifests"]:
-            if (
-                manifest["platform"]["architecture"] == "amd64"
-                and manifest["platform"]["os"] == "linux"
-            ):
-                return f"{repo}@{manifest['digest']}"
-
-        raise Exception("Could not find image digest for linux amd64")
+        digest = r.headers.get("Docker-Content-Digest")
+        if digest:
+            return f"{repo}@{digest}"
+        raise Exception("Could not find image digest")
 
     def _make_instance_hostname(self, instance: dict) -> str:
         return f'{instance["machine_id"]}.{instance["host_id"]}.vast.ai'
