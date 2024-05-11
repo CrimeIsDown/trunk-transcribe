@@ -62,7 +62,7 @@ celery = Celery(
     timezone="UTC",
 )
 
-task_counts = {}
+recent_job_results = []
 
 logger = logging.getLogger(__name__)
 
@@ -70,14 +70,10 @@ logger = logging.getLogger(__name__)
 @signals.task_prerun.connect
 def task_prerun(**kwargs):
     # If we've only had failing tasks on this worker, terminate it
-    if states.SUCCESS not in task_counts and len(
-        [
-            count
-            for state, count in task_counts.items()
-            if state in states.EXCEPTION_STATES and count > 5
-        ]
-    ):
-        logger.fatal("Exceeded job failure threshold, exiting...\n" + str(task_counts))
+    if len(recent_job_results) == 5 and states.SUCCESS not in recent_job_results:
+        logger.fatal(
+            "Exceeded job failure threshold, exiting...\n" + str(recent_job_results)
+        )
         os.kill(
             os.getppid(),
             signal.SIGQUIT if hasattr(signal, "SIGQUIT") else signal.SIGTERM,
@@ -86,9 +82,15 @@ def task_prerun(**kwargs):
 
 @signals.task_postrun.connect
 def task_postrun(**kwargs):
-    if kwargs["state"] not in task_counts:
-        task_counts[kwargs["state"]] = 0
-    task_counts[kwargs["state"]] += 1
+    recent_job_results.insert(0, kwargs["state"])
+    if len(recent_job_results) > 5:
+        recent_job_results.pop()
+
+
+@signals.task_retry.connect
+def task_retry(**kwargs):
+    whisper.handle_exception(kwargs["reason"])
+    logger.warn(f"Task {kwargs['task']} failed, retrying...")
 
 
 @signals.task_unknown.connect

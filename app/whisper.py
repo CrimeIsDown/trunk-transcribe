@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 import json
 import logging
 import os
+import signal
 import subprocess
 from csv import DictReader
 import sys
@@ -512,8 +513,6 @@ def transcribe(
                 vad_filter=vad_filter,
                 **whisper_kwargs,
             )
-        except Exception as e:
-            handle_exception(e)
         finally:
             os.unlink(audio_file)
         logging.debug(
@@ -548,8 +547,6 @@ def transcribe_bulk(
                 vad_filter=vad_filter,
                 **whisper_kwargs,
             )
-        except Exception as e:
-            handle_exception(e)
         finally:
             for audio_file in audio_files:
                 os.unlink(audio_file)
@@ -577,6 +574,7 @@ def handle_exception(e: Exception):
         logging.exception(e)
         sentry_sdk.capture_exception(e)
         # Exit the worker process to avoid further errors by triggering Docker to automatically restart the worker
-        sys.exit(1)
-    else:
-        raise e
+        os.kill(
+            os.getppid(),
+            signal.SIGQUIT if hasattr(signal, "SIGQUIT") else signal.SIGTERM,
+        )
