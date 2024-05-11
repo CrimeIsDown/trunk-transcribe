@@ -162,7 +162,8 @@ def index_call(
     logging.debug(f"Sending document to be indexed: {str(doc)}")
 
     if not index_name:
-        index_name = get_default_index_name()
+        call_time = datetime.datetime.fromtimestamp(metadata["start_time"])
+        index_name = get_default_index_name(call_time)
 
     client = get_client()
 

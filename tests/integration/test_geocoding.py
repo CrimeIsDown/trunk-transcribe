@@ -30,8 +30,12 @@ class TestGeocoding(unittest.TestCase):
                 logging.error(e)
                 logging.info("Waiting for API to come online...")
                 sleep(1)
+        logging.getLogger().setLevel(logging.DEBUG)
 
     def test_lookup_geo_with_llm(self):
+        if not os.getenv("PELIAS_DOMAIN"):
+            self.skipTest("PELIAS_DOMAIN not set")
+
         transmissions = [
             (
                 Metadata(
@@ -49,36 +53,36 @@ class TestGeocoding(unittest.TestCase):
                         ),
                     ]
                 ),
-                "Oakbrook Terrace Tower, 1, Drury Lane, Oakbrook Terrace, DuPage County, Illinois, 60181, United States",
-                "nominatim",
+                "1 Tower Lane, Oakbrook Terrace, IL, USA",
+                "pelias",
             ),
-            # (
-            #     Metadata(
-            #         {
-            #             "short_name": "chisuburbs",
-            #             "talkgroup_description": "Fire Dispatch: South",
-            #             "talkgroup_group": "Regional Emergency Dispatch - RED Center (Northbrook)",
-            #         }  # type: ignore
-            #     ),
-            #     Transcript(
-            #         [
-            #             (
-            #                 {
-            #                     "pos": 0,
-            #                     "src": 1,
-            #                     "tag": "",
-            #                     "time": 1714540304,
-            #                     "emergency": 0,
-            #                     "signal_system": "",
-            #                     "transcript_prompt": "",
-            #                 },
-            #                 "Ambulance 62, side patient, Rivers Casino, 3000, South Des Plaines River Road, in Des Plaines, grid 6284, 3000, South Des Plaines River Road, side patient, Ambulance 62."
-            #             ),
-            #         ]
-            #     ),
-            #     "3000 South River Road, Des Plaines, Illinois 60018, United States",
-            #     "geocodio",
-            # ),
+            (
+                Metadata(
+                    {
+                        "short_name": "chisuburbs",
+                        "talkgroup_description": "Fire Dispatch: South",
+                        "talkgroup_group": "Regional Emergency Dispatch - RED Center (Northbrook)",
+                    }  # type: ignore
+                ),
+                Transcript(
+                    [
+                        (
+                            {
+                                "pos": 0,
+                                "src": 1,
+                                "tag": "",
+                                "time": 1714540304,
+                                "emergency": 0,
+                                "signal_system": "",
+                                "transcript_prompt": "",
+                            },
+                            "Ambulance 62, side patient, Rivers Casino, 3000, South Des Plaines River Road, in Des Plaines, grid 6284, 3000, South Des Plaines River Road, side patient, Ambulance 62.",
+                        ),
+                    ]
+                ),
+                "3000 South Des Plaines River Road, Rosemont, IL, USA",
+                "pelias",
+            ),
         ]
 
         for metadata, transcript, address, geocoder in transmissions:

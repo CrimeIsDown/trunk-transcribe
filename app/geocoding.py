@@ -3,6 +3,7 @@ import logging
 import re
 import os
 import sys
+from typing import Any
 from typing_extensions import TypedDict
 
 import requests
@@ -105,6 +106,9 @@ def geocode(
     query = {
         "query": f"{address_parts['address']}, {address_parts['city']}, {address_parts['state']}, {address_parts['country']}"
     }
+    if not geocoder:
+        geocoder = os.getenv("GEOCODING_SERVICE")
+
     if geocoder == "geocodio" or (os.getenv("GEOCODIO_API_KEY") and geocoder is None):
         geocoder = "geocodio"
         config = {"api_key": os.getenv("GEOCODIO_API_KEY")}
@@ -147,6 +151,15 @@ def geocode(
             "timeout": 10,
             "user_agent": "trunk-transcribe v0 (https://github.com/CrimeIsDown/trunk-transcribe)",
         }
+    elif geocoder == "pelias":
+        geocoder = "pelias"
+        config: dict[str, Any] = {
+            "domain": os.getenv("PELIAS_DOMAIN"),
+            "scheme": os.getenv("PELIAS_SCHEME", "https"),
+            "timeout": 10,
+        }
+        if os.getenv("PELIAS_API_KEY"):
+            config["api_key"] = os.getenv("PELIAS_API_KEY")
     else:
         raise GeocodingException("Unsupported geocoder or no geocoding envs defined")
 
@@ -162,32 +175,41 @@ def geocode(
         return None
 
     def is_location_valid(location: Location) -> bool:
-        if geocoder == "geocodio":
-            if (
-                location.raw.get("accuracy_type", [])
-                in [
-                    "street_center",
-                    "place",
-                    "county",
-                    "state",
-                ]
-                or location.raw.get("accuracy", 0) < 0.5
-            ):
-                return False
-        elif geocoder == "mapbox":
-            if "address" not in location.raw["place_type"]:
-                return False
-        elif geocoder == "googlev3":
-            if location.raw["geometry"]["location_type"] in [
-                "APPROXIMATE",
-                "GEOMETRIC_CENTER",
-            ]:
-                return False
-        elif geocoder == "arcgis":
-            if location.raw["score"] < 50:
-                return False
+        # import json
+        # logging.debug(json.dumps(location.raw, indent=2))
+        is_accurate = True
+        if geocoder == "geocodio" and (
+            location.raw.get("accuracy_type", [])
+            in [
+                "street_center",
+                "place",
+                "county",
+                "state",
+            ]
+            or location.raw.get("accuracy", 0) < 0.5
+        ):
+            is_accurate = False
+        elif geocoder == "mapbox" and "address" not in location.raw["place_type"]:
+            is_accurate = False
+        elif geocoder == "googlev3" and location.raw["geometry"]["location_type"] in [
+            "APPROXIMATE",
+            "GEOMETRIC_CENTER",
+        ]:
+            is_accurate = False
+        elif geocoder == "arcgis" and location.raw["score"] < 50:
+            is_accurate = False
+        elif geocoder == "pelias" and location.raw["properties"]["confidence"] < 0.7:
+            is_accurate = False
+
+        if not is_accurate:
+            logging.debug(f"Geocoding result {location} not accurate enough")
+            return False
+
+        if geocoder == "pelias":
+            location._address = location.raw["properties"]["label"]
 
         if address_parts["city"] not in location.address:
+            logging.debug(f"Geocoding result {location} does not match city")
             return False
         # TODO: check state as well
 
@@ -234,17 +256,26 @@ def lookup_geo(
         transcript_txt = transcript.txt_nosrc
 
         address_parts = default_address_parts.copy()
+        # TODO: how can we extract the city and state from the metadata?
         address_parts["address"] = extract_address(transcript_txt)
+        if address_parts["address"]:
+            logging.debug(f"Extracted address with regex: {address_parts['address']}")
+            try:
+                geo = geocode(address_parts, geocoder=geocoder)
+            except:
+                geo = None
+            if geo:
+                return geo
 
         # If we did not find the address through our regex, then we use the LLM model to extract it as long as the transcript contains a number (possibly indicating an address)
         if (
             llm_model
-            and not address_parts["address"]
             and re.search(r"[0-9]", transcript_txt)
             and len(transcript_txt) > 20
         ):
             result = llm.extract_address(llm_model, transcript_txt, metadata)
             if result:
+                logging.debug(f"LLM extracted address: {result}")
                 address_parts.update(result)
 
         if address_parts["address"]:
