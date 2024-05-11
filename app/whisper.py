@@ -571,6 +571,7 @@ def transcribe_bulk(
             return cleaned_results
         return results  # type: ignore
 
+
 def handle_exception(e: Exception):
     if "CUDA error:" in str(e) or "CUDA out of memory" in str(e):
         logging.exception(e)

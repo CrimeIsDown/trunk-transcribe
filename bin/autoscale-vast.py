@@ -425,7 +425,9 @@ class Autoscaler:
         if message_rate > 0.4:
             needed_instances += 1
         elif queue["messages"] > 400:
-            ack_rate_per_consumer = queue["message_stats"]["ack_details"]["rate"] / queue["consumers"]
+            ack_rate_per_consumer = (
+                queue["message_stats"]["ack_details"]["rate"] / queue["consumers"]
+            )
             time_to_clear_queue = queue["messages"] / ack_rate_per_consumer
             if time_to_clear_queue > 120:
                 needed_instances += 1
