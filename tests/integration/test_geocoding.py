@@ -36,6 +36,10 @@ class TestGeocoding(unittest.TestCase):
         if not os.getenv("PELIAS_DOMAIN"):
             self.skipTest("PELIAS_DOMAIN not set")
 
+        geocoding_service_original = os.getenv("GEOCODING_SERVICE")
+        os.environ["GEOCODING_SERVICE"] = "geocodio,pelias"
+        geocoder = None
+
         transmissions = [
             (
                 Metadata(
@@ -54,7 +58,7 @@ class TestGeocoding(unittest.TestCase):
                     ]
                 ),
                 "1 Tower Lane, Oakbrook Terrace, IL, USA",
-                "pelias",
+                geocoder,
             ),
             (
                 Metadata(
@@ -80,8 +84,8 @@ class TestGeocoding(unittest.TestCase):
                         ),
                     ]
                 ),
-                "3000 South Des Plaines River Road, Rosemont, IL, USA",
-                "pelias",
+                "3000 S Des Plaines River Rd, Des Plaines, IL 60018",
+                geocoder,
             ),
         ]
 
@@ -92,9 +96,11 @@ class TestGeocoding(unittest.TestCase):
 
             if result:
                 self.assertEqual(
-                    result["geo_formatted_address"],
                     address,
+                    result["geo_formatted_address"],
                 )
+
+        os.environ["GEOCODING_SERVICE"] = geocoding_service_original or ""
 
     def test_geocodes_valid_address_geocodio(self):
         address_parts = {

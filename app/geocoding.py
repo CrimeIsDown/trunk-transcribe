@@ -108,6 +108,8 @@ def geocode(
     }
     if not geocoder:
         geocoder = os.getenv("GEOCODING_SERVICE")
+        if geocoder and "," in geocoder:
+            geocoder, fallback_geocoder = geocoder.split(",")
 
     if geocoder == "geocodio" or (os.getenv("GEOCODIO_API_KEY") and geocoder is None):
         geocoder = "geocodio"
@@ -169,9 +171,11 @@ def geocode(
         locations: list[Location] = geolocator.geocode(exactly_one=False, **query)
     except GeocoderQueryError:
         # Probably got "Could not geocode address. No matches found."
-        return None
+        locations = []
 
     if not locations:
+        if fallback_geocoder:
+            return geocode(address_parts, geocoder=fallback_geocoder)
         return None
 
     def is_location_valid(location: Location) -> bool:
@@ -228,6 +232,8 @@ def geocode(
             "geo_formatted_address": location.address,
         }
 
+    if fallback_geocoder:
+        return geocode(address_parts, geocoder=fallback_geocoder)
     return None
 
 
