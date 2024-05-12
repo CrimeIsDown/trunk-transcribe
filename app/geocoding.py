@@ -106,6 +106,7 @@ def geocode(
     query = {
         "query": f"{address_parts['address']}, {address_parts['city']}, {address_parts['state']}, {address_parts['country']}"
     }
+    fallback_geocoder = None
     if not geocoder:
         geocoder = os.getenv("GEOCODING_SERVICE")
         if geocoder and "," in geocoder:
