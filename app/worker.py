@@ -313,8 +313,8 @@ async def transcribe_from_db_batch_task_async(requests: Collection[Request]):
                 f"Transcribed call {id}: [{metadata['talkgroup_tag']}] {transcript.txt[:100] + '...' if len(transcript.txt) > 100 else transcript.txt}"
             )
         except Exception as e:
-            logger.error(e)
             if not isinstance(e, WhisperException):
+                logger.exception(e)
                 sentry_sdk.capture_exception(e)
             return None
 
