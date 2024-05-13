@@ -87,12 +87,69 @@ class TestGeocoding(unittest.TestCase):
                 "3000 S Des Plaines River Rd, Des Plaines, IL 60018",
                 geocoder,
             ),
+            (
+                Metadata(
+                    {
+                        "short_name": "chi_oemc",
+                        "talkgroup_description": "Fire Supression North",
+                        "talkgroup_group": "Chicago Fire Department",
+                    }  # type: ignore
+                ),
+                Transcript(
+                    [
+                        (
+                            {
+                                "pos": 0,
+                                "src": 0,
+                                "tag": "",
+                                "time": 1714540304,
+                                "emergency": 0,
+                                "signal_system": "",
+                                "transcript_prompt": "",
+                            },
+                            "All right, 98 into 98. It looks like that this place is located inside of the Jane Addams Memorial Park. Must be a cafe inside of there.",
+                        ),
+                    ]
+                ),
+                None,
+                "pelias"
+            ),
+            (
+                Metadata(
+                    {
+                        "short_name": "chi_cpd",
+                        "talkgroup_description": "Citywide 1",
+                        "talkgroup_group": "Chicago Police Department",
+                    }  # type: ignore
+                ),
+                Transcript(
+                    [
+                        (
+                            {
+                                "pos": 0,
+                                "src": 0,
+                                "tag": "",
+                                "time": 1714540304,
+                                "emergency": 0,
+                                "signal_system": "",
+                                "transcript_prompt": "",
+                            },
+                            "20 minutes to 8 on Citywide. Assault in progress. 6-1 in Westman at the laundromat. Male Hispanic staring at her daughter and standing in front of her child, also being told to leave. Offender's got a red shirt, pink pants. That's a threat on that.",
+                        ),
+                    ]
+                ),
+                None,
+                "pelias"
+            )
         ]
 
         for metadata, transcript, address, geocoder in transmissions:
             result = geocoding.lookup_geo(metadata, transcript, geocoder)
 
-            self.assertIsNotNone(result, f"Expected to get {address} but got None")
+            if address:
+                self.assertIsNotNone(result, f"Expected to get {address} but got None")
+            else:
+                self.assertIsNone(result, f"Expected to get None but got {result['geo_formatted_address'] if result else ''}")
 
             if result:
                 self.assertEqual(

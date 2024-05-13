@@ -203,7 +203,10 @@ def geocode(
             is_accurate = False
         elif geocoder == "arcgis" and location.raw["score"] < 50:
             is_accurate = False
-        elif geocoder == "pelias" and location.raw["properties"]["confidence"] < 0.7:
+        elif geocoder == "pelias" and (
+            location.raw["properties"]["confidence"] < 0.7
+            or location.raw["properties"]["layer"] == "venue"
+        ):
             is_accurate = False
 
         if not is_accurate:
