@@ -279,8 +279,9 @@ def read_call(call_id: int, db: Session = Depends(get_db)):
 
 @app.post("/calls")
 def create_call(
-    call_audio: UploadFile,
     call_json: UploadFile,
+    call_audio_url: Annotated[str, Form()],
+    call_audio: UploadFile | None = None,
     db: Session = Depends(get_db),
     whisper_implementation: str | None = None,
     batch: bool = False,
@@ -290,20 +291,25 @@ def create_call(
     if metadata["call_length"] < float(os.getenv("MIN_CALL_LENGTH", "2")):
         raise HTTPException(status_code=400, detail="Call too short to transcribe")
 
-    raw_audio = tempfile.NamedTemporaryFile(
-        delete=False, suffix=f"_{call_audio.filename}"
-    )
-    while True:
-        data = call_audio.file.read(1024 * 1024)
-        if not data:
-            raw_audio.close()
-            break
-        raw_audio.write(data)
+    if call_audio:
+        raw_audio = tempfile.NamedTemporaryFile(
+            delete=False, suffix=f"_{call_audio.filename}"
+        )
+        while True:
+            data = call_audio.file.read(1024 * 1024)
+            if not data:
+                raw_audio.close()
+                break
+            raw_audio.write(data)
 
-    try:
-        audio_url = storage.upload_raw_audio(metadata, raw_audio.name)
-    finally:
-        os.unlink(raw_audio.name)
+        try:
+            audio_url = storage.upload_raw_audio(metadata, raw_audio.name)
+        finally:
+            os.unlink(raw_audio.name)
+    elif call_audio_url:
+        audio_url = call_audio_url
+    else:
+        raise HTTPException(status_code=400, detail="No audio provided")
 
     call = schemas.CallCreate(raw_metadata=metadata, raw_audio_url=audio_url)
 
