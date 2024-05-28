@@ -89,6 +89,18 @@ def update_document(
     if UNIT_TAGS.get(metadata["short_name"]):
         metadata, transcript = update_srclist(metadata, transcript)
 
+    if TALKGROUPS.get(metadata["short_name"]):
+        try:
+            talkgroup = TALKGROUPS[metadata["short_name"]][metadata["talkgroup"]]
+            metadata["talkgroup_tag"] = talkgroup["Alpha Tag"].strip()
+            metadata["talkgroup_description"] = talkgroup["Description"].strip()
+            metadata["talkgroup_group"] = talkgroup["Category"].strip()
+            metadata["talkgroup_group_tag"] = talkgroup["Tag"].strip()
+        except KeyError:
+            logging.warning(
+                f"Could not find talkgroup {metadata['talkgroup']} in {metadata['short_name']} CSV file"
+            )
+
     raw_audio_url = update_audio_url(metadata, document.raw_audio_url)
 
     if hasattr(document, "_geo") and hasattr(document, "geo_formatted_address"):
@@ -156,6 +168,14 @@ if __name__ == "__main__":
         metavar=("SHORT_NAME", "UNIT_TAGS_FILE"),
         action="append",
         help="System short_name and the path to the corresponding unitTagsFile CSV",
+    )
+    parser.add_argument(
+        "--talkgroups",
+        type=str,
+        nargs=2,
+        metavar=("SHORT_NAME", "TALKGROUPS_FILE"),
+        action="append",
+        help="System short_name and the path to the corresponding talkgroupsFile CSV",
     )
     parser.add_argument(
         "--index",
@@ -231,6 +251,16 @@ if __name__ == "__main__":
                 for row in reader:
                     tags.append(row)
             UNIT_TAGS[system] = tags
+
+    TALKGROUPS = {}
+    if args.talkgroups:
+        for system, file in args.talkgroups:
+            talkgroups = {}
+            with open(file, newline="") as csvfile:
+                reader = csv.DictReader(csvfile)
+                for row in reader:
+                    talkgroups[int(row["Decimal"])] = row
+            TALKGROUPS[system] = talkgroups
 
     client = search.get_client()
 
