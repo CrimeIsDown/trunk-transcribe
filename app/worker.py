@@ -105,14 +105,15 @@ def transcribe(
     model_lock,
     metadata: Metadata,
     audio_file: str,
+    prompt: str = "",
 ) -> Transcript | None:
     try:
         if "digital" in metadata["audio_type"]:
             transcript = digital.transcribe_call(
-                model, model_lock, audio_file, metadata
+                model, model_lock, audio_file, metadata, prompt
             )
         elif metadata["audio_type"] == "analog":
-            transcript = analog.transcribe_call(model, model_lock, audio_file)
+            transcript = analog.transcribe_call(model, model_lock, audio_file, prompt)
         else:
             raise Reject(f"Audio type {metadata['audio_type']} not supported")
     except WhisperException as e:

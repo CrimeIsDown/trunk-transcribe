@@ -4,11 +4,12 @@ from .transcript import Transcript
 from .whisper import WhisperResult, transcribe
 
 
-def build_transcribe_kwargs(audio_file: str) -> dict:
+def build_transcribe_kwargs(audio_file: str, initial_prompt: str = "") -> dict:
     return {
         "audio_file": audio_file,
         "cleanup": True,
         "vad_filter": True,
+        "initial_prompt": initial_prompt,
     }
 
 
@@ -24,11 +25,13 @@ def process_response(response: WhisperResult) -> Transcript:
     return transcript.validate()
 
 
-def transcribe_call(model, model_lock: Lock, audio_file: str) -> Transcript:
+def transcribe_call(
+    model, model_lock: Lock, audio_file: str, prompt: str = ""
+) -> Transcript:
     response = transcribe(
         model=model,
         model_lock=model_lock,
-        **build_transcribe_kwargs(audio_file),
+        **build_transcribe_kwargs(audio_file, prompt),
     )
 
     return process_response(response)

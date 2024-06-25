@@ -13,19 +13,21 @@ def get_closest_src(srcList: list[SrcListItem], segment: WhisperSegment):
     return closest_src
 
 
-def build_transcribe_kwargs(audio_file: str, metadata: Metadata) -> dict:
-    prev_transcript = ""
+def build_transcribe_kwargs(
+    audio_file: str, metadata: Metadata, initial_prompt: str = ""
+) -> dict:
+    initial_prompt = ""
 
     for src in metadata["srcList"]:
         if (
             len(src.get("transcript_prompt", ""))
-            and src["transcript_prompt"] not in prev_transcript
+            and src["transcript_prompt"] not in initial_prompt
         ):
-            prev_transcript += " " + src["transcript_prompt"]
+            initial_prompt += " " + src["transcript_prompt"]
 
     return {
         "audio_file": audio_file,
-        "initial_prompt": prev_transcript,
+        "initial_prompt": initial_prompt,
         "cleanup": True,
         "vad_filter": False,
     }
@@ -44,12 +46,12 @@ def process_response(response: WhisperResult, metadata: Metadata) -> Transcript:
 
 
 def transcribe_call(
-    model, model_lock: Lock, audio_file: str, metadata: Metadata
+    model, model_lock: Lock, audio_file: str, metadata: Metadata, prompt: str = ""
 ) -> Transcript:
     response = transcribe(
         model=model,
         model_lock=model_lock,
-        **build_transcribe_kwargs(audio_file, metadata),
+        **build_transcribe_kwargs(audio_file, metadata, prompt),
     )
 
     return process_response(response, metadata)

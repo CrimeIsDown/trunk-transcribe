@@ -112,7 +112,7 @@ class TestGeocoding(unittest.TestCase):
                     ]
                 ),
                 None,
-                "pelias"
+                "pelias",
             ),
             (
                 Metadata(
@@ -139,8 +139,8 @@ class TestGeocoding(unittest.TestCase):
                     ]
                 ),
                 None,
-                "pelias"
-            )
+                "pelias",
+            ),
         ]
 
         for metadata, transcript, address, geocoder in transmissions:
@@ -149,7 +149,10 @@ class TestGeocoding(unittest.TestCase):
             if address:
                 self.assertIsNotNone(result, f"Expected to get {address} but got None")
             else:
-                self.assertIsNone(result, f"Expected to get None but got {result['geo_formatted_address'] if result else ''}")
+                self.assertIsNone(
+                    result,
+                    f"Expected to get None but got {result['geo_formatted_address'] if result else ''}",
+                )
 
             if result:
                 self.assertEqual(

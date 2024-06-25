@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-from datetime import datetime
 import json
 import logging
 import os
@@ -9,7 +8,6 @@ import sys
 import tempfile
 from typing import Annotated
 
-from fastapi.encoders import jsonable_encoder
 from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
 import sentry_sdk
@@ -18,7 +16,6 @@ from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Form, HTTPException, Request, Response, UploadFile
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
-from starlette.status import HTTP_422_UNPROCESSABLE_ENTITY
 
 load_dotenv()
 
@@ -28,10 +25,12 @@ from .metadata import Metadata
 from .transcript import Transcript
 from .worker import celery as celery_app
 from .worker import (
+    transcribe,
     transcribe_task,
     transcribe_from_db_task,
     transcribe_from_db_batch_task,
 )
+from .whisper import WhisperTask
 
 sentry_dsn = os.getenv("SENTRY_DSN")
 if sentry_dsn:
@@ -55,13 +54,15 @@ if os.getenv("POSTGRES_DB") is not None:
 app = FastAPI()
 
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logger.setLevel(os.getenv("UVICORN_LOG_LEVEL", "INFO").upper())
 stream_handler = logging.StreamHandler(sys.stdout)
 log_formatter = logging.Formatter(
     "%(asctime)s [%(processName)s: %(process)d] [%(threadName)s: %(thread)d] [%(levelname)s] %(name)s: %(message)s"
 )
 stream_handler.setFormatter(log_formatter)
 logger.addHandler(stream_handler)
+
+task = WhisperTask()
 
 
 # Dependency
@@ -360,6 +361,51 @@ def update_call(call_id: int, call: schemas.CallUpdate, db: Session = Depends(ge
     search.make_next_index()
 
     return db_call
+
+
+@app.post("/transcribe")
+def transcribe_audio(
+    call_audio: UploadFile,
+    call_json: UploadFile,
+    prompt: Annotated[str | None, Form()] = None,
+    whisper_implementation: str | None = None,
+):
+    metadata = json.loads(call_json.file.read())
+
+    if metadata["call_length"] < float(os.getenv("MIN_CALL_LENGTH", "2")):
+        raise HTTPException(status_code=400, detail="Call too short to transcribe")
+
+    raw_audio = tempfile.NamedTemporaryFile(
+        delete=False, suffix=f"_{call_audio.filename}"
+    )
+    while True:
+        data = call_audio.file.read(1024 * 1024)
+        if not data:
+            raw_audio.close()
+            break
+        raw_audio.write(data)
+
+    audio_file = raw_audio.name
+
+    try:
+        transcript = transcribe(
+            task.model(whisper_implementation),
+            task.model_lock,
+            metadata,
+            audio_file,
+            prompt=prompt if prompt else "",
+        )
+    finally:
+        try:
+            os.unlink(audio_file)
+        except OSError:
+            pass
+
+    if transcript:
+        return JSONResponse(
+            {"raw_transcript": transcript.transcript, "transcript": transcript.txt}
+        )
+    raise HTTPException(status_code=500, detail="Transcription failed, no transcript")
 
 
 @app.get("/config/{filename}")

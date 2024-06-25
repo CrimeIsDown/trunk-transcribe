@@ -71,6 +71,7 @@ class WhisperTask(Task):
 
     def initialize_model(self, implementation: str) -> BaseWhisper:
         with self.model_lock:
+            logging.info(f"Initializing whisper model {implementation}")
             implementation, model = implementation.split(":", 1)
             if implementation == "whisper.cpp":
                 return WhisperCpp(
@@ -502,6 +503,10 @@ def transcribe(
     whisper_kwargs = get_whisper_config(get_ttl_hash(cache_seconds=60))
     # TODO: Remove the lock if we are using Whisper.cpp
     with model_lock:
+        logging.debug(
+            f'Transcribing {audio_file} with language="en", initial_prompt="{initial_prompt}", vad_filter={vad_filter}, whisper_kwargs={whisper_kwargs}'
+        )
+
         # measure transcription time
         start_time = time.time()
 
