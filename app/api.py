@@ -281,7 +281,7 @@ def read_call(call_id: int, db: Session = Depends(get_db)):
 @app.post("/calls")
 def create_call(
     call_json: UploadFile,
-    call_audio_url: Annotated[str, Form()],
+    call_audio_url: Annotated[str, Form()] | None = None,
     call_audio: UploadFile | None = None,
     db: Session = Depends(get_db),
     whisper_implementation: str | None = None,

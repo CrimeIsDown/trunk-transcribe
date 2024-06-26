@@ -35,6 +35,7 @@ class TestAnalog(unittest.TestCase):
             audio_file=self.audio_file,
             cleanup=True,
             vad_filter=True,
+            initial_prompt="",
         )
 
         self.assertEqual(expected_transcript.json, result.json)
