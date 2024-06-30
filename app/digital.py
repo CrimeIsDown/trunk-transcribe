@@ -1,3 +1,4 @@
+import os
 from threading import Lock
 
 from .metadata import Metadata, SrcListItem
@@ -29,7 +30,7 @@ def build_transcribe_kwargs(
         "audio_file": audio_file,
         "initial_prompt": initial_prompt,
         "cleanup": True,
-        "vad_filter": False,
+        "vad_filter": os.getenv("VAD_FILTER_DIGITAL", "").lower() == "true",
     }
 
 

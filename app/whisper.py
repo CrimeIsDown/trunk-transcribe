@@ -259,9 +259,6 @@ class FasterWhisper(BaseWhisper):
             compute_type=compute_type,
         )
 
-        if os.getenv("FASTER_WHISPER_VAD_FILTER"):
-            self.vad_filter = True
-
     def transcribe(
         self,
         audio: str,

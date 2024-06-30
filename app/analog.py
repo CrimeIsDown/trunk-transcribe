@@ -1,3 +1,4 @@
+import os
 from threading import Lock
 
 from .transcript import Transcript
@@ -8,7 +9,7 @@ def build_transcribe_kwargs(audio_file: str, initial_prompt: str = "") -> dict:
     return {
         "audio_file": audio_file,
         "cleanup": True,
-        "vad_filter": True,
+        "vad_filter": os.getenv("VAD_FILTER_ANALOG", "").lower() == "true",
         "initial_prompt": initial_prompt,
     }
 

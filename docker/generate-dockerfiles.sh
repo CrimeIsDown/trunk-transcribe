@@ -80,7 +80,7 @@ ENV TQDM_DISABLE=1"
 
 envsubst '$WHISPER_INSTALL_INSTRUCTIONS' < Dockerfile >> Dockerfile.whispers2t
 
-sed -i 's#FROM ubuntu:22.04#FROM nvidia/cuda:12.1.1-runtime-ubuntu22.04#g' Dockerfile.whispers2t
+sed -i 's#FROM ubuntu:22.04#FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04#g' Dockerfile.whispers2t
 
 sed -i 's#CMD \["api"\]#CMD ["worker"]#g' Dockerfile.whispers2t
 
