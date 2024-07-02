@@ -23,13 +23,12 @@ if [[ "$(jq -r '.call_length' $json)" -lt "${MIN_CALL_LENGTH:-2}" ]]; then
   exit
 fi
 
-if \
-  true
-  # Optionally, you can add filters:
+# Optionally, you can add filters:
+# if \
   # [[ "$SYSTEM" == "chi_cfd" ]] || \
   # ([[ "$SYSTEM" == "chi_cpd" ]] && [[ "$TALKGROUP" -lt "16" ]]) || \
   # [[ "$TALKGROUP" == "9051" ]] \
-; then
+# ; then
   # Define these environment variables or replace them with your values
   API_BASE_URL="${API_BASE_URL}"
   API_KEY="${API_KEY}"
@@ -42,4 +41,4 @@ if \
       --form call_json=@$json &>/dev/null &
   disown
   # We run the curl command as a background process and disown it to not hang up trunk-recorder.
-fi
+# fi
