@@ -23,7 +23,7 @@ load_dotenv()
 
 from . import api_client, analog, digital, whisper
 from .conversion import convert_to_wav
-from .exceptions import WhisperException
+from .exceptions import before_send, WhisperException
 from .geocoding import lookup_geo
 from .metadata import Metadata
 from .notification import send_notifications
@@ -47,6 +47,7 @@ if sentry_dsn:
                 os.getenv("SENTRY_PROFILE_SAMPLE_RATE", "0.1")
             ),
         },
+        before_send=before_send,
     )
 
 broker_url = os.getenv("CELERY_BROKER_URL")

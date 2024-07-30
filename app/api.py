@@ -21,6 +21,7 @@ load_dotenv()
 
 from . import crud, geocoding, models, schemas, storage, search, notification
 from .database import SessionLocal, engine
+from .exceptions import before_send
 from .metadata import Metadata
 from .transcript import Transcript
 from .worker import celery as celery_app
@@ -46,6 +47,7 @@ if sentry_dsn:
                 os.getenv("SENTRY_PROFILE_SAMPLE_RATE", "0.1")
             ),
         },
+        before_send=before_send,
     )
 
 if os.getenv("POSTGRES_DB") is not None:
