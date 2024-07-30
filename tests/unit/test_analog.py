@@ -34,7 +34,7 @@ class TestAnalog(unittest.TestCase):
             model_lock=self.model_lock,
             audio_file=self.audio_file,
             cleanup=True,
-            vad_filter=True,
+            vad_filter=False,
             initial_prompt="",
         )
 
