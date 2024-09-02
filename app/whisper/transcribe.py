@@ -8,8 +8,9 @@ from typing import Optional
 import sentry_sdk
 
 from .base import WhisperResult, BaseWhisper
-from ..exceptions import WhisperException
-from ..config import get_transcript_cleanup_config, get_ttl_hash, get_whisper_config
+from .exceptions import WhisperException
+from .config import get_transcript_cleanup_config, get_whisper_config
+from ..utils.cache import get_ttl_hash
 
 
 def transcribe(

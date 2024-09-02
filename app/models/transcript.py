@@ -1,7 +1,7 @@
 import json
 from typing import Tuple, TypeAlias, Union
 
-from .exceptions import WhisperException
+from ..whisper.exceptions import WhisperException
 from .metadata import SrcListItem
 
 RawTranscript: TypeAlias = list[Tuple[Union[None, SrcListItem], str]]

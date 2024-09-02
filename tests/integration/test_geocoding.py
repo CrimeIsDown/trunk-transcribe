@@ -7,9 +7,9 @@ import requests
 from dotenv import load_dotenv
 from geopy.point import Point
 
-from app import geocoding
-from app.metadata import Metadata
-from app.transcript import Transcript
+from app.geocoding import geocoding
+from app.models.metadata import Metadata
+from app.models.transcript import Transcript
 
 load_dotenv()
 

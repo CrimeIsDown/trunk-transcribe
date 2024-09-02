@@ -1,7 +1,7 @@
 import unittest
 import json
-from app.exceptions import WhisperException
-from app.transcript import Transcript, RawTranscript, SrcListItem
+from app.whisper.exceptions import WhisperException
+from app.models.transcript import Transcript, RawTranscript, SrcListItem
 
 
 class TestTranscript(unittest.TestCase):

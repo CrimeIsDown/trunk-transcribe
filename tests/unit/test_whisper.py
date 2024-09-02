@@ -1,8 +1,8 @@
 import unittest
 import csv
 import json
-from app.exceptions import WhisperException
-from app.transcript import RawTranscript
+from app.whisper.exceptions import WhisperException
+from app.models.transcript import RawTranscript
 from app.whisper.transcribe import WhisperResult, cleanup_transcript
 
 

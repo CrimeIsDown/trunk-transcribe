@@ -2,8 +2,8 @@ import unittest
 from unittest.mock import Mock, patch
 from threading import Lock
 
-from app.analog import transcribe_call
-from app.transcript import Transcript
+from app.radio.analog import transcribe_call
+from app.models.transcript import Transcript
 
 
 class TestAnalog(unittest.TestCase):

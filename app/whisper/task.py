@@ -4,7 +4,7 @@ from threading import Lock
 
 from celery_batches import Batches
 
-from ..exceptions import WhisperException
+from .exceptions import WhisperException
 from ..task import Task
 from .base import BaseWhisper
 

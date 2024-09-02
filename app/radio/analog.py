@@ -1,9 +1,9 @@
 import os
 from threading import Lock
 
-from .transcript import Transcript
-from .whisper.base import WhisperResult
-from .whisper.transcribe import transcribe
+from ..models.transcript import Transcript
+from ..whisper.base import WhisperResult
+from ..whisper.transcribe import transcribe
 
 
 def build_transcribe_kwargs(audio_file: str, initial_prompt: str = "") -> dict:

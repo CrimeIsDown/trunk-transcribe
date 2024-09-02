@@ -1,37 +1,41 @@
 #!/usr/bin/env python3
 
+from typing import Annotated
 import json
 import logging
 import os
 import subprocess
 import sys
 import tempfile
-from typing import Annotated
 
-from fastapi.exception_handlers import request_validation_exception_handler
-from fastapi.exceptions import RequestValidationError
-import sentry_sdk
 from celery.result import AsyncResult
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Form, HTTPException, Request, Response, UploadFile
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
+import sentry_sdk
 
 load_dotenv()
 
-from . import crud, geocoding, models, schemas, storage, search, notification
-from .database import SessionLocal, engine
-from .exceptions import before_send
-from .metadata import Metadata
-from .transcript import Transcript
-from .worker import celery as celery_app
-from .worker import (
-    transcribe,
-    transcribe_task,
-    transcribe_from_db_task,
-    transcribe_from_db_batch_task,
-)
+from .utils.exceptions import before_send
+from .geocoding import geocoding
+from .models.database import SessionLocal, engine
+from .models.metadata import Metadata
+from .models.transcript import Transcript
+from .notifications import notification
+from .search import search
+from .utils import storage
 from .whisper.task import WhisperTask
+from .worker import (
+    transcribe_from_db_batch_task,
+    transcribe_from_db_task,
+    transcribe_task,
+    transcribe,
+)
+from .worker import celery as celery_app
+import models.call, models.base
 
 sentry_dsn = os.getenv("SENTRY_DSN")
 if sentry_dsn:
@@ -51,7 +55,7 @@ if sentry_dsn:
     )
 
 if os.getenv("POSTGRES_DB") is not None:
-    models.Base.metadata.create_all(bind=engine)
+    models.base.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
@@ -196,9 +200,11 @@ def create_call_from_sdrtrunk(
     finally:
         os.unlink(raw_audio.name)
 
-    call = schemas.CallCreate(raw_metadata=dict(metadata), raw_audio_url=audio_url)
+    call = models.call.CallCreateSchema(
+        raw_metadata=dict(metadata), raw_audio_url=audio_url
+    )
 
-    db_call = crud.create_call(db=db, call=call)
+    db_call = models.call.create_call(db=db, call=call)
 
     if os.getenv("WHISPER_IMPLEMENTATION") == "whispers2t":
         transcribe_from_db_batch_task.apply_async(
@@ -266,15 +272,15 @@ def get_status(task_id):
     return JSONResponse(result)
 
 
-@app.get("/calls/", response_model=list[schemas.Call])
+@app.get("/calls/", response_model=list[models.call.CallSchema])
 def read_calls(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    calls = crud.get_calls(db, skip=skip, limit=limit)
+    calls = models.call.get_calls(db, skip=skip, limit=limit)
     return calls
 
 
-@app.get("/calls/{call_id}", response_model=schemas.Call)
+@app.get("/calls/{call_id}", response_model=models.call.CallSchema)
 def read_call(call_id: int, db: Session = Depends(get_db)):
-    db_call = crud.get_call(db, call_id=call_id)
+    db_call = models.call.get_call(db, call_id=call_id)
     if db_call is None:
         raise HTTPException(status_code=404, detail="Call not found")
     return db_call
@@ -314,9 +320,9 @@ def create_call(
     else:
         raise HTTPException(status_code=400, detail="No audio provided")
 
-    call = schemas.CallCreate(raw_metadata=metadata, raw_audio_url=audio_url)
+    call = models.call.CallCreateSchema(raw_metadata=metadata, raw_audio_url=audio_url)
 
-    db_call = crud.create_call(db=db, call=call)
+    db_call = models.call.create_call(db=db, call=call)
 
     if batch:
         if os.getenv("WHISPER_IMPLEMENTATION") != "whispers2t":
@@ -336,9 +342,11 @@ def create_call(
     return JSONResponse({"task_id": task.id}, status_code=201)
 
 
-@app.patch("/calls/{call_id}", response_model=schemas.Call)
-def update_call(call_id: int, call: schemas.CallUpdate, db: Session = Depends(get_db)):
-    db_call = crud.get_call(db, call_id=call_id)
+@app.patch("/calls/{call_id}", response_model=models.call.CallSchema)
+def update_call(
+    call_id: int, call: models.call.CallUpdateSchema, db: Session = Depends(get_db)
+):
+    db_call = models.call.get_call(db, call_id=call_id)
     if db_call is None:
         raise HTTPException(status_code=404, detail="Call not found")
 
@@ -346,7 +354,7 @@ def update_call(call_id: int, call: schemas.CallUpdate, db: Session = Depends(ge
     transcript = Transcript(call.raw_transcript)  # type: ignore
     call.geo = geocoding.lookup_geo(metadata, transcript)
 
-    db_call = crud.update_call(db=db, call=call, db_call=db_call)
+    db_call = models.call.update_call(db=db, call=call, db_call=db_call)
 
     search_url = search.index_call(
         db_call.id,  # type: ignore

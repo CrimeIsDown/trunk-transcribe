@@ -2,7 +2,6 @@ import datetime
 import json
 import logging
 import os
-from hashlib import sha256
 from itertools import chain, starmap
 from time import sleep
 from urllib.parse import urlencode
@@ -11,9 +10,9 @@ from meilisearch import Client
 from meilisearch.errors import MeilisearchApiError, MeilisearchError
 from meilisearch.index import Index
 
-from .metadata import Metadata, SearchableMetadata
-from .transcript import Transcript
-from .geocoding import GeoResponse
+from ..models.metadata import Metadata, SearchableMetadata
+from ..models.transcript import Transcript
+from ..geocoding.geocoding import GeoResponse
 
 
 client = None

@@ -16,8 +16,8 @@ from geopy.exc import GeocoderQueryError
 from geopy.geocoders import get_geocoder_for_service
 
 from .exceptions import GeocodingException
-from .metadata import Metadata
-from .transcript import Transcript
+from ..models.metadata import Metadata
+from ..models.transcript import Transcript
 from . import llm
 
 

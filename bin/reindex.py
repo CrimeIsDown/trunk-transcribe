@@ -26,10 +26,11 @@ from meilisearch.models.task import TaskInfo
 # Load the .env file of our choice if specified before the regular .env can load
 load_dotenv(os.getenv("ENV"))
 
-from app import search, storage
-from app.geocoding import GeoResponse, lookup_geo
-from app.metadata import Metadata
-from app.transcript import Transcript
+from app.search import search
+from app.utils import storage
+from app.geocoding.geocoding import GeoResponse, lookup_geo
+from app.models.metadata import Metadata
+from app.models.transcript import Transcript
 from app.worker import transcribe_task
 
 

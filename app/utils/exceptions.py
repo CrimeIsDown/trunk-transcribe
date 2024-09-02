@@ -5,14 +5,6 @@ class BaseException(Exception):
     ...
 
 
-class WhisperException(BaseException):
-    ...
-
-
-class GeocodingException(BaseException):
-    ...
-
-
 def before_send(event, hint):
     if "exc_info" in hint:
         exc_type, exc_value, tb = hint["exc_info"]

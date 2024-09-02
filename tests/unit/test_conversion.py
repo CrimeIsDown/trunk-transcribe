@@ -3,8 +3,8 @@ import unittest
 from subprocess import CompletedProcess
 from unittest.mock import patch
 
-from app.conversion import _convert_file
-from app.metadata import Metadata
+from app.utils.conversion import _convert_file
+from app.models.metadata import Metadata
 
 
 class TestConversion(unittest.TestCase):

@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 # Load the .env file of our choice if specified before the regular .env can load
 load_dotenv(os.getenv("ENV"))
 
-from app import api_client
+from app.utils import api_client
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36 Edg/112.0.1722.64"
 TAGS = {

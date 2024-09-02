@@ -5,7 +5,7 @@ import os
 import google.generativeai as genai
 import google.ai.generativelanguage as generativelanguage
 
-from app.metadata import Metadata
+from ..models.metadata import Metadata
 
 
 def create_model() -> genai.GenerativeModel | None:

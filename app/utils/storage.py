@@ -8,7 +8,7 @@ import pytz
 from botocore.config import Config
 
 from .conversion import convert_to_mp3
-from .metadata import Metadata
+from ..models.metadata import Metadata
 
 
 @lru_cache()

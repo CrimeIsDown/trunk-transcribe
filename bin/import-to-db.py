@@ -19,7 +19,8 @@ from meilisearch.models.document import Document as MeiliDocument
 # Load the .env file of our choice if specified before the regular .env can load
 load_dotenv(os.getenv("ENV"))
 
-from app import database, search
+from app.search import search
+from app.models import database
 
 
 def get_documents(

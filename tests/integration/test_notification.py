@@ -6,7 +6,7 @@ from time import sleep
 import requests
 from dotenv import load_dotenv
 
-from app import notification
+from app.notifications import notification
 
 load_dotenv()
 

@@ -1,7 +1,6 @@
 import json
 import os
 import platform
-from tempfile import NamedTemporaryFile
 import pytz
 import time
 import unittest
@@ -9,14 +8,14 @@ import unittest
 from datetime import datetime
 from unittest.mock import patch, Mock, ANY
 
-from app.config import AlertConfig
-from app.notification import add_channels
-from app.notification import build_suffix
-from app.notification import check_transcript_for_alert_keywords
-from app.notification import get_matching_config
-from app.notification import notify, NotifyFormat
-from app.notification import send_notifications, Metadata
-from app.notification import truncate_transcript
+from app.notifications.config import AlertConfig
+from app.notifications.notification import add_channels
+from app.notifications.notification import build_suffix
+from app.notifications.notification import check_transcript_for_alert_keywords
+from app.notifications.notification import get_matching_config
+from app.notifications.notification import notify, NotifyFormat
+from app.notifications.notification import send_notifications, Metadata
+from app.notifications.notification import truncate_transcript
 
 
 class TestTruncateTranscript(unittest.TestCase):

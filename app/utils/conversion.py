@@ -2,13 +2,46 @@ import subprocess
 import tempfile
 from datetime import datetime
 from functools import lru_cache
-from os.path import dirname
 
 import pytz
 from cachetools import cached
 from cachetools.keys import hashkey
 
-from .metadata import Metadata
+from ..models.metadata import Metadata
+
+
+def _build_metadata_args(metadata: Metadata) -> list[str]:
+    start_time = datetime.fromtimestamp(metadata["start_time"], tz=pytz.UTC)
+    creation_time = start_time.strftime("%Y-%m-%d %H:%M:%S")
+    date = start_time.strftime("%Y-%m-%d")
+    year = start_time.strftime("%Y")
+    artist = ""
+    if len(metadata["srcList"]):
+        artist = ", ".join(
+            list(
+                dict.fromkeys(
+                    [src["tag"] for src in metadata["srcList"] if len(src["tag"])]
+                )
+            )
+        )
+    if not len(artist):
+        artist = metadata["talkgroup_description"]
+    return [
+        "-metadata",
+        "composer=trunk-recorder",
+        "-metadata",
+        f"creation_time={creation_time}",
+        "-metadata",
+        f"date={date}",
+        "-metadata",
+        f"year={year}",
+        "-metadata",
+        f'title={metadata["talkgroup_tag"]}',
+        "-metadata",
+        f"artist={artist}",
+        "-metadata",
+        f'album={metadata["talkgroup_group"]}',
+    ]
 
 
 def _convert_file(
@@ -17,39 +50,7 @@ def _convert_file(
     ffmpeg_args: list[str],
     metadata: Metadata | None = None,
 ) -> str:
-    metadata_args = []
-    if metadata:
-        start_time = datetime.fromtimestamp(metadata["start_time"], tz=pytz.UTC)
-        creation_time = start_time.strftime("%Y-%m-%d %H:%M:%S")
-        date = start_time.strftime("%Y-%m-%d")
-        year = start_time.strftime("%Y")
-        artist = ""
-        if len(metadata["srcList"]):
-            artist = ", ".join(
-                list(
-                    dict.fromkeys(
-                        [src["tag"] for src in metadata["srcList"] if len(src["tag"])]
-                    )
-                )
-            )
-        if not len(artist):
-            artist = metadata["talkgroup_description"]
-        metadata_args = [
-            "-metadata",
-            "composer=trunk-recorder",
-            "-metadata",
-            f"creation_time={creation_time}",
-            "-metadata",
-            f"date={date}",
-            "-metadata",
-            f"year={year}",
-            "-metadata",
-            f'title={metadata["talkgroup_tag"]}',
-            "-metadata",
-            f"artist={artist}",
-            "-metadata",
-            f'album={metadata["talkgroup_group"]}',
-        ]
+    metadata_args = _build_metadata_args(metadata) if metadata else []
 
     file = tempfile.NamedTemporaryFile(delete=False, suffix=f".{format}")
     file.close()
