@@ -31,7 +31,7 @@ from .worker import (
     transcribe_from_db_task,
     transcribe_from_db_batch_task,
 )
-from .whisper import WhisperTask
+from .whisper.task import WhisperTask
 
 sentry_dsn = os.getenv("SENTRY_DSN")
 if sentry_dsn:

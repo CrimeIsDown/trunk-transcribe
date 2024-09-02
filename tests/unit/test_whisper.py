@@ -3,7 +3,7 @@ import csv
 import json
 from app.exceptions import WhisperException
 from app.transcript import RawTranscript
-from app.whisper import WhisperResult, cleanup_transcript
+from app.whisper.transcribe import WhisperResult, cleanup_transcript
 
 
 class TestTranscript(unittest.TestCase):
