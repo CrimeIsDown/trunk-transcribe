@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from app import whisper
+from app.whisper.task import WhisperTask
 
 parser = argparse.ArgumentParser(description="Audio Transcription CLI")
 parser.add_argument("audio_file", help="Path to the audio file")
@@ -25,7 +25,7 @@ parser.add_argument("--prompt", help="Prompt to pass to Whisper")
 def main():
     args = parser.parse_args()
 
-    model = whisper.WhisperTask().model(f"{args.implementation}:{args.model}")
+    model = WhisperTask().model(f"{args.implementation}:{args.model}")
 
     result = model.transcribe(args.audio_file, initial_prompt=args.prompt)
 

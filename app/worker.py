@@ -21,7 +21,7 @@ from sentry_sdk.integrations.celery import CeleryIntegration
 
 load_dotenv()
 
-from . import api_client, analog, digital, whisper
+from . import api_client, analog, digital
 from .conversion import convert_to_wav
 from .exceptions import before_send, WhisperException
 from .geocoding import lookup_geo
@@ -29,6 +29,7 @@ from .metadata import Metadata
 from .notification import send_notifications
 from .search import index_call, make_next_index
 from .transcript import Transcript
+from .whisper import task
 
 sentry_dsn = os.getenv("SENTRY_DSN")
 if sentry_dsn:
@@ -56,7 +57,7 @@ celery = Celery(
     "worker",
     broker=broker_url,
     backend=result_backend,
-    task_cls="app.whisper:WhisperTask",
+    task_cls="app.whisper.task:WhisperTask",
     task_acks_late=True,
     worker_cancel_long_running_tasks_on_connection_loss=True,
     worker_prefetch_multiplier=os.getenv("CELERY_PREFETCH_MULTIPLIER", 1),
@@ -90,7 +91,7 @@ def task_postrun(**kwargs):
 
 @signals.task_retry.connect
 def task_retry(**kwargs):
-    whisper.handle_exception(kwargs["reason"])
+    transcribe.handle_exception(kwargs["reason"])
     logger.warn(f"Task {kwargs['task']} failed, retrying...")
 
 
@@ -242,7 +243,7 @@ def transcribe_from_db_task(
 
 @celery.task(
     name="transcribe_db_batch",
-    base=whisper.WhisperBatchTask,
+    base=task.WhisperBatchTask,
     flush_every=20,
     flush_interval=20,
 )
@@ -287,7 +288,7 @@ async def transcribe_from_db_batch_task_async(requests: Collection[Request]):
             vad_filter = False
             break
 
-    results = whisper.transcribe_bulk(
+    results = transcribe.transcribe_bulk(
         transcribe_from_db_batch_task.model(),
         transcribe_from_db_batch_task.model_lock,
         audio_files=[kwargs["audio_file"] for _, _, kwargs in calls],

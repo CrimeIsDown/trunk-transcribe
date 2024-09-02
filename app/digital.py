@@ -3,7 +3,8 @@ from threading import Lock
 
 from .metadata import Metadata, SrcListItem
 from .transcript import Transcript
-from .whisper import WhisperResult, WhisperSegment, transcribe
+from .whisper.base import WhisperSegment, WhisperResult
+from .whisper.transcribe import transcribe
 
 
 def get_closest_src(srcList: list[SrcListItem], segment: WhisperSegment):
