@@ -114,6 +114,12 @@
         "is_hallucination": true
     },
     {
+        "match_type": "partial",
+        "pattern": "Subs by www.zeoranger.co.uk",
+        "action": "delete",
+        "is_hallucination": true
+    },
+    {
         "match_type": "full",
         "pattern": "Bye.",
         "action": "delete",
