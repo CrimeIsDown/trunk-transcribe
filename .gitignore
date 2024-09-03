@@ -112,6 +112,7 @@ venv.bak/
 .env.*
 !.env.example
 !.env.testing
+!.env.testing.local
 
 # Spyder project settings
 .spyderproject

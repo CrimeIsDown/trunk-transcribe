@@ -14,9 +14,9 @@ on:
       - 'pyproject.toml'
       - 'poetry.lock'
       - '.github/workflows/docker-publish.yml'
-  pull_request:
-    branches:
-      - main
+  # pull_request:
+  #   branches:
+  #     - main
 
 env:
   REGISTRY: ghcr.io
