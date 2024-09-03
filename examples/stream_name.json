@@ -1,0 +1,13 @@
+{
+  "freq": 0,
+  "emergency": 0,
+  "encrypted": 0,
+  "talkgroup": 1,
+  "talkgroup_tag": "alpha tag",
+  "talkgroup_description": "longer description",
+  "talkgroup_group_tag": "Law Dispatch",
+  "talkgroup_group": "department",
+  "audio_type": "analog",
+  "short_name": "short_name",
+  "source_url": "http://www.example.com/stream.mp3"
+}

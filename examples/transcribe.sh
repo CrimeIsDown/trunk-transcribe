@@ -30,15 +30,24 @@ fi
   # [[ "$TALKGROUP" == "9051" ]] \
 # ; then
   # Define these environment variables or replace them with your values
-  API_BASE_URL="${API_BASE_URL}"
-  API_KEY="${API_KEY}"
+  API_BASE_URL="${API_BASE_URL:-http://127.0.0.1:8000}"
+  API_KEY="${API_KEY:-testing}"
 
-  curl -s --connect-timeout 1 --request POST \
-      --url "$API_BASE_URL/tasks" \
-      --header "Authorization: Bearer $API_KEY" \
-      --header 'Content-Type: multipart/form-data' \
-      --form call_audio=@$wav \
-      --form call_json=@$json &>/dev/null &
-  disown
-  # We run the curl command as a background process and disown it to not hang up trunk-recorder.
+  if [[ "$(ps -o comm= $PPID)" =~ ^(recorder|trunk-recorder)$ ]]; then
+    curl -sS --connect-timeout 1 --request POST \
+        --url "$API_BASE_URL/calls" \
+        --header "Authorization: Bearer $API_KEY" \
+        --header 'Content-Type: multipart/form-data' \
+        --form call_audio=@$wav \
+        --form call_json=@$json &
+    disown
+    # We run the curl command as a background process and disown it to not hang up trunk-recorder.
+  else
+    curl -sS --connect-timeout 1 --request POST \
+        --url "$API_BASE_URL/calls" \
+        --header "Authorization: Bearer $API_KEY" \
+        --header 'Content-Type: multipart/form-data' \
+        --form call_audio=@$wav \
+        --form call_json=@$json
+  fi
 # fi
