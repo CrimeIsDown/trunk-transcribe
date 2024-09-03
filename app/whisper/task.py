@@ -5,12 +5,12 @@ from threading import Lock
 from celery_batches import Batches
 
 from .exceptions import WhisperException
-from ..task import Task
+from app.task import Task
 from .base import BaseWhisper
 
 
 class WhisperTask(Task):
-    _models = {}
+    _models: dict[str, BaseWhisper] = {}
     model_lock = Lock()
 
     def model(self, implementation: str | None = None) -> BaseWhisper:

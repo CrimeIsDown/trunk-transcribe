@@ -1,4 +1,5 @@
 import os
+from typing import Any
 import torch
 from .base import BaseWhisper, WhisperResult
 from faster_whisper import WhisperModel
@@ -12,7 +13,7 @@ class FasterWhisper(BaseWhisper):
         device = torch_device.split(":")[0]
         device_index = torch_device.split(":")[1] if ":" in torch_device else "0"
         device_index = (
-            [int(i) for i in device_index.split(",")]
+            [int(i) for i in device_index.split(",")]  # type: ignore
             if "," in device_index
             else int(device_index)
         )
@@ -34,7 +35,7 @@ class FasterWhisper(BaseWhisper):
         language: str = "en",
         initial_prompt: str | None = None,
         vad_filter: bool = False,
-        **decode_options,
+        **decode_options: dict[Any, Any],
     ) -> WhisperResult:
         segments, _ = self.model.transcribe(
             audio=audio,
@@ -45,9 +46,9 @@ class FasterWhisper(BaseWhisper):
         )
         segments = list(segments)  # The transcription will actually run here.
 
-        result = {"segments": [], "text": None, "language": language}
+        result: WhisperResult = {"segments": [], "text": "", "language": language}
         if len(segments):
-            result["segments"] = [dict(segment._asdict()) for segment in segments]
+            result["segments"] = [dict(segment._asdict()) for segment in segments]  # type: ignore
             result["text"] = "\n".join(
                 [segment["text"] for segment in result["segments"]]
             )

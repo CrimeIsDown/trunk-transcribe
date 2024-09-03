@@ -3,8 +3,8 @@ import os
 from functools import lru_cache
 from typing import Optional, TypedDict
 
-from ..utils import api_client
-from ..geocoding.geocoding import Geo
+from app.utils import api_client
+from app.geocoding.geocoding import Geo
 
 
 class LocationAlertConfig(TypedDict):
@@ -17,6 +17,7 @@ class AlertConfig(TypedDict):
     channels: list[str]
     keywords: Optional[list[str]]
     location: Optional[LocationAlertConfig]
+    append_talkgroup: bool
 
 
 class NotificationConfig(TypedDict):
@@ -27,8 +28,8 @@ class NotificationConfig(TypedDict):
 
 @lru_cache()
 def get_notifications_config(
-    ttl_hash=None,
-) -> dict[str, NotificationConfig]:  # pragma: no cover
+    ttl_hash: Optional[int] = None,
+) -> dict[str, NotificationConfig]:  # type: ignore
     del ttl_hash
 
     path = "config/notifications.json"

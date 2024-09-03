@@ -1,4 +1,4 @@
-from typing_extensions import Literal, TypedDict
+from typing import Literal, TypedDict
 
 
 class FreqListItem(TypedDict):

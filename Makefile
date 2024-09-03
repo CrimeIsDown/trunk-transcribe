@@ -15,8 +15,10 @@ deps:
 	bin/install-whisper.sh
 	poetry install --with dev
 
-fmt:
-	black .
+lint:
+	mypy app
+	ruff check app
+	ruff format app --check
 
 restart:
 	$(DOCKER_COMPOSE) restart api worker
@@ -26,7 +28,7 @@ test: start
 	$(DOCKER_COMPOSE) exec api python3 -m unittest -k tests.integration
 
 coverage:
-	coverage run -m unittest -k tests.unit
+	coverage run -m unittest
 
 retest: restart test
 

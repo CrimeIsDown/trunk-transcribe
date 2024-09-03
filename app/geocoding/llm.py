@@ -5,7 +5,7 @@ import os
 import google.generativeai as genai
 import google.ai.generativelanguage as generativelanguage
 
-from ..models.metadata import Metadata
+from app.models.metadata import Metadata
 
 
 def create_model() -> genai.GenerativeModel | None:
@@ -75,4 +75,5 @@ def extract_address(
             }
     except Exception as e:
         logging.debug(e)
-        return None
+
+    return None

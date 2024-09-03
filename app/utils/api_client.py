@@ -4,7 +4,7 @@ import os
 import requests
 
 
-def call(method: str, path: str, **kwargs):
+def call(method: str, path: str, **kwargs):  # type: ignore
     """Constructs and sends a :class:`Request <Request>`.
 
     :param method: method for the new :class:`Request` object: ``GET``, ``OPTIONS``, ``HEAD``, ``POST``, ``PUT``, ``PATCH``, or ``DELETE``.

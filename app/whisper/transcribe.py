@@ -4,13 +4,12 @@ import os
 import signal
 from threading import Lock
 import time
-from typing import Optional
 import sentry_sdk
 
 from .base import WhisperResult, BaseWhisper
 from .exceptions import WhisperException
 from .config import get_transcript_cleanup_config, get_whisper_config
-from ..utils.cache import get_ttl_hash
+from app.utils.cache import get_ttl_hash
 
 
 def transcribe(
@@ -58,7 +57,7 @@ def transcribe_bulk(
     initial_prompts: list[str] = [],
     cleanup: bool = False,
     vad_filter: bool = False,
-) -> list[Optional[WhisperResult]]:
+) -> list[WhisperResult | None]:
     whisper_kwargs = get_whisper_config(get_ttl_hash(cache_seconds=60))
     # TODO: Remove the lock if we are using Whisper.cpp
     with model_lock:
@@ -84,7 +83,7 @@ def transcribe_bulk(
         logging.debug(f"Transcription execution time: {execution_time} seconds")
 
         if cleanup:
-            cleaned_results = []
+            cleaned_results: list[WhisperResult | None] = []
             for result in results:
                 try:
                     cleaned_results.append(cleanup_transcript(result))
@@ -157,7 +156,7 @@ def cleanup_transcript(result: WhisperResult) -> WhisperResult:
     return result
 
 
-def handle_exception(e: Exception):
+def handle_exception(e: Exception) -> None:
     if "CUDA error:" in str(e) or "CUDA out of memory" in str(e):
         logging.exception(e)
         sentry_sdk.capture_exception(e)

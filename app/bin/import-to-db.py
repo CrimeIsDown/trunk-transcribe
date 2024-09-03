@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
 
-import sys
-from os import path
-
-sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
-
 import argparse
 import json
 import logging
@@ -101,7 +96,7 @@ if __name__ == "__main__":
                         total, docs = get_documents(
                             index, {"offset": offset, "limit": limit}, args.search
                         )
-                    except:
+                    except Exception:
                         continue
                     if args.search and total == 0:
                         break

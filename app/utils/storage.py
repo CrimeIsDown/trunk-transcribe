@@ -8,11 +8,11 @@ import pytz
 from botocore.config import Config
 
 from .conversion import convert_to_mp3
-from ..models.metadata import Metadata
+from app.models.metadata import Metadata
 
 
 @lru_cache()
-def get_storage_client():
+def get_storage_client():  # type: ignore
     return boto3.resource(
         service_name="s3",
         endpoint_url=os.getenv("S3_ENDPOINT"),

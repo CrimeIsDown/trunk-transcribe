@@ -45,15 +45,15 @@ class CallSchema(CallBaseSchema):
         from_attributes = True
 
 
-def get_call(db: Session, call_id: int):
+def get_call(db: Session, call_id: int) -> Call | None:
     return db.query(Call).filter(Call.id == call_id).first()
 
 
-def get_calls(db: Session, skip: int = 0, limit: int = 100):
+def get_calls(db: Session, skip: int = 0, limit: int = 100) -> List[Call]:
     return db.query(Call).offset(skip).limit(limit).all()
 
 
-def create_call(db: Session, call: CallCreateSchema):
+def create_call(db: Session, call: CallCreateSchema) -> Call:
     db_call = Call(raw_metadata=call.raw_metadata, raw_audio_url=call.raw_audio_url)
     db.add(db_call)
     db.commit()
@@ -61,7 +61,7 @@ def create_call(db: Session, call: CallCreateSchema):
     return db_call
 
 
-def update_call(db: Session, call: CallUpdateSchema, db_call: Call):
+def update_call(db: Session, call: CallUpdateSchema, db_call: Call) -> Call:
     db_call.raw_transcript = call.raw_transcript  # type: ignore
     db_call.geo = call.geo  # type: ignore
     db.commit()

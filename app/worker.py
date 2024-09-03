@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from hashlib import sha256
+from threading import Lock
 from typing import Collection, Optional, Tuple
 import asyncio
 import json
@@ -21,17 +22,19 @@ import sentry_sdk
 
 load_dotenv()
 
-from .geocoding.geocoding import lookup_geo
-from .models.metadata import Metadata
-from .models.transcript import Transcript
-from .notifications.notification import send_notifications
-from .radio import analog, digital
-from .search.search import index_call, make_next_index
-from .utils import api_client
-from .utils.conversion import convert_to_wav
-from .utils.exceptions import before_send
-from .whisper import task
-from .whisper.exceptions import WhisperException
+from app.whisper.base import BaseWhisper, TranscriptKwargs, WhisperResult
+from app.whisper.transcribe import handle_exception, transcribe_bulk
+from app.geocoding.geocoding import lookup_geo
+from app.models.metadata import Metadata
+from app.models.transcript import Transcript
+from app.notifications.notification import send_notifications
+from app.radio import analog, digital
+from app.search.search import index_call, make_next_index
+from app.utils import api_client
+from app.utils.conversion import convert_to_wav
+from app.utils.exceptions import before_send
+from app.whisper import task
+from app.whisper.exceptions import WhisperException
 
 sentry_dsn = os.getenv("SENTRY_DSN")
 if sentry_dsn:
@@ -66,13 +69,13 @@ celery = Celery(
     timezone="UTC",
 )
 
-recent_job_results = []
+recent_job_results: list[str] = []
 
 logger = logging.getLogger(__name__)
 
 
 @signals.task_prerun.connect
-def task_prerun(**kwargs):
+def task_prerun(**kwargs):  # type: ignore
     # If we've only had failing tasks on this worker, terminate it
     if len(recent_job_results) == 5 and states.SUCCESS not in recent_job_results:
         logger.fatal(
@@ -85,28 +88,28 @@ def task_prerun(**kwargs):
 
 
 @signals.task_postrun.connect
-def task_postrun(**kwargs):
+def task_postrun(**kwargs):  # type: ignore
     recent_job_results.insert(0, kwargs["state"])
     if len(recent_job_results) > 5:
         recent_job_results.pop()
 
 
 @signals.task_retry.connect
-def task_retry(**kwargs):
-    transcribe.handle_exception(kwargs["reason"])
+def task_retry(**kwargs):  # type: ignore
+    handle_exception(kwargs["reason"])
     logger.warn(f"Task {kwargs['task']} failed, retrying...")
 
 
-@signals.task_unknown.connect
-def task_unknown(**kwargs):
+@signals.task_unknown.connect  # type: ignore
+def task_unknown(**kwargs):  # type: ignore
     logger.exception(kwargs["exc"])
     logger.fatal("Unknown job, exiting...")
     os.kill(os.getpid(), signal.SIGQUIT)
 
 
 def transcribe(
-    model,
-    model_lock,
+    model: BaseWhisper,
+    model_lock: Lock,
     metadata: Metadata,
     audio_file: str,
     prompt: str = "",
@@ -150,8 +153,8 @@ def fetch_audio(audio_url: str) -> str:
 
 
 def transcribe_and_index(
-    model,
-    model_lock,
+    model: BaseWhisper,
+    model_lock: Lock,
     metadata: Metadata,
     audio_file: str,
     raw_audio_url: str,
@@ -191,8 +194,8 @@ def transcribe_task(
 
     try:
         result = transcribe_and_index(
-            transcribe_task.model(whisper_implementation),
-            transcribe_task.model_lock,
+            transcribe_task.model(whisper_implementation),  # type: ignore
+            transcribe_task.model_lock,  # type: ignore
             metadata,
             audio_file,
             audio_url,
@@ -222,8 +225,8 @@ def transcribe_from_db_task(
 
     try:
         transcript = transcribe(
-            transcribe_from_db_task.model(whisper_implementation),
-            transcribe_from_db_task.model_lock,
+            transcribe_from_db_task.model(whisper_implementation),  # type: ignore
+            transcribe_from_db_task.model_lock,  # type: ignore
             metadata,
             audio_file,
         )
@@ -242,6 +245,8 @@ def transcribe_from_db_task(
 
         return transcript.txt
 
+    return None
+
 
 @celery.task(
     name="transcribe_db_batch",
@@ -249,14 +254,16 @@ def transcribe_from_db_task(
     flush_every=20,
     flush_interval=20,
 )
-def transcribe_from_db_batch_task(requests: Collection[Request]):
+def transcribe_from_db_batch_task(requests: Collection[Request]) -> Collection[str]:
     return asyncio.run(transcribe_from_db_batch_task_async(requests))
 
 
-async def transcribe_from_db_batch_task_async(requests: Collection[Request]):
-    def process_task(task: Request) -> Tuple[int, Metadata, dict]:
+async def transcribe_from_db_batch_task_async(
+    requests: Collection[Request],
+) -> Collection[str]:
+    def process_task(task: Request) -> Tuple[int, Metadata, TranscriptKwargs]:
         call = api_client.call("get", f"calls/{task.kwargs['id']}")
-        metadata = call["raw_metadata"]
+        metadata: Metadata = call["raw_metadata"]
         audio_url = call["raw_audio_url"]
 
         audio_file = fetch_audio(audio_url)
@@ -280,7 +287,7 @@ async def transcribe_from_db_batch_task_async(requests: Collection[Request]):
         f"Transcribing call(s) {', '.join([str(task.kwargs['id']) for task in requests])}"
     )
 
-    calls: list[tuple[int, Metadata, dict]] = await asyncio.gather(
+    calls: list[tuple[int, Metadata, TranscriptKwargs]] = await asyncio.gather(
         *(asyncio.to_thread(process_task, task) for task in requests)
     )
 
@@ -290,16 +297,18 @@ async def transcribe_from_db_batch_task_async(requests: Collection[Request]):
             vad_filter = False
             break
 
-    results = transcribe.transcribe_bulk(
-        transcribe_from_db_batch_task.model(),
-        transcribe_from_db_batch_task.model_lock,
+    results = transcribe_bulk(
+        transcribe_from_db_batch_task.model(),  # type: ignore
+        transcribe_from_db_batch_task.model_lock,  # type: ignore
         audio_files=[kwargs["audio_file"] for _, _, kwargs in calls],
         initial_prompts=[kwargs.get("initial_prompt", "") for _, _, kwargs in calls],
         cleanup=calls[0][2]["cleanup"],
         vad_filter=vad_filter,
     )
 
-    def process_result(id, metadata, result) -> Optional[Transcript]:
+    def process_result(
+        id: int, metadata: Metadata, result: Optional[WhisperResult]
+    ) -> Optional[Transcript]:
         if not result:
             return None
 

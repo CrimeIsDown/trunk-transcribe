@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
 
-import sys
-from os import path
-
-sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
-
 import argparse
 from base64 import b64decode
 import csv
@@ -15,7 +10,7 @@ import re
 from functools import lru_cache
 import tempfile
 from time import sleep
-from typing_extensions import Tuple, TypedDict
+from typing import Tuple, TypedDict
 
 from celery.result import AsyncResult
 from dotenv import load_dotenv
@@ -72,7 +67,7 @@ def update_srclist(
 def update_audio_url(metadata: Metadata, raw_audio_url: str) -> str:
     b64_prefix = "data:audio/mpeg;base64,"
     if raw_audio_url.startswith(b64_prefix):
-        with tempfile.NamedTemporaryFile(suffix=f".mp3") as mp3file:
+        with tempfile.NamedTemporaryFile(suffix=".mp3") as mp3file:
             mp3file.write(b64decode(raw_audio_url[len(b64_prefix) :]))
             return storage.upload_raw_audio(metadata, mp3file.name)
     return raw_audio_url
@@ -293,7 +288,7 @@ if __name__ == "__main__":
         )
         if args.search and "q" in args.search and total == 0:
             break
-        elif not args.search or not "q" in args.search:
+        elif not args.search or "q" not in args.search:
             offset += limit
 
         completion = min((offset / total) * 100, 100)

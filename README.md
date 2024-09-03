@@ -84,7 +84,7 @@ The worker can be run on Windows if needed.
 
 The worker can be run on the cloud GPU service [vast.ai](https://vast.ai/). To get started, sign up for a vast.ai account. Next, create a copy of your `.env` called `.env.vast`. Update any settings such that a machine on the public internet could access the API and queue backend (*please ensure all services are protected by strong passwords*). Then, install the [Vast CLI](https://console.vast.ai/cli/) and login.
 
-Run `bin/autoscale-vast.py` to start workers and autoscale them as needed. Run `bin/autoscale-vast.py -h` to see available arguments.
+Run `app/bin/autoscale-vast.py` to start workers and autoscale them as needed. Run `app/bin/autoscale-vast.py -h` to see available arguments.
 
 To keep the autoscaler running, set the following in your `.env`:
 
@@ -177,22 +177,22 @@ File is cached in memory for 60 seconds upon reading from the worker's filesyste
 If a change is made to the search index settings or document data structure, it may be needed to re-index existing calls to migrate them to the new structure. This can be done by running the following:
 
 ```bash
-bin/reindex.py --update-settings
+app/bin/reindex.py --update-settings
 ```
 
 A more complex command, which uses the connection settings from `.env.vast` to update calls in the `calls_demo` index without a `raw_transcript` attribute, and updating radio IDs for those calls from the chi_cfd system.
 
 ```bash
-ENV=.env.vast bin/reindex.py --unit_tags chi_cfd ../trunk-recorder/config/cfd-radio-ids.csv --filter 'not hasattr(document, "raw_transcript")' --index calls_demo
+ENV=.env.vast app/bin/reindex.py --unit_tags chi_cfd ../trunk-recorder/config/cfd-radio-ids.csv --filter 'not hasattr(document, "raw_transcript")' --index calls_demo
 ```
 
 This command can also be used to re-transcribe calls if improvements are made to the transcription accuracy. Beware that this will take a lot of resources, so consider adding a `--filter` argument with some Python code to limit what documents are re-transcribed.
 
 ```bash
-bin/reindex.py --retranscribe
+app/bin/reindex.py --retranscribe
 ```
 
-Get the full list of arguments with `bin/reindex.py -h`.
+Get the full list of arguments with `app/bin/reindex.py -h`.
 
 ## Contributing
 

@@ -1,12 +1,14 @@
 import os
 from threading import Lock
 
-from ..models.transcript import Transcript
-from ..whisper.base import WhisperResult
-from ..whisper.transcribe import transcribe
+from app.models.transcript import Transcript
+from app.whisper.base import BaseWhisper, TranscriptKwargs, WhisperResult
+from app.whisper.transcribe import transcribe
 
 
-def build_transcribe_kwargs(audio_file: str, initial_prompt: str = "") -> dict:
+def build_transcribe_kwargs(
+    audio_file: str, initial_prompt: str = ""
+) -> TranscriptKwargs:
     return {
         "audio_file": audio_file,
         "cleanup": True,
@@ -28,7 +30,7 @@ def process_response(response: WhisperResult) -> Transcript:
 
 
 def transcribe_call(
-    model, model_lock: Lock, audio_file: str, prompt: str = ""
+    model: BaseWhisper, model_lock: Lock, audio_file: str, prompt: str = ""
 ) -> Transcript:
     response = transcribe(
         model=model,

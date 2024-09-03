@@ -7,7 +7,7 @@ services:
       cache_from:
         - ghcr.io/crimeisdown/trunk-transcribe:main
     command:
-      - bin/autoscale-vast.py
+      - app/bin/autoscale-vast.py
       - --min-instances
       - ${AUTOSCALE_MIN_INSTANCES:-1}
       - --max-instances
@@ -19,7 +19,6 @@ services:
     env_file: .env
     volumes:
       - ./app:/src/app
-      - ./bin:/src/bin
       - ./config:/src/config
       - ./.env.vast:/src/.env.vast
       - ~/.vast_api_key:/root/.vast_api_key

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Annotated
+from typing import Annotated, Any
 import json
 import logging
 import os
@@ -19,23 +19,23 @@ import sentry_sdk
 
 load_dotenv()
 
-from .utils.exceptions import before_send
-from .geocoding import geocoding
-from .models.database import SessionLocal, engine
-from .models.metadata import Metadata
-from .models.transcript import Transcript
-from .notifications import notification
-from .search import search
-from .utils import storage
-from .whisper.task import WhisperTask
-from .worker import (
+from app.utils.exceptions import before_send
+from app.geocoding import geocoding
+from app.models.database import SessionLocal, engine
+from app.models.metadata import Metadata
+from app.models.transcript import Transcript
+from app.notifications import notification
+from app.search import search
+from app.utils import storage
+from app.whisper.task import WhisperTask
+from app.worker import (
     transcribe_from_db_batch_task,
     transcribe_from_db_task,
     transcribe_task,
     transcribe,
 )
-from .worker import celery as celery_app
-import models.call, models.base
+from app.worker import celery as celery_app
+from app.models import call as call_model, base as base_model
 
 sentry_dsn = os.getenv("SENTRY_DSN")
 if sentry_dsn:
@@ -55,7 +55,7 @@ if sentry_dsn:
     )
 
 if os.getenv("POSTGRES_DB") is not None:
-    models.base.Base.metadata.create_all(bind=engine)
+    base_model.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
@@ -72,7 +72,7 @@ task = WhisperTask()
 
 
 # Dependency
-def get_db():
+def get_db():  # type: ignore
     db = SessionLocal()
     try:
         yield db
@@ -81,7 +81,7 @@ def get_db():
 
 
 @app.middleware("http")
-async def authenticate(request: Request, call_next):
+async def authenticate(request: Request, call_next) -> Response:  # type: ignore
     api_key = os.getenv("API_KEY", "")
 
     if (
@@ -94,18 +94,20 @@ async def authenticate(request: Request, call_next):
 
 
 @app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request: Request, exc: RequestValidationError):
+async def validation_exception_handler(
+    request: Request, exc: RequestValidationError
+) -> Response:
     if request.url.path == "/api/call-upload":
         try:
             field_name = exc.errors()[0]["loc"][1]
             return Response(f"Incomplete call data: no {field_name}", status_code=417)
-        except:
+        except Exception:
             pass
     return await request_validation_exception_handler(request, exc)
 
 
 @app.get("/healthz")
-def healthz():
+def healthz() -> JSONResponse:
     return JSONResponse({"status": "ok"})
 
 
@@ -122,7 +124,7 @@ def create_call_from_sdrtrunk(
     talkgroupGroup: Annotated[str, Form()],
     audio: UploadFile,
     db: Session = Depends(get_db),
-):
+) -> Response:
     if len(audio.file.read()) <= 44:
         return Response("Incomplete call data: no audio", status_code=417)
     else:
@@ -200,11 +202,11 @@ def create_call_from_sdrtrunk(
     finally:
         os.unlink(raw_audio.name)
 
-    call = models.call.CallCreateSchema(
+    call = call_model.CallCreateSchema(
         raw_metadata=dict(metadata), raw_audio_url=audio_url
     )
 
-    db_call = models.call.create_call(db=db, call=call)
+    db_call = call_model.create_call(db=db, call=call)
 
     if os.getenv("WHISPER_IMPLEMENTATION") == "whispers2t":
         transcribe_from_db_batch_task.apply_async(
@@ -225,7 +227,7 @@ def queue_for_transcription(
     call_audio: UploadFile,
     call_json: UploadFile,
     whisper_implementation: str | None = None,
-):
+) -> JSONResponse:
     metadata = json.loads(call_json.file.read())
 
     if metadata["call_length"] < float(os.getenv("MIN_CALL_LENGTH", "2")):
@@ -258,8 +260,8 @@ def queue_for_transcription(
 
 
 @app.get("/tasks/{task_id}")
-def get_status(task_id):
-    task_result = AsyncResult(task_id, app=celery_app)
+def get_status(task_id: str) -> JSONResponse:
+    task_result = AsyncResult(task_id, app=celery_app)  # type: ignore
     result = {
         "task_id": task_id,
         "task_status": task_result.status,
@@ -272,15 +274,17 @@ def get_status(task_id):
     return JSONResponse(result)
 
 
-@app.get("/calls/", response_model=list[models.call.CallSchema])
-def read_calls(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    calls = models.call.get_calls(db, skip=skip, limit=limit)
+@app.get("/calls/", response_model=list[call_model.CallSchema])
+def read_calls(
+    skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
+) -> list[call_model.Call]:
+    calls = call_model.get_calls(db, skip=skip, limit=limit)
     return calls
 
 
-@app.get("/calls/{call_id}", response_model=models.call.CallSchema)
-def read_call(call_id: int, db: Session = Depends(get_db)):
-    db_call = models.call.get_call(db, call_id=call_id)
+@app.get("/calls/{call_id}", response_model=call_model.CallSchema)
+def read_call(call_id: int, db: Session = Depends(get_db)) -> call_model.Call:
+    db_call = call_model.get_call(db, call_id=call_id)
     if db_call is None:
         raise HTTPException(status_code=404, detail="Call not found")
     return db_call
@@ -294,7 +298,7 @@ def create_call(
     db: Session = Depends(get_db),
     whisper_implementation: str | None = None,
     batch: bool = False,
-):
+) -> JSONResponse:
     metadata = json.loads(call_json.file.read())
 
     if metadata["call_length"] < float(os.getenv("MIN_CALL_LENGTH", "2")):
@@ -320,9 +324,11 @@ def create_call(
     else:
         raise HTTPException(status_code=400, detail="No audio provided")
 
-    call = models.call.CallCreateSchema(raw_metadata=metadata, raw_audio_url=audio_url)
+    call = call_model.CallCreateSchema(raw_metadata=metadata, raw_audio_url=audio_url)
 
-    db_call = models.call.create_call(db=db, call=call)
+    db_call = call_model.create_call(db=db, call=call)
+
+    task: AsyncResult[Any]
 
     if batch:
         if os.getenv("WHISPER_IMPLEMENTATION") != "whispers2t":
@@ -342,11 +348,11 @@ def create_call(
     return JSONResponse({"task_id": task.id}, status_code=201)
 
 
-@app.patch("/calls/{call_id}", response_model=models.call.CallSchema)
+@app.patch("/calls/{call_id}", response_model=call_model.CallSchema)
 def update_call(
-    call_id: int, call: models.call.CallUpdateSchema, db: Session = Depends(get_db)
-):
-    db_call = models.call.get_call(db, call_id=call_id)
+    call_id: int, call: call_model.CallUpdateSchema, db: Session = Depends(get_db)
+) -> call_model.Call:
+    db_call = call_model.get_call(db, call_id=call_id)
     if db_call is None:
         raise HTTPException(status_code=404, detail="Call not found")
 
@@ -354,7 +360,7 @@ def update_call(
     transcript = Transcript(call.raw_transcript)  # type: ignore
     call.geo = geocoding.lookup_geo(metadata, transcript)
 
-    db_call = models.call.update_call(db=db, call=call, db_call=db_call)
+    db_call = call_model.update_call(db=db, call=call, db_call=db_call)
 
     search_url = search.index_call(
         db_call.id,  # type: ignore
@@ -365,7 +371,11 @@ def update_call(
     )
 
     notification.send_notifications(
-        db_call.raw_audio_url, metadata, transcript, db_call.geo, search_url  # type: ignore
+        db_call.raw_audio_url,
+        metadata,
+        transcript,
+        db_call.geo,
+        search_url,  # type: ignore
     )
 
     search.make_next_index()
@@ -379,7 +389,7 @@ def transcribe_audio(
     call_json: UploadFile,
     prompt: Annotated[str | None, Form()] = None,
     whisper_implementation: str | None = None,
-):
+) -> JSONResponse:
     metadata = json.loads(call_json.file.read())
 
     if metadata["call_length"] < float(os.getenv("MIN_CALL_LENGTH", "2")):
@@ -419,7 +429,7 @@ def transcribe_audio(
 
 
 @app.get("/config/{filename}")
-def get_config(filename):
+def get_config(filename: str) -> JSONResponse:
     if filename not in os.listdir("config"):
         raise HTTPException(status_code=404, detail="Config file not found")
 

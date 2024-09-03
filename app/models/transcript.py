@@ -1,7 +1,7 @@
 import json
 from typing import Tuple, TypeAlias, Union
 
-from ..whisper.exceptions import WhisperException
+from app.whisper.exceptions import WhisperException
 from .metadata import SrcListItem
 
 RawTranscript: TypeAlias = list[Tuple[Union[None, SrcListItem], str]]
@@ -17,11 +17,11 @@ class Transcript:
         self.transcript = transcript if transcript else []
 
     @property
-    def json(self):
+    def json(self) -> str:
         return json.dumps(self.transcript)
 
     @property
-    def html(self):
+    def html(self) -> str:
         return "<br>".join(
             [
                 (
@@ -34,7 +34,7 @@ class Transcript:
         )
 
     @property
-    def markdown(self):
+    def markdown(self) -> str:
         """
         Convert to Markdown following https://core.telegram.org/bots/api#markdown-style
         """
@@ -50,7 +50,7 @@ class Transcript:
         )
 
     @property
-    def txt(self):
+    def txt(self) -> str:
         return "\n".join(
             [
                 (
@@ -63,18 +63,18 @@ class Transcript:
         )
 
     @property
-    def txt_nosrc(self):
+    def txt_nosrc(self) -> str:
         return "\n".join([transcript for _, transcript in self.transcript])
 
-    def append(self, transcript: str, src: SrcListItem | None = None):
+    def append(self, transcript: str, src: SrcListItem | None = None) -> "Transcript":
         if len(transcript):
             self.transcript.append((src, transcript))
         return self
 
-    def empty(self):
+    def empty(self) -> bool:
         return not len(self.transcript)
 
-    def validate(self):
+    def validate(self) -> "Transcript":
         if self.empty():
             raise WhisperException("Transcript empty/null")
         if (
@@ -84,7 +84,7 @@ class Transcript:
             raise WhisperException("Transcript too short")
         return self
 
-    def update_src(self, newSrc: SrcListItem):
+    def update_src(self, newSrc: SrcListItem) -> None:
         for i in range(len(self.transcript)):
             src = self.transcript[i][0]
             if src and src["src"] == newSrc["src"]:

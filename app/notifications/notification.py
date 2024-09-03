@@ -11,15 +11,15 @@ import pytz
 from apprise import Apprise, AppriseAttachment, NotifyFormat
 from geopy import distance, point
 
-from ..geocoding import geocoding
+from app.geocoding import geocoding, routing
 from .config import (
     AlertConfig,
     NotificationConfig,
     get_notifications_config,
 )
-from ..models.metadata import Metadata
-from ..models.transcript import Transcript
-from ..utils.cache import get_ttl_hash
+from app.models.metadata import Metadata
+from app.models.transcript import Transcript
+from app.utils.cache import get_ttl_hash
 
 
 # TODO: write tests
@@ -105,7 +105,7 @@ def send_notifications(
     transcript: Transcript,
     geo: geocoding.GeoResponse | None,
     search_url: str,
-):  # pragma: no cover
+) -> None:  # pragma: no cover
     # If delayed over our MAX_CALL_AGE, don't bother sending to Telegram
     max_age = float(os.getenv("MAX_CALL_AGE", 1200))
     if max_age > 0 and time() - metadata["stop_time"] > max_age:
@@ -143,7 +143,7 @@ def notify(
     audio_file: str,
     title: str = "",
     search_url: str = "",
-):  # pragma: no cover
+) -> None:  # pragma: no cover
     # Captions are only 1024 chars max so we must truncate the transcript to fit for Telegram
     if "tgram://" in str(config["channels"]):
         body = truncate_transcript(body)
@@ -218,12 +218,12 @@ def should_send_alert(
             travel_time_max = int(travel_time_max)
             approximate_duration = True
             if os.getenv("TRAVEL_TIME_CALCULATION_METHOD") == "directions":
-                duration = geocoding.calculate_route_duration_via_directions(
+                duration = routing.calculate_route_duration_via_directions(
                     user_location, incident_location
                 )
                 approximate_duration = False
             elif travel_time_max > 60 and travel_time_max <= 60 * 60:
-                duration = geocoding.calculate_route_duration_via_isochrone(
+                duration = routing.calculate_route_duration_via_isochrone(
                     user_location, incident_location, travel_time_max
                 )
             else:

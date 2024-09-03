@@ -1,6 +1,7 @@
 import json
 import os
 import platform
+from apprise import NotifyFormat
 import pytz
 import time
 import unittest
@@ -8,20 +9,15 @@ import unittest
 from datetime import datetime
 from unittest.mock import patch, Mock, ANY
 
+from app.models.metadata import Metadata
 from app.notifications.config import AlertConfig
-from app.notifications.notification import add_channels
-from app.notifications.notification import build_suffix
-from app.notifications.notification import check_transcript_for_alert_keywords
-from app.notifications.notification import get_matching_config
-from app.notifications.notification import notify, NotifyFormat
-from app.notifications.notification import send_notifications, Metadata
-from app.notifications.notification import truncate_transcript
+from app.notifications import notification
 
 
 class TestTruncateTranscript(unittest.TestCase):
     def test_truncate_max_length_transcript(self):
         transcript = "A" * 824
-        result = truncate_transcript(transcript)
+        result = notification.truncate_transcript(transcript)
         self.assertEqual(result, transcript)
 
 
@@ -38,7 +34,7 @@ class TestAddChannels(unittest.TestCase):
         apprise = AppriseStub()
         channels = ["tgram://$TELEGRAM_BOT_TOKEN"]
         os.environ["TELEGRAM_BOT_TOKEN"] = "no-token-defined"
-        result = add_channels(apprise, channels)
+        result = notification.add_channels(apprise, channels)
 
         self.assertEqual(len(result.channels), 1)
         self.assertIn("tgram://no-token-defined", result.channels)
@@ -54,7 +50,7 @@ class TestBuildSuffix(unittest.TestCase):
             "start_time": time.time(),
         }
         search_url = "https://example.com/search?q=TG123"
-        result = build_suffix(metadata, add_talkgroup=True, search_url=search_url)
+        result = notification.build_suffix(metadata, add_talkgroup=True, search_url=search_url)
 
         linux_format = "%-m/%-d/%Y %-I:%M:%S %p %Z"
         windows_format = linux_format.replace("-", "#")
@@ -88,7 +84,7 @@ class TestCheckTranscriptForAlertKeywords(unittest.TestCase):
             "Another line with FIRE.",
         ]
 
-        matched_keywords, matched_lines = check_transcript_for_alert_keywords(
+        matched_keywords, matched_lines = notification.check_transcript_for_alert_keywords(
             transcript, keywords
         )
 
@@ -107,13 +103,13 @@ class TestGetMatchingConfig(unittest.TestCase):
             r"OtherRegex": {"config3": "value3"},
         }
         expected_matching_configs = [{"config1": "value1"}, {"config2": "value2"}]
-        matching_configs = get_matching_config(metadata, config)
+        matching_configs = notification.get_matching_config(metadata, config)
         self.assertListEqual(matching_configs, expected_matching_configs)
 
 
 class TestSendNotifications(unittest.TestCase):
-    @patch("app.notification.get_notifications_config")
-    @patch("app.notification.Transcript")
+    @patch("app.notifications.notification.get_notifications_config")
+    @patch("app.models.transcript.Transcript")
     def test_send_notifications(self, mock_transcript, mock_get_notifications_config):
         audio_file = "audio.wav"
         search_url = "https://example.com/search?q=TG123"
@@ -137,15 +133,15 @@ class TestSendNotifications(unittest.TestCase):
             },
         }
 
-        send_notifications(
+        notification.send_notifications(
             audio_file, metadata, mock_transcript_instance, None, search_url
         )
 
 
 class TestNotify(unittest.TestCase):
-    @patch("app.notification.build_suffix")
-    @patch("app.notification.truncate_transcript")
-    @patch("app.notification.add_channels")
+    @patch("app.notifications.notification.build_suffix")
+    @patch("app.notifications.notification.truncate_transcript")
+    @patch("app.notifications.notification.add_channels")
     def test_notify_channels(
         self,
         mock_add_channels,
@@ -170,7 +166,7 @@ class TestNotify(unittest.TestCase):
         mock_add_channels.return_value = apprise_mock
 
         # Call the function
-        notify(config, metadata, transcript, audio_file)
+        notification.notify(config, metadata, transcript, audio_file)
 
         # Perform assertions
         mock_truncate_transcript.assert_called_once_with(transcript)
@@ -182,9 +178,9 @@ class TestNotify(unittest.TestCase):
             attach=ANY,
         )
 
-    @patch("app.notification.build_suffix")
-    @patch("app.notification.truncate_transcript")
-    @patch("app.notification.add_channels")
+    @patch("app.notifications.notification.build_suffix")
+    @patch("app.notifications.notification.truncate_transcript")
+    @patch("app.notifications.notification.add_channels")
     def test_send_alert(
         self, mock_add_channels, mock_truncate_transcript, mock_build_suffix
     ):
@@ -209,7 +205,7 @@ class TestNotify(unittest.TestCase):
         mock_add_channels.return_value = apprise_mock
 
         # Call the function
-        notify(config, metadata, transcript, mp3_file, "", search_url)
+        notification.notify(config, metadata, transcript, mp3_file, "", search_url)
 
         # Perform assertions
         mock_truncate_transcript.assert_called_once_with(transcript)

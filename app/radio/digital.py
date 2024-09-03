@@ -1,14 +1,19 @@
 import os
 from threading import Lock
 
-from ..models.metadata import Metadata, SrcListItem
-from ..models.transcript import Transcript
-from ..whisper.base import WhisperSegment, WhisperResult
-from ..whisper.transcribe import transcribe
+from app.models.metadata import Metadata, SrcListItem
+from app.models.transcript import Transcript
+from app.whisper.base import (
+    BaseWhisper,
+    TranscriptKwargs,
+    WhisperSegment,
+    WhisperResult,
+)
+from app.whisper.transcribe import transcribe
 
 
-def get_closest_src(srcList: list[SrcListItem], segment: WhisperSegment):
-    def closest_source(src):
+def get_closest_src(srcList: list[SrcListItem], segment: WhisperSegment) -> SrcListItem:
+    def closest_source(src: SrcListItem) -> float:
         return abs(src["pos"] - segment["start"])
 
     closest_src = min(srcList, key=closest_source)
@@ -17,7 +22,7 @@ def get_closest_src(srcList: list[SrcListItem], segment: WhisperSegment):
 
 def build_transcribe_kwargs(
     audio_file: str, metadata: Metadata, initial_prompt: str = ""
-) -> dict:
+) -> TranscriptKwargs:
     initial_prompt = ""
 
     for src in metadata["srcList"]:
@@ -48,7 +53,11 @@ def process_response(response: WhisperResult, metadata: Metadata) -> Transcript:
 
 
 def transcribe_call(
-    model, model_lock: Lock, audio_file: str, metadata: Metadata, prompt: str = ""
+    model: BaseWhisper,
+    model_lock: Lock,
+    audio_file: str,
+    metadata: Metadata,
+    prompt: str = "",
 ) -> Transcript:
     response = transcribe(
         model=model,

@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
 
 import sys
-from os import path
-
-sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
-
 import argparse
 import json
 import logging
@@ -211,11 +207,10 @@ def process_call(
     logging.debug(f"Downloading {url}")
     with requests.get(url, cookies=jar, stream=True, timeout=10) as r:
         r.raise_for_status()
-        with tempfile.NamedTemporaryFile(
-            suffix=f".json"
-        ) as metadata_file, tempfile.NamedTemporaryFile(
-            suffix=f".{extension}"
-        ) as audio_file:
+        with (
+            tempfile.NamedTemporaryFile(suffix=".json") as metadata_file,
+            tempfile.NamedTemporaryFile(suffix=f".{extension}") as audio_file,
+        ):
             metadata_file.write(bytes(json.dumps(metadata), encoding="utf-8"))
             metadata_file.flush()
             metadata_file.seek(0)

@@ -4,15 +4,16 @@ import logging
 import os
 from itertools import chain, starmap
 from time import sleep
+from typing import Any, Generator
 from urllib.parse import urlencode
 
 from meilisearch import Client
 from meilisearch.errors import MeilisearchApiError, MeilisearchError
 from meilisearch.index import Index
 
-from ..models.metadata import Metadata, SearchableMetadata
-from ..models.transcript import Transcript
-from ..geocoding.geocoding import GeoResponse
+from app.models.metadata import Metadata, SearchableMetadata
+from app.models.transcript import Transcript
+from app.geocoding.geocoding import GeoResponse
 
 
 client = None
@@ -53,7 +54,7 @@ def get_default_index_name(
     return index_name
 
 
-def make_next_index():
+def make_next_index() -> None:
     future_index_name = get_default_index_name(
         datetime.datetime.now() + datetime.timedelta(hours=1)
     )
@@ -244,10 +245,12 @@ def create_or_update_index(
     return index
 
 
-def flatten_dict(dictionary):
+def flatten_dict(dictionary: dict[Any, Any]) -> dict[Any, Any]:
     """Flatten a nested dictionary structure"""
 
-    def unpack(parent_key, parent_value):
+    def unpack(
+        parent_key: Any, parent_value: Any
+    ) -> Generator[tuple[Any, Any], None, None]:
         """Unpack one level of nesting in a dictionary"""
         try:
             items = parent_value.items()
@@ -256,7 +259,7 @@ def flatten_dict(dictionary):
             yield (parent_key, parent_value)
         else:
             for key, value in items:
-                if type(value) == list:
+                if type(value) is list:
                     for k, v in enumerate(value):
                         yield (parent_key + "[" + key + "]" + "[" + str(k) + "]", v)
                 else:

@@ -7,7 +7,7 @@ import pytz
 from cachetools import cached
 from cachetools.keys import hashkey
 
-from ..models.metadata import Metadata
+from app.models.metadata import Metadata
 
 
 def _build_metadata_args(metadata: Metadata) -> list[str]:

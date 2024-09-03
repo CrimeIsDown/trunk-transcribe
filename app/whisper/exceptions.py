@@ -1,5 +1,4 @@
-from ..utils.exceptions import BaseException
+from app.utils.exceptions import BaseException
 
 
-class WhisperException(BaseException):
-    ...
+class WhisperException(BaseException): ...
