@@ -1,9 +1,7 @@
-from typing import Any
-
 from celery import Task as CeleryTask
 
 
-class Task(CeleryTask[Any, Any]):
+class Task(CeleryTask):
     autoretry_for = (Exception,)
     max_retries = 5
     retry_backoff = True

@@ -64,8 +64,10 @@ def extract_address(
     if os.getenv("GEOCODING_STATE"):
         prompt.insert(1, f"State: {os.getenv('GEOCODING_STATE')}")
 
+    logging.debug("Prompt: " +  "\n".join(prompt))
     try:
         output = generate_content(model, prompt)
+        logging.debug("Generated content: " + output)
         result = json.loads(output[output.index("{") : output.rindex("}") + 1])
         if result["address"] and result["city"] and result["state"]:
             return {

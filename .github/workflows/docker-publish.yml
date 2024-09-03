@@ -163,7 +163,7 @@ jobs:
         docker compose --ansi never up -d --quiet-pull
         docker compose --ansi never logs -f &
         sleep 30
-        make test
+        ./make.sh test
     - name: Build and push
       uses: docker/build-push-action@v5
       if: github.ref == 'refs/heads/main' || github.event_name == 'release'

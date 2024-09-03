@@ -32,7 +32,7 @@ This is experimental alpha-version software, use at your own risk. Expect breaki
 1. Copy `.env.example` to `.env` and set values
     1. `TELEGRAM_BOT_TOKEN` can be found by making a new bot on Telegram with @BotFather
 1. Copy the `*.example` files in [`config`](./config/) to `.json` files and update them with your own settings. [See below](#configuration-files) for documentation on the specific settings.
-1. Run `make start` to start (by default this will use your local GPU, see below for other options of running the worker)
+1. Run `./make.sh start` to start (by default this will use your local GPU, see below for other options of running the worker)
     1. To use the CPU with Whisper.cpp (a CPU-optimized version of Whisper), comment out the `COMPOSE_FILE` line in your `.env`
 1. On the machine running `trunk-recorder`, in the `trunk-recorder` config, set the following for the systems you want to transcribe:
 
@@ -41,7 +41,7 @@ This is experimental alpha-version software, use at your own risk. Expect breaki
     "callLog": true,
     "uploadScript": "transcribe.sh"
     ```
-    An example upload script that can be used is available at [transcribe.sh](./transcribe.sh). Make sure to put that in the same location as the config.
+    An example upload script that can be used is available at [examples/transcribe.sh](./examples/transcribe.sh). Make sure to put that in the same location as the config.
 
     Additionally, make sure the systems are configured with a `talkgroupsFile`/`channelFile` and `unitTagsFile` so that the metadata sent to trunk-transcribe is complete with talkgroup/channel and unit names. You will be able to search on this metadata.
 
@@ -199,23 +199,24 @@ Get the full list of arguments with `app/bin/reindex.py -h`.
 To get a development environment going (or to just run the project without Docker):
 
 ```bash
-pip3 install poetry
+sudo apt install pipx
+pipx install poetry
 poetry shell
 # In the virtualenv that Poetry makes...
-make deps
+./make.sh deps
 ```
 
 Some helpful `make` commands:
 
 ```bash
 # Format code to adhere to code style
-make fmt
+./make.sh lint
 # Run all tests
-make test
+./make.sh test
 # Restart API and worker
-make restart
+./make.sh restart
 # Do a restart, and then run tests (do this after making a change and needing to run tests again)
-make retest
+./make.sh retest
 ```
 
 PRs are welcome.

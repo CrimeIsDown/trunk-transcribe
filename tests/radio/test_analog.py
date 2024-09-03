@@ -19,7 +19,7 @@ class TestAnalog(unittest.TestCase):
             ],
         }
 
-    @patch("app.analog.transcribe")
+    @patch("app.radio.analog.transcribe")
     def test_transcribe_call(self, mock_transcribe):
         mock_transcribe.return_value = self.response
 
