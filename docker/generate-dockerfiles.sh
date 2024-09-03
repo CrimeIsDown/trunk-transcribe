@@ -24,7 +24,7 @@ RUN install-whisper.sh
 ARG WHISPER_MODEL=base.en
 ENV WHISPER_MODEL=\${WHISPER_MODEL}
 # Pre-download the Whisper model
-RUN python3 -c \"import whisper; import os; whisper.load_model(os.getenv('WHISPER_MODEL'))\"
+RUN poetry run python3 -c \"import whisper; import os; whisper.load_model(os.getenv('WHISPER_MODEL'))\"
 ENV WHISPER_IMPLEMENTATION=whisper"
 
 envsubst '$WHISPER_INSTALL_INSTRUCTIONS' < Dockerfile >> Dockerfile.whisper
@@ -42,7 +42,7 @@ RUN install-whisper.sh
 ARG WHISPER_MODEL=base.en
 ENV WHISPER_MODEL=\${WHISPER_MODEL}
 # Pre-download the Whisper model
-RUN python3 -c \"import os; from faster_whisper.utils import download_model; download_model(os.getenv('WHISPER_MODEL'))\"
+RUN poetry run python3 -c \"import os; from faster_whisper.utils import download_model; download_model(os.getenv('WHISPER_MODEL'))\"
 ENV WHISPER_IMPLEMENTATION=faster-whisper"
 
 envsubst '$WHISPER_INSTALL_INSTRUCTIONS' < Dockerfile >> Dockerfile.fasterwhisper
@@ -74,7 +74,7 @@ RUN install-whisper.sh
 ARG WHISPER_MODEL=base.en
 ENV WHISPER_MODEL=\${WHISPER_MODEL}
 # Pre-download the Whisper model
-RUN python3 -c \"import os; from whisper_s2t.backends.ctranslate2.hf_utils import download_model; download_model(os.getenv('WHISPER_MODEL'))\"
+RUN poetry run python3 -c \"import os; from whisper_s2t.backends.ctranslate2.hf_utils import download_model; download_model(os.getenv('WHISPER_MODEL'))\"
 ENV WHISPER_IMPLEMENTATION=whispers2t
 ENV TQDM_DISABLE=1"
 

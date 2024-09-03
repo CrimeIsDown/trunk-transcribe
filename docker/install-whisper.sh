@@ -18,6 +18,6 @@ else
     EXTRA_INDEX_URL=""
 fi
 
-pip3 install --use-pep517 $EXTRA_INDEX_URL --no-cache-dir torch torchaudio
+poetry run pip3 install --use-pep517 $EXTRA_INDEX_URL --no-cache-dir torch torchaudio
 
-pip3 install --use-pep517 $EXTRA_INDEX_URL --no-cache-dir git+https://github.com/openai/whisper.git@${WHISPER_VERSION:-ba3f3cd54b0e5b8ce1ab3de13e32122d0d5f98ab}
+poetry run pip3 install --use-pep517 $EXTRA_INDEX_URL --no-cache-dir git+https://github.com/openai/whisper.git@${WHISPER_VERSION:-ba3f3cd54b0e5b8ce1ab3de13e32122d0d5f98ab}

@@ -46,16 +46,15 @@ RUN pipx install poetry
 
 ENV PATH="/root/.local/bin:${PATH}"
 
+WORKDIR /src
+COPY pyproject.toml poetry.lock ./
+RUN poetry install --without dev --no-root --no-interaction --no-ansi
+
 # Install Whisper.cpp
 COPY --from=whispercpp /whisper.cpp/main /usr/local/bin/whisper-cpp
 COPY --from=whispercpp /whisper.cpp/models/ggml-*.bin /usr/local/lib/whisper-models/
 ENV WHISPER_IMPLEMENTATION=whisper.cpp
 ENV WHISPERCPP_MODEL_DIR=/usr/local/lib/whisper-models
-
-WORKDIR /src
-COPY pyproject.toml poetry.lock ./
-RUN poetry config virtualenvs.create false && \
-    poetry install --without dev --no-root --no-interaction --no-ansi
 
 COPY app app
 COPY config config

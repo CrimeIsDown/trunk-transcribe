@@ -18,11 +18,11 @@ RUN pipx install poetry
 
 ENV PATH="/root/.local/bin:${PATH}"
 
-# $WHISPER_INSTALL_INSTRUCTIONS
-
 WORKDIR /src
 COPY pyproject.toml poetry.lock ./
 RUN poetry install --without dev --no-root --no-interaction --no-ansi
+
+# $WHISPER_INSTALL_INSTRUCTIONS
 
 COPY app app
 COPY config config

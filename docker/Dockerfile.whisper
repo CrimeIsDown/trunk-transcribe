@@ -23,6 +23,10 @@ RUN pipx install poetry
 
 ENV PATH="/root/.local/bin:${PATH}"
 
+WORKDIR /src
+COPY pyproject.toml poetry.lock ./
+RUN poetry install --without dev --no-root --no-interaction --no-ansi
+
 # Install Whisper
 ARG DESIRED_CUDA
 ARG TARGETPLATFORM
@@ -32,13 +36,8 @@ RUN install-whisper.sh
 ARG WHISPER_MODEL=base.en
 ENV WHISPER_MODEL=${WHISPER_MODEL}
 # Pre-download the Whisper model
-RUN python3 -c "import whisper; import os; whisper.load_model(os.getenv('WHISPER_MODEL'))"
+RUN poetry run python3 -c "import whisper; import os; whisper.load_model(os.getenv('WHISPER_MODEL'))"
 ENV WHISPER_IMPLEMENTATION=whisper
-
-WORKDIR /src
-COPY pyproject.toml poetry.lock ./
-RUN poetry config virtualenvs.create false && \
-    poetry install --without dev --no-root --no-interaction --no-ansi
 
 COPY app app
 COPY config config

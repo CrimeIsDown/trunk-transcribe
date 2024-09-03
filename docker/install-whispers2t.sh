@@ -18,9 +18,9 @@ else
     EXTRA_INDEX_URL=""
 fi
 
-pip3 install --use-pep517 $EXTRA_INDEX_URL --no-cache-dir torch torchaudio
+poetry run pip3 install --use-pep517 $EXTRA_INDEX_URL --no-cache-dir torch torchaudio
 
-pip3 install --use-pep517 --no-cache-dir git+https://github.com/shashikg/WhisperS2T.git@${WHISPER_VERSION:-v1.3.1}
+poetry run pip3 install --use-pep517 --no-cache-dir git+https://github.com/shashikg/WhisperS2T.git@${WHISPER_VERSION:-v1.3.1}
 
 # Modified from https://github.com/shashikg/WhisperS2T/blob/main/install_tensorrt.sh
 
