@@ -10,7 +10,6 @@ on:
       - 'app/**'
       - 'docker/**'
       - 'config/**'
-      - 'tests/integration/**'
       - 'Dockerfile*'
       - 'pyproject.toml'
       - 'poetry.lock'
@@ -135,35 +134,6 @@ jobs:
         registry: ${{ env.REGISTRY }}
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
-    - name: Build and test image
-      # Only test the small.en model, and do not run builds where we expect a GPU
-      if: matrix.model == 'small.en' && matrix.desired_cuda == 'cpu' && matrix.variant == 'whisper' && github.event_name != 'release'
-      run: |
-        set -x
-        cp .env.testing .env
-        sed -i 's/^WHISPER_MODEL=small.en$/WHISPER_MODEL=${{ matrix.model }}/g' .env
-        sed -i 's/^DESIRED_CUDA=cu121$/DESIRED_CUDA=${{ matrix.desired_cuda }}/g' .env
-        sed -i 's/^WORKER_DOCKERFILE=Dockerfile.whisper$/WORKER_DOCKERFILE=${{ matrix.dockerfile }}/g' .env
-        echo "VERSION=${{ github.sha }}" >> .env
-        cat .env
-
-        { set +x; } 2>/dev/null
-        sed -i 's/^# OPENAI_API_KEY=$/OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}/g' .env
-        sed -i 's/^# GOOGLE_GEMINI_API_KEY=$/GOOGLE_GEMINI_API_KEY=${{ secrets.GOOGLE_GEMINI_API_KEY }}/g' .env
-        sed -i 's/^# GOOGLE_MAPS_API_KEY=$/GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }}/g' .env
-        sed -i 's/^# MAPBOX_API_KEY=$/MAPBOX_API_KEY=${{ secrets.MAPBOX_API_KEY }}/g' .env
-        sed -i 's/^# GEOCODIO_API_KEY=$/GEOCODIO_API_KEY=${{ secrets.GEOCODIO_API_KEY }}/g' .env
-        sed -i 's/^# ARCGIS_USERNAME=$/ARCGIS_USERNAME=${{ secrets.ARCGIS_USERNAME }}/g' .env
-        sed -i 's/^# ARCGIS_PASSWORD=$/ARCGIS_PASSWORD=${{ secrets.ARCGIS_PASSWORD }}/g' .env
-        set -x
-
-        cp config/whisper.json.testing config/whisper.json
-        echo "{}" > config/notifications.json
-        docker compose --ansi never build
-        docker compose --ansi never up -d --quiet-pull
-        docker compose --ansi never logs -f &
-        sleep 30
-        ./make.sh test
     - name: Build and push
       uses: docker/build-push-action@v5
       if: github.ref == 'refs/heads/main' || github.event_name == 'release'

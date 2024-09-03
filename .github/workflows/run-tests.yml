@@ -11,7 +11,15 @@ jobs:
         python-version: ["3.12"]
 
     steps:
-      - uses: actions/checkout@v4
+      # https://github.com/orgs/community/discussions/25678#discussioncomment-5242449
+      - name: Delete huge unnecessary tools folder
+        run: rm -rf /opt/hostedtoolcache
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
@@ -25,3 +33,30 @@ jobs:
       - name: Run linters
         run: |
           ./make.sh lint
+      - name: Build Docker image and setup environment
+        run: |
+          set -x
+          cp .env.testing .env
+          sed -i 's/^COMPOSE_FILE=docker-compose.server.yml:docker-compose.worker.yml:docker-compose.minio.yml$/COMPOSE_FILE=docker-compose.server.yml:docker-compose.worker.yml:docker-compose.openai.yml:docker-compose.minio.yml/g' .env
+          echo "VERSION=${{ github.sha }}" >> .env
+          cat .env
+
+          { set +x; } 2>/dev/null
+          sed -i 's/^# OPENAI_API_KEY=$/OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}/g' .env
+          sed -i 's/^# GOOGLE_GEMINI_API_KEY=$/GOOGLE_GEMINI_API_KEY=${{ secrets.GOOGLE_GEMINI_API_KEY }}/g' .env
+          sed -i 's/^# GOOGLE_MAPS_API_KEY=$/GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }}/g' .env
+          sed -i 's/^# MAPBOX_API_KEY=$/MAPBOX_API_KEY=${{ secrets.MAPBOX_API_KEY }}/g' .env
+          sed -i 's/^# GEOCODIO_API_KEY=$/GEOCODIO_API_KEY=${{ secrets.GEOCODIO_API_KEY }}/g' .env
+          sed -i 's/^# ARCGIS_USERNAME=$/ARCGIS_USERNAME=${{ secrets.ARCGIS_USERNAME }}/g' .env
+          sed -i 's/^# ARCGIS_PASSWORD=$/ARCGIS_PASSWORD=${{ secrets.ARCGIS_PASSWORD }}/g' .env
+          set -x
+
+          cp config/whisper.json.testing config/whisper.json
+          echo "{}" > config/notifications.json
+          docker compose --ansi never build
+          docker compose --ansi never up -d --quiet-pull
+      - name: Run tests
+        run: |
+          docker compose --ansi never logs -f &
+          sleep 10
+          ./make.sh test
