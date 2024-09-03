@@ -1,6 +1,14 @@
 name: Run tests
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: crimeisdown/trunk-transcribe
 
 jobs:
   build:
@@ -33,7 +41,19 @@ jobs:
       - name: Run linters
         run: |
           ./make.sh lint
-      - name: Build Docker image and setup environment
+      - name: Build image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile
+          load: true
+          tags: "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+          platforms: linux/amd64
+          build-args: |
+            GIT_COMMIT=${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          cache-to: type=inline
+      - name: Setup environment for testing
         run: |
           set -x
           cp .env.testing .env
@@ -53,7 +73,6 @@ jobs:
 
           cp config/whisper.json.testing config/whisper.json
           echo "{}" > config/notifications.json
-          docker compose --ansi never build
           docker compose --ansi never up -d --quiet-pull
       - name: Run tests
         run: |
