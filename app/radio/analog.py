@@ -1,5 +1,4 @@
 import os
-from threading import Lock
 
 from app.models.transcript import Transcript
 from app.whisper.base import BaseWhisper, TranscriptKwargs, WhisperResult
@@ -30,11 +29,10 @@ def process_response(response: WhisperResult) -> Transcript:
 
 
 def transcribe_call(
-    model: BaseWhisper, model_lock: Lock, audio_file: str, prompt: str = ""
+    model: BaseWhisper, audio_file: str, prompt: str = ""
 ) -> Transcript:
     response = transcribe(
         model=model,
-        model_lock=model_lock,
         **build_transcribe_kwargs(audio_file, prompt),
     )
 

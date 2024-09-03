@@ -22,8 +22,6 @@ WORKDIR /src
 COPY pyproject.toml poetry.lock ./
 RUN poetry install --without dev --no-root --no-interaction --no-ansi
 
-# $WHISPER_INSTALL_INSTRUCTIONS
-
 COPY app app
 COPY config config
 COPY docker/docker-entrypoint.sh /usr/local/bin/

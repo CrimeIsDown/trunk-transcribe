@@ -1,0 +1,6 @@
+services:
+  whisper:
+    image: onerahmet/openai-whisper-asr-webservice:latest
+    environment:
+      - ASR_ENGINE=${WHISPER_ENGINE:-openai_whisper}
+      - ASR_MODEL=${WHISPER_MODEL:-small.en}

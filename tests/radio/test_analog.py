@@ -27,11 +27,10 @@ class TestAnalog(unittest.TestCase):
         expected_transcript.append("Hello")
         expected_transcript.append("world")
 
-        result = transcribe_call(self.model, self.model_lock, self.audio_file)
+        result = transcribe_call(self.model, self.audio_file)
 
         mock_transcribe.assert_called_once_with(
             model=self.model,
-            model_lock=self.model_lock,
             audio_file=self.audio_file,
             cleanup=True,
             vad_filter=False,

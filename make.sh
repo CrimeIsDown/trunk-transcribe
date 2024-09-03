@@ -46,7 +46,6 @@ restart() {
 
 test() {
 	start
-	diff config/whisper.json config/whisper.json.testing
 	poetry run python3 tests/wait_for_api.py
 	poetry run python3 -m pytest $@
 }

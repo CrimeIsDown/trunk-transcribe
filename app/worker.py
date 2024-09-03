@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 from hashlib import sha256
-from threading import Lock
 from typing import Collection, Optional, Tuple
 import asyncio
 import json
@@ -23,7 +22,7 @@ import sentry_sdk
 load_dotenv()
 
 from app.whisper.base import BaseWhisper, TranscriptKwargs, WhisperResult
-from app.whisper.transcribe import handle_exception, transcribe_bulk
+from app.whisper.transcribe import transcribe_bulk
 from app.geocoding.geocoding import lookup_geo
 from app.models.metadata import Metadata
 from app.models.transcript import Transcript
@@ -94,12 +93,6 @@ def task_postrun(**kwargs):  # type: ignore
         recent_job_results.pop()
 
 
-@signals.task_retry.connect
-def task_retry(**kwargs):  # type: ignore
-    handle_exception(kwargs["reason"])
-    logger.warn(f"Task {kwargs['task']} failed, retrying...")
-
-
 @signals.task_unknown.connect  # type: ignore
 def task_unknown(**kwargs):  # type: ignore
     logger.exception(kwargs["exc"])
@@ -109,18 +102,15 @@ def task_unknown(**kwargs):  # type: ignore
 
 def transcribe(
     model: BaseWhisper,
-    model_lock: Lock,
     metadata: Metadata,
     audio_file: str,
     prompt: str = "",
 ) -> Transcript | None:
     try:
         if "digital" in metadata["audio_type"]:
-            transcript = digital.transcribe_call(
-                model, model_lock, audio_file, metadata, prompt
-            )
+            transcript = digital.transcribe_call(model, audio_file, metadata, prompt)
         elif metadata["audio_type"] == "analog":
-            transcript = analog.transcribe_call(model, model_lock, audio_file, prompt)
+            transcript = analog.transcribe_call(model, audio_file, prompt)
         else:
             raise Reject(f"Audio type {metadata['audio_type']} not supported")
     except WhisperException as e:
@@ -154,14 +144,13 @@ def fetch_audio(audio_url: str) -> str:
 
 def transcribe_and_index(
     model: BaseWhisper,
-    model_lock: Lock,
     metadata: Metadata,
     audio_file: str,
     raw_audio_url: str,
     id: str | None = None,
     index_name: str | None = None,
 ) -> str:
-    transcript = transcribe(model, model_lock, metadata, audio_file)
+    transcript = transcribe(model, metadata, audio_file)
     if not transcript:
         return ""
 
@@ -195,7 +184,6 @@ def transcribe_task(
     try:
         result = transcribe_and_index(
             transcribe_task.model(whisper_implementation),  # type: ignore
-            transcribe_task.model_lock,  # type: ignore
             metadata,
             audio_file,
             audio_url,
@@ -226,7 +214,6 @@ def transcribe_from_db_task(
     try:
         transcript = transcribe(
             transcribe_from_db_task.model(whisper_implementation),  # type: ignore
-            transcribe_from_db_task.model_lock,  # type: ignore
             metadata,
             audio_file,
         )
@@ -299,7 +286,6 @@ async def transcribe_from_db_batch_task_async(
 
     results = transcribe_bulk(
         transcribe_from_db_batch_task.model(),  # type: ignore
-        transcribe_from_db_batch_task.model_lock,  # type: ignore
         audio_files=[kwargs["audio_file"] for _, _, kwargs in calls],
         initial_prompts=[kwargs.get("initial_prompt", "") for _, _, kwargs in calls],
         cleanup=calls[0][2]["cleanup"],

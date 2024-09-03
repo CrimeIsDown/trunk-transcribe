@@ -14,7 +14,6 @@ class OpenAIApi(BaseWhisper):
         language: str = "en",
         initial_prompt: str | None = None,
         vad_filter: bool = False,
-        **decode_options,
     ) -> WhisperResult:
         audio_file = open(audio, "rb")
         prompt = os.getenv(

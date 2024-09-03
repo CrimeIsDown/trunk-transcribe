@@ -1,5 +1,4 @@
 import os
-from threading import Lock
 
 from app.models.metadata import Metadata, SrcListItem
 from app.models.transcript import Transcript
@@ -54,14 +53,12 @@ def process_response(response: WhisperResult, metadata: Metadata) -> Transcript:
 
 def transcribe_call(
     model: BaseWhisper,
-    model_lock: Lock,
     audio_file: str,
     metadata: Metadata,
     prompt: str = "",
 ) -> Transcript:
     response = transcribe(
         model=model,
-        model_lock=model_lock,
         **build_transcribe_kwargs(audio_file, metadata, prompt),
     )
 

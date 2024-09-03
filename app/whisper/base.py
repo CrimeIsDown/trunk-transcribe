@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, List, Optional, TypedDict
+from typing import List, Optional, TypedDict
 
 
 class WhisperSegment(TypedDict):
@@ -29,7 +29,6 @@ class BaseWhisper(ABC):
         language: str = "en",
         initial_prompt: str | None = None,
         vad_filter: bool = False,
-        **decode_options: dict[Any, Any],
     ) -> WhisperResult:
         pass
 
@@ -39,6 +38,17 @@ class BaseWhisper(ABC):
         lang_codes: list[str] = [],
         initial_prompts: list[str] = [],
         vad_filter: bool = False,
-        **decode_options: dict[Any, Any],
     ) -> list[WhisperResult]:
-        raise NotImplementedError
+        results = []
+        for audio_file, lang_code, initial_prompt in zip(
+            audio_files, lang_codes, initial_prompts
+        ):
+            results.append(
+                self.transcribe(
+                    audio_file,
+                    language=lang_code,
+                    initial_prompt=initial_prompt,
+                    vad_filter=vad_filter,
+                )
+            )
+        return results

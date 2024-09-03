@@ -15,7 +15,6 @@ class DeepgramApi(BaseWhisper):
         language: str = "en",
         initial_prompt: str | None = None,
         vad_filter: bool = False,
-        **decode_options,
     ) -> WhisperResult:
         with open(audio, "rb") as audio_file:
             payload: FileSource = {"buffer": audio_file.read()}

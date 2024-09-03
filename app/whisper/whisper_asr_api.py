@@ -6,7 +6,7 @@ from .base import BaseWhisper, WhisperResult
 class WhisperAsrApi(BaseWhisper):
     def __init__(self):
         self.client = requests.Session()
-        self.base_url = os.getenv("ASR_API_URL", "http://localhost:5000")
+        self.base_url = os.getenv("ASR_API_URL", "http://whisper:9000")
 
     def transcribe(
         self,
@@ -14,7 +14,6 @@ class WhisperAsrApi(BaseWhisper):
         language: str = "en",
         initial_prompt: str | None = None,
         vad_filter: bool = False,
-        **decode_options,
     ) -> WhisperResult:
         response = self.client.post(
             f"{self.base_url}/asr",

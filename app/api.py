@@ -410,7 +410,6 @@ def transcribe_audio(
     try:
         transcript = transcribe(
             task.model(whisper_implementation),
-            task.model_lock,
             metadata,
             audio_file,
             prompt=prompt if prompt else "",
