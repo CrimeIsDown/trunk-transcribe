@@ -112,6 +112,7 @@ venv.bak/
 .env.*
 !.env.example
 !.env.testing
+!.env.testing.local
 
 # Spyder project settings
 .spyderproject
@@ -135,4 +136,5 @@ dmypy.json
 docker-compose.override.yml
 config/*.json
 !config/transcript_cleanup.json
-bin/scratch
+scratch
+isochrone_cache.sqlite

@@ -1,4 +1,4 @@
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 RUN apt-get update && \
     apt-get -y upgrade && \
@@ -7,24 +7,25 @@ RUN apt-get update && \
     python3 \
     python3-pip \
     python3-dev \
+    pipx \
     git \
     ffmpeg \
     sox \
     && \
     rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install poetry>=1.3.2
+RUN pipx install poetry
 
-# $WHISPER_INSTALL_INSTRUCTIONS
+ENV PATH="/root/.local/bin:${PATH}"
 
 WORKDIR /src
 COPY pyproject.toml poetry.lock ./
-RUN poetry config virtualenvs.create false && \
-    poetry install --without dev --no-root --no-interaction --no-ansi
+RUN poetry install --without dev --no-root --no-interaction --no-ansi
+
+# $WHISPER_INSTALL_INSTRUCTIONS
 
 COPY app app
 COPY config config
-COPY bin bin
 COPY docker/docker-entrypoint.sh /usr/local/bin/
 
 ENV PYTHONPATH=/src

@@ -1,21 +1,22 @@
 import os
+from typing import Any
+
+import torch
+import whisper_s2t
+from whisper_s2t.backends.ctranslate2.model import BEST_ASR_CONFIG
 
 from .base import BaseWhisper, WhisperResult
 
 
 class WhisperS2T(BaseWhisper):
     def __init__(self, model_name: str):
-        import torch
-        import whisper_s2t
-        from whisper_s2t.backends.ctranslate2.model import BEST_ASR_CONFIG
-
         torch_device = os.getenv(
             "TORCH_DEVICE", "cuda:0" if torch.cuda.is_available() else "cpu"
         )
         device = torch_device.split(":")[0]
         device_index = torch_device.split(":")[1] if ":" in torch_device else "0"
         device_index = (
-            [int(i) for i in device_index.split(",")]
+            [int(i) for i in device_index.split(",")]  # type: ignore
             if "," in device_index
             else int(device_index)
         )
@@ -41,7 +42,7 @@ class WhisperS2T(BaseWhisper):
         language: str = "en",
         initial_prompt: str | None = None,
         vad_filter: bool = False,
-        **decode_options,
+        **decode_options: dict[Any, Any],
     ) -> WhisperResult:
         method = self.model.transcribe
         if vad_filter:
@@ -58,7 +59,7 @@ class WhisperS2T(BaseWhisper):
             "text": "",
             "language": language,
         }
-        for chunk in output[0]:  # type: ignore
+        for chunk in output[0]:
             result["segments"].append(
                 {
                     "start": chunk["start_time"],
@@ -75,7 +76,7 @@ class WhisperS2T(BaseWhisper):
         lang_codes: list[str] = [],
         initial_prompts: list[str] = [],
         vad_filter: bool = False,
-        **decode_options,
+        **decode_options: dict[Any, Any],
     ) -> list[WhisperResult]:
         method = self.model.transcribe
         if vad_filter:
@@ -87,7 +88,7 @@ class WhisperS2T(BaseWhisper):
             lang_codes=lang_codes,
             tasks=["transcribe" for _ in audio_files],
             initial_prompts=(
-                initial_prompts if initial_prompts else [None for _ in audio_files]
+                initial_prompts if initial_prompts else [""] * len(audio_files)
             ),
             batch_size=16,
         )
@@ -99,7 +100,7 @@ class WhisperS2T(BaseWhisper):
                 "text": "",
                 "language": lang_codes[i],
             }
-            for chunk in item:  # type: ignore
+            for chunk in item:
                 result["segments"].append(
                     {
                         "start": chunk["start_time"],

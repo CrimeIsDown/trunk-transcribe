@@ -12,7 +12,6 @@ services:
     command: api
     volumes:
       - ./app:/src/app
-      - ./bin:/src/bin
       - ./config:/src/config
       - ./tests:/src/tests
       - ./docker/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh

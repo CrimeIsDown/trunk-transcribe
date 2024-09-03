@@ -26,7 +26,7 @@ ARG WHISPER_MODEL=base.en
 ENV WHISPER_MODEL=${WHISPER_MODEL}
 RUN models/download-ggml-model.sh $WHISPER_MODEL
 
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 RUN apt-get update && \
     apt-get -y upgrade && \
@@ -35,13 +35,20 @@ RUN apt-get update && \
     python3 \
     python3-pip \
     python3-dev \
+    pipx \
     git \
     ffmpeg \
     sox \
     && \
     rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install poetry>=1.3.2
+RUN pipx install poetry
+
+ENV PATH="/root/.local/bin:${PATH}"
+
+WORKDIR /src
+COPY pyproject.toml poetry.lock ./
+RUN poetry install --without dev --no-root --no-interaction --no-ansi
 
 # Install Whisper.cpp
 COPY --from=whispercpp /whisper.cpp/main /usr/local/bin/whisper-cpp
@@ -49,14 +56,8 @@ COPY --from=whispercpp /whisper.cpp/models/ggml-*.bin /usr/local/lib/whisper-mod
 ENV WHISPER_IMPLEMENTATION=whisper.cpp
 ENV WHISPERCPP_MODEL_DIR=/usr/local/lib/whisper-models
 
-WORKDIR /src
-COPY pyproject.toml poetry.lock ./
-RUN poetry config virtualenvs.create false && \
-    poetry install --without dev --no-root --no-interaction --no-ansi
-
 COPY app app
 COPY config config
-COPY bin bin
 COPY docker/docker-entrypoint.sh /usr/local/bin/
 
 ENV PYTHONPATH=/src

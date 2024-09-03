@@ -10,7 +10,6 @@ services:
         WHISPER_MODEL: ${WHISPER_MODEL:-small.en}
     volumes:
       - ./app:/src/app
-      - ./bin:/src/bin
       - ./config:/src/config
       - ./docker/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
     env_file: .env

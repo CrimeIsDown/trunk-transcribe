@@ -24,12 +24,12 @@ RUN install-whisper.sh
 ARG WHISPER_MODEL=base.en
 ENV WHISPER_MODEL=\${WHISPER_MODEL}
 # Pre-download the Whisper model
-RUN python3 -c \"import whisper; import os; whisper.load_model(os.getenv('WHISPER_MODEL'))\"
+RUN poetry run python3 -c \"import whisper; import os; whisper.load_model(os.getenv('WHISPER_MODEL'))\"
 ENV WHISPER_IMPLEMENTATION=whisper"
 
 envsubst '$WHISPER_INSTALL_INSTRUCTIONS' < Dockerfile >> Dockerfile.whisper
 
-sed -i 's#FROM ubuntu:22.04#FROM nvidia/cuda:12.1.1-base-ubuntu22.04#g' Dockerfile.whisper
+sed -i 's#FROM ubuntu:24.04#FROM nvidia/cuda:12.6.0-base-ubuntu24.04#g' Dockerfile.whisper
 
 sed -i 's#CMD \["api"\]#CMD ["worker"]#g' Dockerfile.whisper
 
@@ -42,12 +42,12 @@ RUN install-whisper.sh
 ARG WHISPER_MODEL=base.en
 ENV WHISPER_MODEL=\${WHISPER_MODEL}
 # Pre-download the Whisper model
-RUN python3 -c \"import os; from faster_whisper.utils import download_model; download_model(os.getenv('WHISPER_MODEL'))\"
+RUN poetry run python3 -c \"import os; from faster_whisper.utils import download_model; download_model(os.getenv('WHISPER_MODEL'))\"
 ENV WHISPER_IMPLEMENTATION=faster-whisper"
 
 envsubst '$WHISPER_INSTALL_INSTRUCTIONS' < Dockerfile >> Dockerfile.fasterwhisper
 
-sed -i 's#FROM ubuntu:22.04#FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04#g' Dockerfile.fasterwhisper
+sed -i 's#FROM ubuntu:24.04#FROM nvidia/cuda:12.6.0-cudnn8-runtime-ubuntu24.04#g' Dockerfile.fasterwhisper
 
 sed -i 's#CMD \["api"\]#CMD ["worker"]#g' Dockerfile.fasterwhisper
 
@@ -74,13 +74,13 @@ RUN install-whisper.sh
 ARG WHISPER_MODEL=base.en
 ENV WHISPER_MODEL=\${WHISPER_MODEL}
 # Pre-download the Whisper model
-RUN python3 -c \"import os; from whisper_s2t.backends.ctranslate2.hf_utils import download_model; download_model(os.getenv('WHISPER_MODEL'))\"
+RUN poetry run python3 -c \"import os; from whisper_s2t.backends.ctranslate2.hf_utils import download_model; download_model(os.getenv('WHISPER_MODEL'))\"
 ENV WHISPER_IMPLEMENTATION=whispers2t
 ENV TQDM_DISABLE=1"
 
 envsubst '$WHISPER_INSTALL_INSTRUCTIONS' < Dockerfile >> Dockerfile.whispers2t
 
-sed -i 's#FROM ubuntu:22.04#FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04#g' Dockerfile.whispers2t
+sed -i 's#FROM ubuntu:24.04#FROM nvidia/cuda:12.6.0-cudnn8-runtime-ubuntu24.04#g' Dockerfile.whispers2t
 
 sed -i 's#CMD \["api"\]#CMD ["worker"]#g' Dockerfile.whispers2t
 
