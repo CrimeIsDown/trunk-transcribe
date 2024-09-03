@@ -371,10 +371,10 @@ def update_call(
     )
 
     notification.send_notifications(
-        db_call.raw_audio_url,
+        db_call.raw_audio_url,  # type: ignore
         metadata,
         transcript,
-        db_call.geo,
+        db_call.geo,  # type: ignore
         search_url,  # type: ignore
     )
 

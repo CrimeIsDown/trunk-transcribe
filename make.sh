@@ -35,6 +35,11 @@ lint() {
 	ruff format app --check
 }
 
+fmt() {
+	ruff check app --fix
+	ruff format app
+}
+
 restart() {
 	$DOCKER_COMPOSE restart api worker
 }
@@ -42,8 +47,8 @@ restart() {
 test() {
 	start
 	diff config/whisper.json config/whisper.json.testing
-	python3 tests/wait_for_api.py
-	python3 -m pytest $@
+	poetry run python3 tests/wait_for_api.py
+	poetry run python3 -m pytest $@
 }
 
 retest() {
