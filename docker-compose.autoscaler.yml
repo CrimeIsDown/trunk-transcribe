@@ -15,11 +15,16 @@ services:
       - --interval
       - ${AUTOSCALE_INTERVAL:-60}
       - --image
-      - ghcr.io/crimeisdown/trunk-transcribe:main-${WHISPER_IMPLEMENTATION:-whisper}-${WHISPER_MODEL:-large-v2}-${DESIRED_CUDA:-cu121}
+      - ghcr.io/crimeisdown/whisper-asr-webservice:latest-gpu
     env_file: .env
     volumes:
       - ./app:/src/app
       - ./config:/src/config
       - ./.env.vast:/src/.env.vast
       - ~/.vast_api_key:/root/.vast_api_key
+    restart: always
+  whisper:
+    image: haproxy:latest
+    volumes:
+      - ./docker/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg
     restart: always

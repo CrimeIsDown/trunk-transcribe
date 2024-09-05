@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import socket
 from typing import Annotated, Any
 import json
 import logging
@@ -434,3 +435,61 @@ def get_config(filename: str) -> JSONResponse:
 
     with open(f"config/{filename}") as config:
         return JSONResponse(json.load(config))
+
+
+@app.post("/haproxy")
+def add_server_to_haproxy(
+    name: Annotated[str, Form()],
+    server: Annotated[str, Form()],
+    port: Annotated[int, Form()],
+) -> JSONResponse:
+    def _is_valid_server(server: str) -> bool:
+        try:
+            socket.inet_aton(server)
+            return True
+        except socket.error:
+            return False
+
+    def _validate_haproxy_values(name: str, server: str, port: int) -> bool:
+        if not name.isalnum():
+            return False
+        if not server or not server.strip() or not _is_valid_server(server):
+            return False
+        if not isinstance(port, int) or port <= 0 or port > 65535:
+            return False
+        return True
+
+    if not _validate_haproxy_values(name, server, port):
+        raise HTTPException(status_code=400, detail="Invalid values for HAProxy")
+    _send_haproxy_command(f"add server webservers/{name} {server}:{port} check")
+    return JSONResponse({"status": "ok"})
+
+
+@app.delete("/haproxy")
+def remove_server_from_haproxy(
+    name: Annotated[str, Form()],
+) -> JSONResponse:
+    if not name.isalnum():
+        raise HTTPException(status_code=400, detail="Invalid values for HAProxy")
+    _send_haproxy_command(f"del server webservers/{name}")
+    return JSONResponse({"status": "ok"})
+
+
+def _send_haproxy_command(command: str) -> list[str]:
+    try:
+        haproxy_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        haproxy_socket.settimeout(1)
+        haproxy_ip = os.getenv("HAPROXY_STATS_ADDRESS")
+        if haproxy_ip is not None:
+            haproxy_socket.connect(haproxy_ip)
+        else:
+            raise ValueError("HAPROXY_STATS_ADDRESS environment variable is not set.")
+        logging.debug(f"Running HAProxy command: {command}")
+        haproxy_socket.send((command + "\n").encode())
+
+        file_handler = haproxy_socket.makefile()
+        rdata = file_handler.read().splitlines()
+    finally:
+        haproxy_socket.close()
+
+    return rdata[:-1]
