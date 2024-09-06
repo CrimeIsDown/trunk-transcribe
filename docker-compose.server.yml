@@ -87,6 +87,17 @@ services:
       - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
     restart: always
 
+  frontend:
+    build:
+      context: frontend
+      dockerfile: Dockerfile
+    ports:
+      - ${FRONTEND_PORT:-3000}:3000
+    environment:
+      - MEILI_URL
+      - MEILI_MASTER_KEY
+      - MEILI_INDEX
+
 volumes:
   flower-data:
   rabbitmq-data:
