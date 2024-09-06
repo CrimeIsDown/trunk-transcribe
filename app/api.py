@@ -445,9 +445,9 @@ def add_server_to_haproxy(
 ) -> JSONResponse:
     def _is_valid_server(server: str) -> bool:
         try:
-            socket.inet_aton(server)
+            socket.gethostbyname(server)
             return True
-        except socket.error:
+        except socket.gaierror:
             return False
 
     def _validate_haproxy_values(name: str, server: str, port: int) -> bool:
@@ -461,8 +461,11 @@ def add_server_to_haproxy(
 
     if not _validate_haproxy_values(name, server, port):
         raise HTTPException(status_code=400, detail="Invalid values for HAProxy")
-    _send_haproxy_command(f"add server webservers/{name} {server}:{port} check")
-    return JSONResponse({"status": "ok"})
+    if "New server registered" in _send_haproxy_command(
+        f"add server webservers/{name} {server}:{port} check"
+    ):
+        return JSONResponse({"status": "ok"})
+    raise HTTPException(status_code=500, detail="Failed to add server to HAProxy")
 
 
 @app.delete("/haproxy")
@@ -471,25 +474,32 @@ def remove_server_from_haproxy(
 ) -> JSONResponse:
     if not name.isalnum():
         raise HTTPException(status_code=400, detail="Invalid values for HAProxy")
-    _send_haproxy_command(f"del server webservers/{name}")
-    return JSONResponse({"status": "ok"})
+    _send_haproxy_command(f"disable server webservers/{name}")
+    if "Server deleted" in _send_haproxy_command(f"del server webservers/{name}"):
+        return JSONResponse({"status": "ok"})
+    raise HTTPException(status_code=500, detail="Failed to remove server from HAProxy")
 
 
-def _send_haproxy_command(command: str) -> list[str]:
+def _send_haproxy_command(command: str) -> str:
     try:
         haproxy_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         haproxy_socket.settimeout(1)
-        haproxy_ip = os.getenv("HAPROXY_STATS_ADDRESS")
-        if haproxy_ip is not None:
-            haproxy_socket.connect(haproxy_ip)
+        haproxy_stats_addr = os.getenv("HAPROXY_STATS_ADDRESS")
+        if haproxy_stats_addr is not None:
+            haproxy_host, haproxy_port = (
+                haproxy_stats_addr.split(":")[0],
+                int(haproxy_stats_addr.split(":")[1]),
+            )
+            haproxy_socket.connect((haproxy_host, haproxy_port))
         else:
             raise ValueError("HAPROXY_STATS_ADDRESS environment variable is not set.")
         logging.debug(f"Running HAProxy command: {command}")
         haproxy_socket.send((command + "\n").encode())
 
-        file_handler = haproxy_socket.makefile()
-        rdata = file_handler.read().splitlines()
+        response = haproxy_socket.recv(4096)
+        rdata = response.decode().strip()
     finally:
         haproxy_socket.close()
 
-    return rdata[:-1]
+    logging.debug(f"HAProxy command output: {rdata}")
+    return rdata

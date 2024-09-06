@@ -3,7 +3,7 @@ services:
     image: ghcr.io/crimeisdown/trunk-transcribe:${VERSION:-main}
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: docker/Dockerfile
       cache_from:
         - ghcr.io/crimeisdown/trunk-transcribe:main
     command:
@@ -23,8 +23,14 @@ services:
       - ./.env.vast:/src/.env.vast
       - ~/.vast_api_key:/root/.vast_api_key
     restart: always
-  whisper:
+
+  haproxy:
     image: haproxy:latest
     volumes:
       - ./docker/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg
     restart: always
+
+  api:
+    environment:
+      - ASR_API_URL=http://haproxy:9000
+      - HAPROXY_STATS_ADDRESS=haproxy:8444
