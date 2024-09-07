@@ -83,7 +83,7 @@ class Autoscaler:
         if image:
             self.image = image
         else:
-            self.image = f"ghcr.io/crimeisdown/whisper-asr-webservice:latest-gpu"
+            self.image = "ghcr.io/crimeisdown/whisper-asr-webservice:latest-gpu"
 
         if os.path.isfile(FORBIDDEN_INSTANCE_CONFIG):
             with open(FORBIDDEN_INSTANCE_CONFIG) as config:
@@ -141,7 +141,7 @@ class Autoscaler:
 
     def get_worker_status(self) -> list[dict]:
         workers = []
-        result = self._get_celery_client().control.inspect(timeout=10).stats() # type: ignore
+        result = self._get_celery_client().control.inspect(timeout=10).stats()  # type: ignore
         if result:
             for name, stats in result.items():
                 # If this was one of our pending instances, remove it from the list
@@ -289,7 +289,7 @@ class Autoscaler:
             # Add the instance to our list of pending instances so we can check when it comes online
             self.pending_instances[instance_id] = concurrency
             # Update our other vars
-            self.running_instances.append(hostname)
+            self.running_instances.append(self._make_instance_hostname(instance))
             instances_created += 1
 
         return instances_created
