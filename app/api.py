@@ -209,7 +209,7 @@ def create_call_from_sdrtrunk(
 
     db_call = call_model.create_call(db=db, call=call)
 
-    if os.getenv("WHISPER_IMPLEMENTATION") == "whispers2t":
+    if os.getenv("ASR_ENGINE") == "whisper_s2t":
         transcribe_from_db_batch_task.apply_async(
             queue="transcribe",
             kwargs={"id": db_call.id},
@@ -332,10 +332,10 @@ def create_call(
     task: AsyncResult[Any]
 
     if batch:
-        if os.getenv("WHISPER_IMPLEMENTATION") != "whispers2t":
+        if os.getenv("ASR_ENGINE") != "whisper_s2t":
             raise HTTPException(
                 status_code=400,
-                detail="Batch transcription only supported with whispers2t",
+                detail="Batch transcription only supported with ASR_ENGINE=whisper_s2t",
             )
         task = transcribe_from_db_batch_task.apply_async(
             queue="transcribe",

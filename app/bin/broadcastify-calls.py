@@ -231,7 +231,7 @@ def process_call(
                         files={"call_json": metadata_file, "call_audio": audio_file},
                         params=(
                             {"batch": "true"}
-                            if os.getenv("WHISPER_IMPLEMENTATION") == "whispers2t"
+                            if os.getenv("ASR_ENGINE") == "whisper_s2t"
                             else {}
                         ),
                     )

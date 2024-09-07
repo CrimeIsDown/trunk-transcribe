@@ -69,21 +69,21 @@ class Autoscaler:
 
         self.envs = dotenv_values(".env.vast")  # type: ignore
 
-        self.model = os.getenv("WHISPER_MODEL", "large-v3")
-        self.implementation = os.getenv("WHISPER_IMPLEMENTATION", "faster-whisper")
+        self.model = os.getenv("ASR_MODEL", "large-v3")
+        self.implementation = os.getenv("ASR_ENGINE", "faster_whisper")
 
-        desired_cuda = os.getenv("DESIRED_CUDA", "cu121")
+        desired_cuda = os.getenv("DESIRED_CUDA", "cu118")
         cuda_version_matches = re.match(r"cu(\d\d)(\d)", desired_cuda)
         self.cuda_version = (
             f"{cuda_version_matches.group(1)}.{cuda_version_matches.group(2)}"
             if cuda_version_matches
-            else "12.1"
+            else "11.8"
         )
 
         if image:
             self.image = image
         else:
-            self.image = f"ghcr.io/crimeisdown/trunk-transcribe:main-{self.implementation}-{self.model}-{desired_cuda}"
+            self.image = f"ghcr.io/crimeisdown/whisper-asr-webservice:latest-gpu"
 
         if os.path.isfile(FORBIDDEN_INSTANCE_CONFIG):
             with open(FORBIDDEN_INSTANCE_CONFIG) as config:
@@ -141,7 +141,7 @@ class Autoscaler:
 
     def get_worker_status(self) -> list[dict]:
         workers = []
-        result = self._get_celery_client().control.inspect(timeout=10).stats()
+        result = self._get_celery_client().control.inspect(timeout=10).stats() # type: ignore
         if result:
             for name, stats in result.items():
                 # If this was one of our pending instances, remove it from the list
@@ -181,6 +181,8 @@ class Autoscaler:
             "num_gpus": {"eq": "1"},
             "gpu_ram": {"gte": f"{vram_needed:.1f}"},
             "cuda_max_good": {"gte": self.cuda_version},
+            "direct_port_count": {"gt": "2"},
+            "disk_space": {"gte": 16},
             "order": [["dph_total", "asc"]],
             "type": "ask" if os.getenv("VAST_ONDEMAND") else "bid",
         }
@@ -216,11 +218,11 @@ class Autoscaler:
     def create_instances(self, count: int) -> int:
         logging.info(f"Scaling up by {count} instances")
 
-        mem_util_factor = 1
+        mem_util_factor = 1.0
         # Decrease the memory needed for certain forks
-        if self.implementation in ["faster-whisper", "whisper.cpp"]:
+        if self.implementation in ["faster_whisper", "whisper_cpp"]:
             mem_util_factor = 0.4
-        if self.implementation == "whispers2t":
+        if self.implementation == "whisper_s2t":
             mem_util_factor = 0.5
 
         vram_requirements = {
@@ -256,20 +258,17 @@ class Autoscaler:
 
             # Adjust concurrency based on GPU RAM
             concurrency = floor(instance["gpu_ram"] / vram_required)
-            self.envs["CELERY_CONCURRENCY"] = str(max(1, concurrency))
+            self.envs["ASR_WORKERS"] = str(max(1, concurrency))
 
-            # Set a nice hostname so we don't use a random Docker hash
-            git_commit = self.get_git_commit()
-            hostname = self._make_instance_hostname(instance)
-            self.envs["CELERY_HOSTNAME"] = f"celery-{git_commit}@{hostname}"
+            self.envs["-p 9000:9000"] = "1"
 
             body = {
                 "client_id": "me",
                 "image": image,
-                "args": ["worker"],
                 "env": self.envs,
-                "disk": 0.5,
-                "runtype": "args",
+                "disk": 16,
+                "runtype": "ssh ssh_direc ssh_proxy",
+                "use_jupyter_lab": False,
             }
 
             if not os.getenv("VAST_ONDEMAND"):
@@ -288,7 +287,7 @@ class Autoscaler:
                 f"Started instance {instance_id}, a {instance['gpu_name']} for ${instance['dph_total'] if os.getenv('VAST_ONDEMAND') else body['price']}/hr"
             )
             # Add the instance to our list of pending instances so we can check when it comes online
-            self.pending_instances[self.envs["CELERY_HOSTNAME"]] = concurrency
+            self.pending_instances[instance_id] = concurrency
             # Update our other vars
             self.running_instances.append(hostname)
             instances_created += 1
