@@ -17,7 +17,7 @@ from typing import Tuple
 from celery import Celery
 import requests
 import sentry_sdk
-from dotenv import dotenv_values, load_dotenv
+from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -222,7 +222,8 @@ class Autoscaler:
         # Filter instances to those owned by this API
         instances = list(
             filter(
-                lambda i: ["API_BASE_URL", os.getenv("API_BASE_URL", "")] in i["extra_env"],
+                lambda i: ["API_BASE_URL", os.getenv("API_BASE_URL", "")]
+                in i["extra_env"],
                 r.json()["instances"],
             )
         )
@@ -279,7 +280,7 @@ class Autoscaler:
                 "image": image,
                 "env": self.envs,
                 "disk": 16,
-                "runtype": "args"
+                "runtype": "args",
             }
 
             if not os.getenv("VAST_ONDEMAND"):
