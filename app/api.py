@@ -451,7 +451,7 @@ def add_server_to_haproxy(
             return False
 
     def _validate_haproxy_values(name: str, server: str, port: int) -> bool:
-        if not name.isalnum():
+        if not name.replace('.', '').isalnum():
             return False
         if not server or not server.strip() or not _is_valid_server(server):
             return False
@@ -464,6 +464,8 @@ def add_server_to_haproxy(
     if "New server registered" in _send_haproxy_command(
         f"add server webservers/{name} {server}:{port} check"
     ):
+        _send_haproxy_command(f"enable server webservers/{name}")
+        _send_haproxy_command(f"enable health webservers/{name}")
         return JSONResponse({"status": "ok"})
     raise HTTPException(status_code=500, detail="Failed to add server to HAProxy")
 
@@ -472,7 +474,7 @@ def add_server_to_haproxy(
 def remove_server_from_haproxy(
     name: Annotated[str, Form()],
 ) -> JSONResponse:
-    if not name.isalnum():
+    if not name.replace('.', '').isalnum():
         raise HTTPException(status_code=400, detail="Invalid values for HAProxy")
     _send_haproxy_command(f"disable server webservers/{name}")
     if "Server deleted" in _send_haproxy_command(f"del server webservers/{name}"):

@@ -66,11 +66,19 @@ class Autoscaler:
         if not self.vast_api_key:
             self.vast_api_key = open(os.path.expanduser("~/.vast_api_key")).read()
         self.vast_api_key = self.vast_api_key.strip()
-
-        self.envs = dotenv_values(".env.vast")  # type: ignore
-
         self.model = os.getenv("ASR_MODEL", "large-v3")
         self.implementation = os.getenv("ASR_ENGINE", "faster_whisper")
+
+        if not os.getenv("API_BASE_URL") or not os.getenv("API_KEY"):
+            raise Exception("API_BASE_URL and API_KEY must be set in the environment")
+
+        self.envs = {
+            "-p 9000:9000": "1",
+            "ASR_MODEL": self.model,
+            "ASR_ENGINE": self.implementation,
+            "API_BASE_URL": os.getenv("API_BASE_URL", "").rstrip("/"),
+            "API_KEY": os.getenv("API_KEY", ""),
+        }
 
         desired_cuda = os.getenv("DESIRED_CUDA", "cu118")
         cuda_version_matches = re.match(r"cu(\d\d)(\d)", desired_cuda)
@@ -211,7 +219,13 @@ class Autoscaler:
             headers={"Authorization": f"Bearer {self.vast_api_key}"},
         )
         r.raise_for_status()
-        instances = r.json()["instances"]
+        # Filter instances to those owned by this API
+        instances = list(
+            filter(
+                lambda i: ["API_BASE_URL", os.getenv("API_BASE_URL", "")] in i["extra_env"],
+                r.json()["instances"],
+            )
+        )
         self._update_running_instances(instances)
         return instances
 
@@ -260,15 +274,12 @@ class Autoscaler:
             concurrency = floor(instance["gpu_ram"] / vram_required)
             self.envs["ASR_WORKERS"] = str(max(1, concurrency))
 
-            self.envs["-p 9000:9000"] = "1"
-
             body = {
                 "client_id": "me",
                 "image": image,
                 "env": self.envs,
                 "disk": 16,
-                "runtype": "ssh ssh_direc ssh_proxy",
-                "use_jupyter_lab": False,
+                "runtype": "args"
             }
 
             if not os.getenv("VAST_ONDEMAND"):

@@ -7,6 +7,8 @@ services:
       cache_from:
         - ghcr.io/crimeisdown/trunk-transcribe:main
     command:
+      - poetry
+      - run
       - app/bin/autoscale-vast.py
       - --min-instances
       - ${AUTOSCALE_MIN_INSTANCES:-1}
@@ -20,7 +22,6 @@ services:
     volumes:
       - ./app:/src/app
       - ./config:/src/config
-      - ./.env.vast:/src/.env.vast
       - ~/.vast_api_key:/root/.vast_api_key
     restart: always
 
@@ -29,6 +30,8 @@ services:
     volumes:
       - ./docker/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg
     restart: always
+    ports:
+      - "8404:8404"
 
   api:
     environment:
