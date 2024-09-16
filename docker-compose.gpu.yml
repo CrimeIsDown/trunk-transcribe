@@ -3,7 +3,7 @@ services:
   whisper:
     image: ghcr.io/crimeisdown/whisper-asr-webservice:latest-gpu
     environment:
-      - ASR_ENGINE=${WHISPER_ENGINE:-openai_whisper}
+      - ASR_ENGINE=${ASR_ENGINE:-openai_whisper}
       - ASR_MODEL=${WHISPER_MODEL:-large-v2}
     deploy:
       resources:
