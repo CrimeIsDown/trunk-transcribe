@@ -100,6 +100,13 @@ def task_unknown(**kwargs):  # type: ignore
     os.kill(os.getpid(), signal.SIGQUIT)
 
 
+@signals.task_retry.connect  # type: ignore
+def task_retry(**kwargs):  # type: ignore
+    logger.exception(kwargs["reason"])
+    sentry_sdk.capture_exception(kwargs["reason"])
+    logger.warning(f"Task {kwargs['request'].kwargsrepr} failed, retrying...")
+
+
 def transcribe(
     model: BaseWhisper,
     metadata: Metadata,
