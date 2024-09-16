@@ -76,8 +76,8 @@ class Autoscaler:
             "-p 9000:9000": "1",
             "ASR_MODEL": self.model,
             "ASR_ENGINE": self.implementation,
-            "API_BASE_URL": os.getenv("API_BASE_URL", "").rstrip("/"),
-            "API_KEY": os.getenv("API_KEY", ""),
+            "WEBHOOK_URL": os.getenv("API_BASE_URL", "").rstrip("/") + "/haproxy",
+            "WEBHOOK_SECRET": os.getenv("API_KEY", ""),
         }
 
         desired_cuda = os.getenv("DESIRED_CUDA", "cu118")

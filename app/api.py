@@ -461,6 +461,10 @@ def add_server_to_haproxy(
 
     if not _validate_haproxy_values(name, server, port):
         raise HTTPException(status_code=400, detail="Invalid values for HAProxy")
+    # Delete the server if it already exists
+    _send_haproxy_command(f"disable server webservers/{name}")
+    _send_haproxy_command(f"del server webservers/{name}")
+    # Try to add the server
     if "New server registered" in _send_haproxy_command(
         f"add server webservers/{name} {server}:{port} check"
     ):
