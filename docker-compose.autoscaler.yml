@@ -37,3 +37,7 @@ services:
     environment:
       - ASR_API_URL=http://haproxy:9000
       - HAPROXY_STATS_ADDRESS=haproxy:8444
+
+  worker:
+    environment:
+      - ASR_API_URL=http://haproxy:9000

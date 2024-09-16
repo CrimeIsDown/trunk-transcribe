@@ -5,9 +5,14 @@ services:
     environment:
       - ASR_ENGINE=${ASR_ENGINE:-openai_whisper}
       - ASR_MODEL=${WHISPER_MODEL:-large-v2}
+    volumes:
+      - cache-whisper:/root/.cache/whisper
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
               capabilities: [gpu]
+
+volumes:
+  cache-whisper:

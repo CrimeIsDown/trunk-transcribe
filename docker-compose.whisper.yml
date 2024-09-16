@@ -4,3 +4,8 @@ services:
     environment:
       - ASR_ENGINE=${ASR_ENGINE:-openai_whisper}
       - ASR_MODEL=${WHISPER_MODEL:-small.en}
+    volumes:
+      - cache-whisper:/root/.cache/whisper
+
+volumes:
+  cache-whisper:
