@@ -3,12 +3,10 @@ import os
 from app.models.metadata import Metadata, SrcListItem
 from app.models.transcript import Transcript
 from app.whisper.base import (
-    BaseWhisper,
     TranscriptKwargs,
     WhisperSegment,
     WhisperResult,
 )
-from app.whisper.transcribe import transcribe
 
 
 def get_closest_src(srcList: list[SrcListItem], segment: WhisperSegment) -> SrcListItem:
@@ -49,17 +47,3 @@ def process_response(response: WhisperResult, metadata: Metadata) -> Transcript:
         )
 
     return transcript.validate()
-
-
-def transcribe_call(
-    model: BaseWhisper,
-    audio_file: str,
-    metadata: Metadata,
-    prompt: str = "",
-) -> Transcript:
-    response = transcribe(
-        model=model,
-        **build_transcribe_kwargs(audio_file, metadata, prompt),
-    )
-
-    return process_response(response, metadata)

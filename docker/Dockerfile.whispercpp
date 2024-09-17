@@ -1,0 +1,69 @@
+#
+# NOTE: THIS DOCKERFILE IS GENERATED VIA "generate-dockerfiles.sh"
+#
+# PLEASE DO NOT EDIT IT DIRECTLY.
+#
+FROM ubuntu:22.04 AS whispercpp
+
+RUN apt-get update && \
+    apt-get -y upgrade && \
+    apt-get install -y --no-install-recommends \
+    build-essential \
+    ca-certificates \
+    curl \
+    git \
+    && \
+    rm -rf /var/lib/apt/lists/*
+
+ARG WHISPERCPP_VERSION=v1.5.4
+RUN git clone --depth 1 --branch $WHISPERCPP_VERSION https://github.com/ggerganov/whisper.cpp.git
+
+WORKDIR /whisper.cpp
+
+RUN make
+
+ARG WHISPER_MODEL=base.en
+ENV WHISPER_MODEL=${WHISPER_MODEL}
+RUN models/download-ggml-model.sh $WHISPER_MODEL
+
+FROM ubuntu:24.04
+
+RUN apt-get update && \
+    apt-get -y upgrade && \
+    apt-get install -y --no-install-recommends \
+    curl \
+    python3 \
+    python3-pip \
+    python3-dev \
+    pipx \
+    git \
+    ffmpeg \
+    sox \
+    && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN pipx install poetry
+
+ENV PATH="/root/.local/bin:${PATH}"
+
+WORKDIR /src
+COPY pyproject.toml poetry.lock ./
+RUN poetry install --without dev --no-root --no-interaction --no-ansi
+
+# Install Whisper.cpp
+COPY --from=whispercpp /whisper.cpp/main /usr/local/bin/whisper-cpp
+COPY --from=whispercpp /whisper.cpp/models/ggml-*.bin /usr/local/lib/whisper-models/
+ENV WHISPER_IMPLEMENTATION=whisper.cpp
+ENV WHISPERCPP_MODEL_DIR=/usr/local/lib/whisper-models
+
+COPY app app
+COPY config config
+COPY docker/docker-entrypoint.sh /usr/local/bin/
+
+ENV PYTHONPATH=/src
+
+ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["worker"]
+
+ARG GIT_COMMIT
+ENV GIT_COMMIT=${GIT_COMMIT}

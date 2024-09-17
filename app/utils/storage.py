@@ -2,12 +2,15 @@ import os
 from datetime import datetime
 from functools import lru_cache
 from mimetypes import guess_type
+import tempfile
 
 import boto3
 import pytz
 from botocore.config import Config
+from datauri import DataURI
+import requests
 
-from .conversion import convert_to_mp3
+from .conversion import convert_to_mp3, convert_to_wav
 from app.models.metadata import Metadata
 
 
@@ -48,3 +51,24 @@ def upload_raw_audio(metadata: Metadata, audio_file: str) -> str:
     os.unlink(mp3)
 
     return url
+
+
+def fetch_audio(audio_url: str) -> str:
+    mp3_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
+    if audio_url.startswith("data:"):
+        uri = DataURI(audio_url)
+        mp3_file.write(uri.data)  # type: ignore
+        mp3_file.close()
+    else:
+        with requests.get(audio_url, stream=True) as r:
+            r.raise_for_status()
+            for chunk in r.iter_content(chunk_size=1024 * 1024):
+                mp3_file.write(chunk)
+            mp3_file.close()
+
+    try:
+        audio_file = convert_to_wav(mp3_file.name)
+    finally:
+        os.unlink(mp3_file.name)
+
+    return audio_file

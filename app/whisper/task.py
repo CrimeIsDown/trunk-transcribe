@@ -40,10 +40,25 @@ class WhisperTask(Task):
         with self.model_lock:
             logging.info(f"Initializing whisper model {implementation}")
             implementation, model = implementation.split(":", 1)
-            if implementation == "whisper-asr-api":
-                from .whisper_asr_api import WhisperAsrApi
+            if implementation == "whisper.cpp":
+                from .whisper_cpp import WhisperCpp
 
-                return WhisperAsrApi()
+                return WhisperCpp(
+                    model,
+                    os.getenv("WHISPERCPP_MODEL_DIR", "/usr/local/lib/whisper-models"),
+                )
+            if implementation == "faster-whisper":
+                from .faster_whisper import FasterWhisper
+
+                return FasterWhisper(model)
+            if implementation == "whispers2t":
+                from .whisper_s2t import WhisperS2T
+
+                return WhisperS2T(model)
+            if implementation == "whisper":
+                from .whisper import Whisper
+
+                return Whisper(model)
             if implementation == "openai":
                 if not os.getenv("OPENAI_API_KEY"):
                     raise WhisperException("OPENAI_API_KEY env must be set.")

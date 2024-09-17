@@ -1,4 +1,9 @@
-FROM ubuntu:24.04
+#
+# NOTE: THIS DOCKERFILE IS GENERATED VIA "generate-dockerfiles.sh"
+#
+# PLEASE DO NOT EDIT IT DIRECTLY.
+#
+FROM nvidia/cuda:12.6.0-cudnn8-runtime-ubuntu24.04
 
 RUN apt-get update && \
     apt-get -y upgrade && \
@@ -22,7 +27,17 @@ WORKDIR /src
 COPY pyproject.toml poetry.lock ./
 RUN poetry install --without dev --no-root --no-interaction --no-ansi
 
-# $WHISPER_INSTALL_INSTRUCTIONS
+# Install WhisperS2T
+COPY docker/install-whispers2t.sh /usr/local/bin/install-whisper.sh
+ARG DESIRED_CUDA
+RUN install-whisper.sh
+
+ARG WHISPER_MODEL=base.en
+ENV WHISPER_MODEL=${WHISPER_MODEL}
+# Pre-download the Whisper model
+RUN poetry run python3 -c "import os; from whisper_s2t.backends.ctranslate2.hf_utils import download_model; download_model(os.getenv('WHISPER_MODEL'))"
+ENV WHISPER_IMPLEMENTATION=whispers2t
+ENV TQDM_DISABLE=1
 
 COPY app app
 COPY config config
@@ -31,7 +46,7 @@ COPY docker/docker-entrypoint.sh /usr/local/bin/
 ENV PYTHONPATH=/src
 
 ENTRYPOINT ["docker-entrypoint.sh"]
-CMD ["api"]
+CMD ["worker"]
 
 ARG GIT_COMMIT
 ENV GIT_COMMIT=${GIT_COMMIT}

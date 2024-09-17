@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import socket
 from typing import Annotated, Any
 import json
 import logging
@@ -21,20 +20,11 @@ import sentry_sdk
 load_dotenv()
 
 from app.utils.exceptions import before_send
-from app.geocoding import geocoding
 from app.models.database import SessionLocal, engine
 from app.models.metadata import Metadata
-from app.models.transcript import Transcript
-from app.notifications import notification
-from app.search import search
 from app.utils import storage
 from app.whisper.task import WhisperTask
-from app.worker import (
-    transcribe_from_db_batch_task,
-    transcribe_from_db_task,
-    transcribe_task,
-    transcribe,
-)
+from app.worker import transcribe_task
 from app.worker import celery as celery_app
 from app.models import call as call_model, base as base_model
 
@@ -209,16 +199,10 @@ def create_call_from_sdrtrunk(
 
     db_call = call_model.create_call(db=db, call=call)
 
-    if os.getenv("ASR_ENGINE") == "whisper_s2t":
-        transcribe_from_db_batch_task.apply_async(
-            queue="transcribe",
-            kwargs={"id": db_call.id},
-        )
-    else:
-        transcribe_from_db_task.apply_async(
-            queue="transcribe",
-            kwargs={"id": db_call.id},
-        )
+    transcribe_task.apply_async(
+        queue="transcribe",
+        kwargs={"metadata": metadata, "audio_url": audio_url, "id": db_call.id},
+    )
 
     return Response("Call imported successfully.", status_code=200)
 
@@ -329,23 +313,15 @@ def create_call(
 
     db_call = call_model.create_call(db=db, call=call)
 
-    task: AsyncResult[Any]
-
-    if batch:
-        if os.getenv("ASR_ENGINE") != "whisper_s2t":
-            raise HTTPException(
-                status_code=400,
-                detail="Batch transcription only supported with ASR_ENGINE=whisper_s2t",
-            )
-        task = transcribe_from_db_batch_task.apply_async(
-            queue="transcribe",
-            kwargs={"id": db_call.id},
-        )
-    else:
-        task = transcribe_from_db_task.apply_async(
-            queue="transcribe",
-            kwargs={"id": db_call.id, "whisper_implementation": whisper_implementation},
-        )
+    task: AsyncResult[Any] = transcribe_task.apply_async(
+        queue="transcribe",
+        kwargs={
+            "metadata": metadata,
+            "audio_url": audio_url,
+            "id": db_call.id,
+            "whisper_implementation": whisper_implementation,
+        },
+    )
     return JSONResponse({"task_id": task.id}, status_code=201)
 
 
@@ -357,75 +333,7 @@ def update_call(
     if db_call is None:
         raise HTTPException(status_code=404, detail="Call not found")
 
-    metadata = Metadata(db_call.raw_metadata)  # type: ignore
-    transcript = Transcript(call.raw_transcript)  # type: ignore
-    call.geo = geocoding.lookup_geo(metadata, transcript)
-
-    db_call = call_model.update_call(db=db, call=call, db_call=db_call)
-
-    search_url = search.index_call(
-        db_call.id,  # type: ignore
-        metadata,
-        db_call.raw_audio_url,  # type: ignore
-        transcript,
-        db_call.geo,  # type: ignore
-    )
-
-    notification.send_notifications(
-        db_call.raw_audio_url,  # type: ignore
-        metadata,
-        transcript,
-        db_call.geo,  # type: ignore
-        search_url,  # type: ignore
-    )
-
-    search.make_next_index()
-
-    return db_call
-
-
-@app.post("/transcribe")
-def transcribe_audio(
-    call_audio: UploadFile,
-    call_json: UploadFile,
-    prompt: Annotated[str | None, Form()] = None,
-    whisper_implementation: str | None = None,
-) -> JSONResponse:
-    metadata = json.loads(call_json.file.read())
-
-    if metadata["call_length"] < float(os.getenv("MIN_CALL_LENGTH", "2")):
-        raise HTTPException(status_code=400, detail="Call too short to transcribe")
-
-    raw_audio = tempfile.NamedTemporaryFile(
-        delete=False, suffix=f"_{call_audio.filename}"
-    )
-    while True:
-        data = call_audio.file.read(1024 * 1024)
-        if not data:
-            raw_audio.close()
-            break
-        raw_audio.write(data)
-
-    audio_file = raw_audio.name
-
-    try:
-        transcript = transcribe(
-            task.model(whisper_implementation),
-            metadata,
-            audio_file,
-            prompt=prompt if prompt else "",
-        )
-    finally:
-        try:
-            os.unlink(audio_file)
-        except OSError:
-            pass
-
-    if transcript:
-        return JSONResponse(
-            {"raw_transcript": transcript.transcript, "transcript": transcript.txt}
-        )
-    raise HTTPException(status_code=500, detail="Transcription failed, no transcript")
+    return call_model.update_call(db=db, call=call, db_call=db_call)
 
 
 @app.get("/config/{filename}")
@@ -435,77 +343,3 @@ def get_config(filename: str) -> JSONResponse:
 
     with open(f"config/{filename}") as config:
         return JSONResponse(json.load(config))
-
-
-@app.post("/haproxy")
-def add_server_to_haproxy(
-    name: Annotated[str, Form()],
-    server: Annotated[str, Form()],
-    port: Annotated[int, Form()],
-) -> JSONResponse:
-    def _is_valid_server(server: str) -> bool:
-        try:
-            socket.gethostbyname(server)
-            return True
-        except socket.gaierror:
-            return False
-
-    def _validate_haproxy_values(name: str, server: str, port: int) -> bool:
-        if not name.replace(".", "").isalnum():
-            return False
-        if not server or not server.strip() or not _is_valid_server(server):
-            return False
-        if not isinstance(port, int) or port <= 0 or port > 65535:
-            return False
-        return True
-
-    if not _validate_haproxy_values(name, server, port):
-        raise HTTPException(status_code=400, detail="Invalid values for HAProxy")
-    # Delete the server if it already exists
-    _send_haproxy_command(f"disable server webservers/{name}")
-    _send_haproxy_command(f"del server webservers/{name}")
-    # Try to add the server
-    if "New server registered" in _send_haproxy_command(
-        f"add server webservers/{name} {server}:{port} check"
-    ):
-        _send_haproxy_command(f"enable server webservers/{name}")
-        _send_haproxy_command(f"enable health webservers/{name}")
-        return JSONResponse({"status": "ok"})
-    raise HTTPException(status_code=500, detail="Failed to add server to HAProxy")
-
-
-@app.delete("/haproxy")
-def remove_server_from_haproxy(
-    name: Annotated[str, Form()],
-) -> JSONResponse:
-    if not name.replace(".", "").isalnum():
-        raise HTTPException(status_code=400, detail="Invalid values for HAProxy")
-    _send_haproxy_command(f"disable server webservers/{name}")
-    if "Server deleted" in _send_haproxy_command(f"del server webservers/{name}"):
-        return JSONResponse({"status": "ok"})
-    raise HTTPException(status_code=500, detail="Failed to remove server from HAProxy")
-
-
-def _send_haproxy_command(command: str) -> str:
-    try:
-        haproxy_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        haproxy_socket.settimeout(1)
-        haproxy_stats_addr = os.getenv("HAPROXY_STATS_ADDRESS")
-        if haproxy_stats_addr is not None:
-            haproxy_host, haproxy_port = (
-                haproxy_stats_addr.split(":")[0],
-                int(haproxy_stats_addr.split(":")[1]),
-            )
-            haproxy_socket.connect((haproxy_host, haproxy_port))
-        else:
-            raise ValueError("HAPROXY_STATS_ADDRESS environment variable is not set.")
-        logging.debug(f"Running HAProxy command: {command}")
-        haproxy_socket.send((command + "\n").encode())
-
-        response = haproxy_socket.recv(4096)
-        rdata = response.decode().strip()
-    finally:
-        haproxy_socket.close()
-
-    logging.debug(f"HAProxy command output: {rdata}")
-    return rdata

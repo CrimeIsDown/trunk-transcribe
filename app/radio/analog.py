@@ -1,12 +1,12 @@
 import os
 
+from app.models.metadata import Metadata
 from app.models.transcript import Transcript
-from app.whisper.base import BaseWhisper, TranscriptKwargs, WhisperResult
-from app.whisper.transcribe import transcribe
+from app.whisper.base import TranscriptKwargs, WhisperResult
 
 
 def build_transcribe_kwargs(
-    audio_file: str, initial_prompt: str = ""
+    audio_file: str, metadata: Metadata, initial_prompt: str = ""
 ) -> TranscriptKwargs:
     return {
         "audio_file": audio_file,
@@ -16,7 +16,7 @@ def build_transcribe_kwargs(
     }
 
 
-def process_response(response: WhisperResult) -> Transcript:
+def process_response(response: WhisperResult, metadata: Metadata) -> Transcript:
     transcript = Transcript()
 
     for segment in response["segments"]:
@@ -26,14 +26,3 @@ def process_response(response: WhisperResult) -> Transcript:
             transcript.append(text)
 
     return transcript.validate()
-
-
-def transcribe_call(
-    model: BaseWhisper, audio_file: str, prompt: str = ""
-) -> Transcript:
-    response = transcribe(
-        model=model,
-        **build_transcribe_kwargs(audio_file, prompt),
-    )
-
-    return process_response(response)

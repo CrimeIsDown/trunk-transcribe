@@ -1,11 +1,23 @@
 services:
   whisper:
-    image: ghcr.io/crimeisdown/whisper-asr-webservice:latest
-    environment:
-      - ASR_ENGINE=${ASR_ENGINE:-openai_whisper}
-      - ASR_MODEL=${WHISPER_MODEL:-small.en}
+    image: ghcr.io/crimeisdown/trunk-transcribe:${VERSION:-main}-${WHISPER_IMPLEMENTATION:-whisper}-${WHISPER_MODEL:-small.en}-${DESIRED_CUDA:-cpu}
+    build:
+      context: .
+      dockerfile: docker/${WORKER_DOCKERFILE:-Dockerfile.whisper}
+      cache_from:
+        - ghcr.io/crimeisdown/trunk-transcribe:main-${WHISPER_IMPLEMENTATION:-whisper}-${WHISPER_MODEL:-small.en}-${DESIRED_CUDA:-cpu}
+      args:
+        WHISPER_MODEL: ${WHISPER_MODEL:-small.en}
+    command: worker
     volumes:
-      - cache-whisper:/root/.cache/whisper
-
-volumes:
-  cache-whisper:
+      - ./app:/src/app
+      - ./config:/src/config
+      - ./docker/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
+    environment:
+      - CELERY_QUEUES=transcribe_gpu
+      - CELERY_LOGLEVEL
+      - CELERY_BROKER_URL
+      - CELERY_RESULT_BACKEND
+      - CELERY_CONCURRENCY
+      - CELERY_PREFETCH_MULTIPLIER
+    restart: always
