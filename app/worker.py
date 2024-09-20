@@ -14,7 +14,7 @@ from sentry_sdk.integrations.celery import CeleryIntegration
 import sentry_sdk
 
 from app.whisper.exceptions import WhisperException
-from app.whisper.task import WhisperTask
+from app.whisper.task import API_IMPLEMENTATIONS, WhisperTask
 
 
 load_dotenv()
@@ -59,8 +59,15 @@ celery = Celery(
     worker_cancel_long_running_tasks_on_connection_loss=True,
     worker_prefetch_multiplier=os.getenv("CELERY_PREFETCH_MULTIPLIER", 1),
     timezone="UTC",
-    task_routes={
-        "app.worker.transcribe_audio_task": {"queue": "transcribe_gpu"},
+)
+celery.conf.task_default_queue = "transcribe"
+celery.conf.task_routes = (
+    {
+        "app.worker.transcribe_task": {
+            "queue": celery.conf.task_default_queue
+            if os.getenv("WHISPER_IMPLEMENTATION") in API_IMPLEMENTATIONS
+            else f"{celery.conf.task_default_queue}_gpu"
+        },
     },
 )
 
@@ -111,54 +118,23 @@ def task_retry(**kwargs):  # type: ignore
     logger.warning(f"Task {kwargs['request'].kwargsrepr} failed, retrying...")
 
 
-@celery.task(name="transcribe")
-def transcribe_task(
-    metadata: Metadata,
-    audio_url: str,
-    id: Optional[int | str] = None,
-    index_name: Optional[str] = None,
-    whisper_implementation: Optional[str] = None,
-) -> str:
-    chain = (
-        pre_transcribe_task.s(metadata, audio_url)
-        | transcribe_audio_task.s(whisper_implementation=whisper_implementation)
-        | post_transcribe_task.s(metadata, audio_url, id, index_name)
-    )
-    return chain()
-
-
-@celery.task(name="pre_transcribe")
-def pre_transcribe_task(
-    metadata: Metadata,
-    audio_url: str,
-) -> TranscriptKwargs:
-    if "digital" in metadata["audio_type"]:
-        from app.radio.digital import build_transcribe_kwargs
-    elif metadata["audio_type"] == "analog":
-        from app.radio.analog import build_transcribe_kwargs
-    else:
-        raise Reject(f"Audio type {metadata['audio_type']} not supported")
-
-    return build_transcribe_kwargs(audio_url, metadata)
-
-
 @celery.task(base=WhisperTask, bind=True, name="transcribe_audio")
-def transcribe_audio_task(
+def transcribe_task(
     self,
     kwargs: TranscriptKwargs,
     audio_url: str,
     whisper_implementation: Optional[str] = None,
 ) -> WhisperResult:
-    kwargs["audio_file"] = fetch_audio(audio_url)
-
+    audio_file = fetch_audio(audio_url)
     try:
         return transcribe(
             model=self.model(whisper_implementation),  # type: ignore
+            audio_file=audio_file,
             **kwargs,
         )
     finally:
         try:
-            os.unlink(kwargs["audio_file"])
+            os.unlink(audio_file)
         except OSError:
             pass
 

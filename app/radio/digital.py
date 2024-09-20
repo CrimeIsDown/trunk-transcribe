@@ -18,7 +18,7 @@ def get_closest_src(srcList: list[SrcListItem], segment: WhisperSegment) -> SrcL
 
 
 def build_transcribe_kwargs(
-    audio_file: str, metadata: Metadata, initial_prompt: str = ""
+    metadata: Metadata, initial_prompt: str = ""
 ) -> TranscriptKwargs:
     initial_prompt = ""
 
@@ -30,7 +30,6 @@ def build_transcribe_kwargs(
             initial_prompt += " " + src["transcript_prompt"]
 
     return {
-        "audio_file": audio_file,
         "initial_prompt": initial_prompt,
         "cleanup": True,
         "vad_filter": os.getenv("VAD_FILTER_DIGITAL", "").lower() == "true",

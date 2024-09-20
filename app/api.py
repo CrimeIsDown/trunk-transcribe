@@ -23,9 +23,7 @@ from app.utils.exceptions import before_send
 from app.models.database import SessionLocal, engine
 from app.models.metadata import Metadata
 from app.utils import storage
-from app.whisper.task import WhisperTask
-from app.worker import transcribe_task
-from app.worker import celery as celery_app
+from app import worker
 from app.models import call as call_model, base as base_model
 
 sentry_dsn = os.getenv("SENTRY_DSN")
@@ -58,8 +56,6 @@ log_formatter = logging.Formatter(
 )
 stream_handler.setFormatter(log_formatter)
 logger.addHandler(stream_handler)
-
-task = WhisperTask()
 
 
 # Dependency
@@ -199,10 +195,15 @@ def create_call_from_sdrtrunk(
 
     db_call = call_model.create_call(db=db, call=call)
 
-    transcribe_task.apply_async(
-        queue="transcribe",
-        kwargs={"metadata": metadata, "audio_url": audio_url, "id": db_call.id},
-    )
+    if "digital" in metadata["audio_type"]:
+        from app.radio.digital import build_transcribe_kwargs
+    elif metadata["audio_type"] == "analog":
+        from app.radio.analog import build_transcribe_kwargs
+
+    (
+        worker.transcribe_task.s(build_transcribe_kwargs(metadata), audio_url)
+        | worker.post_transcribe_task.s(metadata, audio_url, db_call.id)
+    ).apply_async()
 
     return Response("Call imported successfully.", status_code=200)
 
@@ -217,6 +218,15 @@ def queue_for_transcription(
 
     if metadata["call_length"] < float(os.getenv("MIN_CALL_LENGTH", "2")):
         raise HTTPException(status_code=400, detail="Call too short to transcribe")
+
+    if "digital" in metadata["audio_type"]:
+        from app.radio.digital import build_transcribe_kwargs
+    elif metadata["audio_type"] == "analog":
+        from app.radio.analog import build_transcribe_kwargs
+    else:
+        raise HTTPException(
+            status_code=400, detail=f"Audio type {metadata['audio_type']} not supported"
+        )
 
     raw_audio = tempfile.NamedTemporaryFile(
         delete=False, suffix=f"_{call_audio.filename}"
@@ -233,20 +243,19 @@ def queue_for_transcription(
     finally:
         os.unlink(raw_audio.name)
 
-    task = transcribe_task.apply_async(
-        queue="transcribe",
-        kwargs={
-            "metadata": metadata,
-            "audio_url": audio_url,
-            "whisper_implementation": whisper_implementation,
-        },
-    )
+    task: AsyncResult[Any] = (
+        worker.transcribe_task.s(
+            build_transcribe_kwargs(metadata), audio_url, whisper_implementation
+        )
+        | worker.post_transcribe_task.s(metadata, audio_url)
+    ).apply_async()
+
     return JSONResponse({"task_id": task.id}, status_code=201)
 
 
 @app.get("/tasks/{task_id}")
 def get_status(task_id: str) -> JSONResponse:
-    task_result = AsyncResult(task_id, app=celery_app)  # type: ignore
+    task_result = AsyncResult(task_id, app=worker.celery)  # type: ignore
     result = {
         "task_id": task_id,
         "task_status": task_result.status,
@@ -289,6 +298,15 @@ def create_call(
     if metadata["call_length"] < float(os.getenv("MIN_CALL_LENGTH", "2")):
         raise HTTPException(status_code=400, detail="Call too short to transcribe")
 
+    if "digital" in metadata["audio_type"]:
+        from app.radio.digital import build_transcribe_kwargs
+    elif metadata["audio_type"] == "analog":
+        from app.radio.analog import build_transcribe_kwargs
+    else:
+        raise HTTPException(
+            status_code=400, detail=f"Audio type {metadata['audio_type']} not supported"
+        )
+
     if call_audio:
         raw_audio = tempfile.NamedTemporaryFile(
             delete=False, suffix=f"_{call_audio.filename}"
@@ -313,15 +331,13 @@ def create_call(
 
     db_call = call_model.create_call(db=db, call=call)
 
-    task: AsyncResult[Any] = transcribe_task.apply_async(
-        queue="transcribe",
-        kwargs={
-            "metadata": metadata,
-            "audio_url": audio_url,
-            "id": db_call.id,
-            "whisper_implementation": whisper_implementation,
-        },
-    )
+    task: AsyncResult[Any] = (
+        worker.transcribe_task.s(
+            build_transcribe_kwargs(metadata), audio_url, whisper_implementation
+        )
+        | worker.post_transcribe_task.s(metadata, audio_url, db_call.id)
+    ).apply_async()
+
     return JSONResponse({"task_id": task.id}, status_code=201)
 
 

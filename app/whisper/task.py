@@ -8,6 +8,8 @@ from .exceptions import WhisperException
 from app.task import Task
 from .base import BaseWhisper
 
+API_IMPLEMENTATIONS = ["openai", "deepgram"]
+
 
 class WhisperTask(Task):
     _models: dict[str, BaseWhisper] = {}

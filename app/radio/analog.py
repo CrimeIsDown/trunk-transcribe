@@ -6,10 +6,9 @@ from app.whisper.base import TranscriptKwargs, WhisperResult
 
 
 def build_transcribe_kwargs(
-    audio_file: str, metadata: Metadata, initial_prompt: str = ""
+    metadata: Metadata, initial_prompt: str = ""
 ) -> TranscriptKwargs:
     return {
-        "audio_file": audio_file,
         "cleanup": True,
         "vad_filter": os.getenv("VAD_FILTER_ANALOG", "").lower() == "true",
         "initial_prompt": initial_prompt,

@@ -15,7 +15,6 @@ class WhisperResult(TypedDict):
 
 
 class TranscriptKwargs(TypedDict):
-    audio_file: str
     initial_prompt: str
     cleanup: bool
     vad_filter: bool

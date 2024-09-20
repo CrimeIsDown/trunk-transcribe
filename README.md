@@ -82,7 +82,7 @@ The worker can be run on Windows if needed.
 
 ### Running workers on Vast.ai
 
-The worker can be run on the cloud GPU service [vast.ai](https://vast.ai/). To get started, sign up for a vast.ai account. Next, create a copy of your `.env` called `.env.vast`. Update any settings such that a machine on the public internet could access the API and queue backend (*please ensure all services are protected by strong passwords*). Then, install the [Vast CLI](https://console.vast.ai/cli/) and login.
+The worker can be run on the cloud GPU service [vast.ai](https://vast.ai/). To get started, sign up for a vast.ai account. After that, update any settings in your `.env` such that a machine on the public internet could access the queue backend (*please ensure all services are protected by strong passwords*). Then, install the [Vast CLI](https://console.vast.ai/cli/) and login.
 
 To start the autoscaler, set the following in your `.env`:
 
@@ -177,7 +177,7 @@ If a change is made to the search index settings or document data structure, it 
 docker compose run --rm api poetry run app/bin/reindex.py --update-settings
 ```
 
-A more complex command, which uses the connection settings from `.env.vast` to update calls in the `calls_demo` index without a `raw_transcript` attribute, and updating radio IDs for those calls from the chi_cfd system.
+A more complex command, which updates calls in the `calls_demo` index without a `raw_transcript` attribute, and updating radio IDs for those calls from the chi_cfd system.
 
 ```bash
 docker compose run --rm api poetry run app/bin/reindex.py --unit_tags chi_cfd ../trunk-recorder/config/cfd-radio-ids.csv --filter 'not hasattr(document, "raw_transcript")' --index calls_demo

@@ -3,7 +3,7 @@ services:
     image: ghcr.io/crimeisdown/trunk-transcribe:${VERSION:-main}
     build:
       context: .
-      dockerfile: docker/Dockerfile
+      dockerfile: Dockerfile
       cache_from:
         - ghcr.io/crimeisdown/trunk-transcribe:main
     command:
@@ -17,7 +17,7 @@ services:
       - --interval
       - ${AUTOSCALE_INTERVAL:-60}
       - --image
-      - ghcr.io/crimeisdown/whisper-asr-webservice:latest-gpu
+      - ghcr.io/crimeisdown/trunk-transcribe:main-${WHISPER_IMPLEMENTATION:-whisper}-${WHISPER_MODEL:-large-v2}-${DESIRED_CUDA:-cu121}
     env_file: .env
     volumes:
       - ./app:/src/app

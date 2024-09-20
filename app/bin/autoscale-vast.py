@@ -66,32 +66,28 @@ class Autoscaler:
         if not self.vast_api_key:
             self.vast_api_key = open(os.path.expanduser("~/.vast_api_key")).read()
         self.vast_api_key = self.vast_api_key.strip()
-        self.model = os.getenv("ASR_MODEL", "large-v3")
-        self.implementation = os.getenv("ASR_ENGINE", "faster_whisper")
 
-        if not os.getenv("API_BASE_URL") or not os.getenv("API_KEY"):
-            raise Exception("API_BASE_URL and API_KEY must be set in the environment")
+        self.model = os.getenv("WHISPER_MODEL", "large-v3")
+        self.implementation = os.getenv("WHISPER_IMPLEMENTATION", "faster-whisper")
 
-        self.envs = {
-            "-p 9000:9000": "1",
-            "ASR_MODEL": self.model,
-            "ASR_ENGINE": self.implementation,
-            "WEBHOOK_URL": os.getenv("API_BASE_URL", "").rstrip("/") + "/haproxy",
-            "WEBHOOK_SECRET": os.getenv("API_KEY", ""),
-        }
+        # get all envs starting with CELERY
+        self.envs = {k: v for k, v in os.environ.items() if k.startswith("CELERY")}
 
-        desired_cuda = os.getenv("DESIRED_CUDA", "cu118")
+        if os.getenv("SENTRY_DSN"):
+            self.envs["SENTRY_DSN"] = os.getenv("SENTRY_DSN", "")
+
+        desired_cuda = os.getenv("DESIRED_CUDA", "cu121")
         cuda_version_matches = re.match(r"cu(\d\d)(\d)", desired_cuda)
         self.cuda_version = (
             f"{cuda_version_matches.group(1)}.{cuda_version_matches.group(2)}"
             if cuda_version_matches
-            else "11.8"
+            else "12.1"
         )
 
         if image:
             self.image = image
         else:
-            self.image = "ghcr.io/crimeisdown/whisper-asr-webservice:latest-gpu"
+            self.image = f"ghcr.io/crimeisdown/trunk-transcribe:main-{self.implementation}-{self.model}-{desired_cuda}"
 
         if os.path.isfile(FORBIDDEN_INSTANCE_CONFIG):
             with open(FORBIDDEN_INSTANCE_CONFIG) as config:
@@ -149,7 +145,7 @@ class Autoscaler:
 
     def get_worker_status(self) -> list[dict]:
         workers = []
-        result = self._get_celery_client().control.inspect(timeout=10).stats()  # type: ignore
+        result = self._get_celery_client().control.inspect(timeout=10).stats()
         if result:
             for name, stats in result.items():
                 # If this was one of our pending instances, remove it from the list
@@ -189,8 +185,6 @@ class Autoscaler:
             "num_gpus": {"eq": "1"},
             "gpu_ram": {"gte": f"{vram_needed:.1f}"},
             "cuda_max_good": {"gte": self.cuda_version},
-            "direct_port_count": {"gt": "2"},
-            "disk_space": {"gte": 16},
             "order": [["dph_total", "asc"]],
             "type": "ask" if os.getenv("VAST_ONDEMAND") else "bid",
         }
@@ -233,11 +227,11 @@ class Autoscaler:
     def create_instances(self, count: int) -> int:
         logging.info(f"Scaling up by {count} instances")
 
-        mem_util_factor = 1.0
+        mem_util_factor = 1
         # Decrease the memory needed for certain forks
-        if self.implementation in ["faster_whisper", "whisper_cpp"]:
+        if self.implementation in ["faster-whisper", "whisper.cpp"]:
             mem_util_factor = 0.4
-        if self.implementation == "whisper_s2t":
+        if self.implementation == "whispers2t":
             mem_util_factor = 0.5
 
         vram_requirements = {
@@ -273,13 +267,19 @@ class Autoscaler:
 
             # Adjust concurrency based on GPU RAM
             concurrency = floor(instance["gpu_ram"] / vram_required)
-            self.envs["ASR_WORKERS"] = str(max(1, concurrency))
+            self.envs["CELERY_CONCURRENCY"] = str(max(1, concurrency))
+
+            # Set a nice hostname so we don't use a random Docker hash
+            git_commit = self.get_git_commit()
+            hostname = self._make_instance_hostname(instance)
+            self.envs["CELERY_HOSTNAME"] = f"celery-{git_commit}@{hostname}"
 
             body = {
                 "client_id": "me",
                 "image": image,
+                "args": ["worker"],
                 "env": self.envs,
-                "disk": 16,
+                "disk": 0.5,
                 "runtype": "args",
             }
 
@@ -299,9 +299,9 @@ class Autoscaler:
                 f"Started instance {instance_id}, a {instance['gpu_name']} for ${instance['dph_total'] if os.getenv('VAST_ONDEMAND') else body['price']}/hr"
             )
             # Add the instance to our list of pending instances so we can check when it comes online
-            self.pending_instances[instance_id] = concurrency
+            self.pending_instances[self.envs["CELERY_HOSTNAME"]] = concurrency
             # Update our other vars
-            self.running_instances.append(self._make_instance_hostname(instance))
+            self.running_instances.append(hostname)
             instances_created += 1
 
         return instances_created
