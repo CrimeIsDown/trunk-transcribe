@@ -62,17 +62,25 @@ class WhisperTask(Task):
 
                 return Whisper(model)
             if implementation == "openai":
-                if not os.getenv("OPENAI_API_KEY"):
+                api_key = os.getenv("OPENAI_API_KEY")
+                if not api_key:
                     raise WhisperException("OPENAI_API_KEY env must be set.")
                 from .openai import OpenAIApi
 
-                return OpenAIApi(os.getenv("OPENAI_API_KEY", ""))
+                return OpenAIApi(api_key)
             if implementation == "deepgram":
-                if not os.getenv("DEEPGRAM_API_KEY"):
+                api_key = os.getenv("DEEPGRAM_API_KEY")
+                if not api_key:
                     raise WhisperException("DEEPGRAM_API_KEY env must be set.")
                 from .deepgram import DeepgramApi
 
-                return DeepgramApi(os.getenv("DEEPGRAM_API_KEY", ""), model)
+                return DeepgramApi(api_key, model)
+            if implementation == "whisper-asr-api":
+                from .whisper_asr_api import WhisperAsrApi
+
+                return WhisperAsrApi(
+                    base_url=os.getenv("ASR_API_URL", "http://localhost:5000")
+                )
 
             raise WhisperException(f"Unknown implementation {implementation}")
 
