@@ -18,12 +18,12 @@ class WhisperAsrApi(BaseWhisper):
             f"{self.base_url}/asr",
             files={"audio_file": open(audio, "rb")},
             params={
-                "encode": True,
+                "encode": "true",
                 "task": "transcribe",
                 "language": language,
-                "initial_prompt": initial_prompt,
-                "vad_filter": vad_filter,
-                "word_timestamps": False,
+                "initial_prompt": initial_prompt if initial_prompt is not None else "",
+                "vad_filter": "true" if vad_filter else "false",
+                "word_timestamps": "false",
                 "output": "json",
             },
         )
