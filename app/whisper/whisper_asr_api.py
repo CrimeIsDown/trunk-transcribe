@@ -1,5 +1,5 @@
 import requests
-from .base import BaseWhisper, WhisperResult
+from .base import BaseWhisper, TranscribeOptions, WhisperResult
 
 
 class WhisperAsrApi(BaseWhisper):
@@ -10,9 +10,8 @@ class WhisperAsrApi(BaseWhisper):
     def transcribe(
         self,
         audio: str,
+        options: TranscribeOptions,
         language: str = "en",
-        initial_prompt: str | None = None,
-        vad_filter: bool = False,
     ) -> WhisperResult:
         response = self.client.post(
             f"{self.base_url}/asr",
@@ -21,8 +20,10 @@ class WhisperAsrApi(BaseWhisper):
                 "encode": "true",
                 "task": "transcribe",
                 "language": language,
-                "initial_prompt": initial_prompt if initial_prompt is not None else "",
-                "vad_filter": "true" if vad_filter else "false",
+                "initial_prompt": options["initial_prompt"]
+                if options["initial_prompt"] is not None
+                else "",
+                "vad_filter": "true" if options["vad_filter"] else "false",
                 "word_timestamps": "false",
                 "output": "json",
             },

@@ -196,12 +196,12 @@ def create_call_from_sdrtrunk(
     db_call = call_model.create_call(db=db, call=call)
 
     if "digital" in metadata["audio_type"]:
-        from app.radio.digital import build_transcribe_kwargs
+        from app.radio.digital import build_transcribe_options
     elif metadata["audio_type"] == "analog":
-        from app.radio.analog import build_transcribe_kwargs
+        from app.radio.analog import build_transcribe_options
 
     (
-        worker.transcribe_task.s(build_transcribe_kwargs(metadata), audio_url)
+        worker.transcribe_task.s(build_transcribe_options(metadata), audio_url)
         | worker.post_transcribe_task.s(metadata, audio_url, db_call.id)
     ).apply_async()
 
@@ -220,9 +220,9 @@ def queue_for_transcription(
         raise HTTPException(status_code=400, detail="Call too short to transcribe")
 
     if "digital" in metadata["audio_type"]:
-        from app.radio.digital import build_transcribe_kwargs
+        from app.radio.digital import build_transcribe_options
     elif metadata["audio_type"] == "analog":
-        from app.radio.analog import build_transcribe_kwargs
+        from app.radio.analog import build_transcribe_options
     else:
         raise HTTPException(
             status_code=400, detail=f"Audio type {metadata['audio_type']} not supported"
@@ -245,7 +245,7 @@ def queue_for_transcription(
 
     task: AsyncResult[Any] = (
         worker.transcribe_task.s(
-            build_transcribe_kwargs(metadata), audio_url, whisper_implementation
+            build_transcribe_options(metadata), audio_url, whisper_implementation
         )
         | worker.post_transcribe_task.s(metadata, audio_url)
     ).apply_async()
@@ -299,9 +299,9 @@ def create_call(
         raise HTTPException(status_code=400, detail="Call too short to transcribe")
 
     if "digital" in metadata["audio_type"]:
-        from app.radio.digital import build_transcribe_kwargs
+        from app.radio.digital import build_transcribe_options
     elif metadata["audio_type"] == "analog":
-        from app.radio.analog import build_transcribe_kwargs
+        from app.radio.analog import build_transcribe_options
     else:
         raise HTTPException(
             status_code=400, detail=f"Audio type {metadata['audio_type']} not supported"
@@ -333,7 +333,7 @@ def create_call(
 
     task: AsyncResult[Any] = (
         worker.transcribe_task.s(
-            build_transcribe_kwargs(metadata), audio_url, whisper_implementation
+            build_transcribe_options(metadata), audio_url, whisper_implementation
         )
         | worker.post_transcribe_task.s(metadata, audio_url, db_call.id)
     ).apply_async()

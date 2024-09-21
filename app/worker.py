@@ -20,7 +20,7 @@ from app.whisper.task import API_IMPLEMENTATIONS, WhisperTask
 load_dotenv()
 
 from app.utils.storage import fetch_audio
-from app.whisper.base import TranscriptKwargs, WhisperResult
+from app.whisper.base import TranscribeOptions, WhisperResult
 from app.whisper.transcribe import transcribe
 from app.geocoding.geocoding import lookup_geo
 from app.models.metadata import Metadata
@@ -121,7 +121,7 @@ def task_retry(**kwargs):  # type: ignore
 @celery.task(base=WhisperTask, bind=True, name="transcribe_audio")
 def transcribe_task(
     self,
-    kwargs: TranscriptKwargs,
+    options: TranscribeOptions,
     audio_url: str,
     whisper_implementation: Optional[str] = None,
 ) -> WhisperResult:
@@ -130,7 +130,7 @@ def transcribe_task(
         return transcribe(
             model=self.model(whisper_implementation),  # type: ignore
             audio_file=audio_file,
-            **kwargs,
+            options=options,
         )
     finally:
         try:

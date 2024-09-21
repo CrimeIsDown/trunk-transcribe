@@ -2,16 +2,20 @@ import os
 
 from app.models.metadata import Metadata
 from app.models.transcript import Transcript
-from app.whisper.base import TranscriptKwargs, WhisperResult
+from app.utils.cache import get_ttl_hash
+from app.whisper.base import TranscribeOptions, WhisperResult
+from app.whisper.config import get_transcript_cleanup_config, get_whisper_config
 
 
-def build_transcribe_kwargs(
+def build_transcribe_options(
     metadata: Metadata, initial_prompt: str = ""
-) -> TranscriptKwargs:
+) -> TranscribeOptions:
     return {
         "cleanup": True,
         "vad_filter": os.getenv("VAD_FILTER_ANALOG", "").lower() == "true",
         "initial_prompt": initial_prompt,
+        "decode_options": get_whisper_config(get_ttl_hash(cache_seconds=60)),
+        "cleanup_config": get_transcript_cleanup_config(get_ttl_hash(cache_seconds=60)),
     }
 
 

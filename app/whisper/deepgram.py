@@ -1,7 +1,7 @@
 from deepgram import DeepgramClient
 from deepgram import FileSource, PrerecordedOptions, PrerecordedResponse
 
-from .base import BaseWhisper, WhisperResult
+from .base import BaseWhisper, TranscribeOptions, WhisperResult
 
 
 class DeepgramApi(BaseWhisper):
@@ -12,23 +12,22 @@ class DeepgramApi(BaseWhisper):
     def transcribe(
         self,
         audio: str,
+        options: TranscribeOptions,
         language: str = "en",
-        initial_prompt: str | None = None,
-        vad_filter: bool = False,
     ) -> WhisperResult:
         with open(audio, "rb") as audio_file:
             payload: FileSource = {"buffer": audio_file.read()}
 
-        options = PrerecordedOptions(
+        deepgram_options = PrerecordedOptions(
             model=self.model,
             utterances=True,
             smart_format=True,
             language=language,
-            keywords=initial_prompt,
+            keywords=options["initial_prompt"],
         )
         response: PrerecordedResponse = self.client.listen.prerecorded.v(
             "1"
-        ).transcribe_file(payload, options, timeout=120)
+        ).transcribe_file(payload, deepgram_options, timeout=120)  # type: ignore
 
         if (
             response.results

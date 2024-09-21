@@ -1,7 +1,6 @@
 import os
-from typing import Any
 import torch
-from .base import BaseWhisper, WhisperResult
+from .base import BaseWhisper, TranscribeOptions, WhisperResult
 from faster_whisper import WhisperModel
 
 
@@ -32,17 +31,15 @@ class FasterWhisper(BaseWhisper):
     def transcribe(
         self,
         audio: str,
+        options: TranscribeOptions,
         language: str = "en",
-        initial_prompt: str | None = None,
-        vad_filter: bool = False,
-        **decode_options: dict[Any, Any],
     ) -> WhisperResult:
         segments, _ = self.model.transcribe(
             audio=audio,
             language=language,
-            initial_prompt=initial_prompt,
-            vad_filter=vad_filter,
-            **decode_options,
+            initial_prompt=options["initial_prompt"],
+            vad_filter=options["vad_filter"],
+            **options["decode_options"],
         )
         segments = list(segments)  # The transcription will actually run here.
 

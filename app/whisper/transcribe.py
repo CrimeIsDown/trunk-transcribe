@@ -3,22 +3,20 @@ import logging
 import os
 import time
 
-from app.utils.cache import get_ttl_hash
 
-from .base import WhisperResult, BaseWhisper
+from .base import TranscribeOptions, WhisperResult, BaseWhisper
 from .exceptions import WhisperException
-from .config import get_transcript_cleanup_config, get_whisper_config
+from .config import TranscriptCleanupConfig
 
 
 def transcribe(
     model: BaseWhisper,
     audio_file: str,
-    initial_prompt: str = "",
-    cleanup: bool = False,
-    vad_filter: bool = False,
+    options: TranscribeOptions,
+    language: str = "en",
 ) -> WhisperResult:
     logging.debug(
-        f'Transcribing {audio_file} with language="en", initial_prompt="{initial_prompt}", vad_filter={vad_filter}'
+        f'Transcribing {audio_file} with language="{language}", initial_prompt="{options["initial_prompt"]}", vad_filter={options["vad_filter"]}'
     )
 
     # measure transcription time
@@ -27,10 +25,8 @@ def transcribe(
     try:
         result = model.transcribe(
             audio_file,
-            language="en",
-            initial_prompt=initial_prompt,
-            vad_filter=vad_filter,
-            **get_whisper_config(get_ttl_hash(cache_seconds=60)),
+            options,
+            language=language,
         )
     finally:
         os.unlink(audio_file)
@@ -40,51 +36,56 @@ def transcribe(
     execution_time = end_time - start_time
     logging.debug(f"Transcription execution time: {execution_time} seconds")
 
-    return cleanup_transcript(result) if cleanup else result
-
-
-def transcribe_bulk(
-    model: BaseWhisper,
-    audio_files: list[str],
-    initial_prompts: list[str] = [],
-    cleanup: bool = False,
-    vad_filter: bool = False,
-) -> list[WhisperResult | None]:
-    # measure transcription time
-    start_time = time.time()
-
-    try:
-        results = model.transcribe_bulk(
-            audio_files=audio_files,
-            initial_prompts=initial_prompts,
-            vad_filter=vad_filter,
-            **get_whisper_config(get_ttl_hash(cache_seconds=60)),
-        )
-    finally:
-        for audio_file in audio_files:
-            os.unlink(audio_file)
-    logging.debug(
-        f"{audio_files} transcription result: " + json.dumps(results, indent=4)
+    return (
+        cleanup_transcript(result, options["cleanup_config"])
+        if options["cleanup"]
+        else result
     )
 
-    end_time = time.time()
-    execution_time = end_time - start_time
-    logging.debug(f"Transcription execution time: {execution_time} seconds")
 
-    if cleanup:
-        cleaned_results: list[WhisperResult | None] = []
-        for result in results:
-            try:
-                cleaned_results.append(cleanup_transcript(result))
-            except WhisperException:
-                cleaned_results.append(None)
-        return cleaned_results
-    return results  # type: ignore
+# Commented out until this can be revisited
+# def transcribe_bulk(
+#     model: BaseWhisper,
+#     audio_files: list[str],
+#     initial_prompts: list[str] = [],
+#     cleanup: bool = False,
+#     vad_filter: bool = False,
+#     cleanup_config: TranscriptCleanupConfig = [],
+# ) -> list[WhisperResult | None]:
+#     # measure transcription time
+#     start_time = time.time()
+
+#     try:
+#         results = model.transcribe_bulk(
+#             audio_files=audio_files,
+#             initial_prompts=initial_prompts,
+#             vad_filter=vad_filter,
+#         )
+#     finally:
+#         for audio_file in audio_files:
+#             os.unlink(audio_file)
+#     logging.debug(
+#         f"{audio_files} transcription result: " + json.dumps(results, indent=4)
+#     )
+
+#     end_time = time.time()
+#     execution_time = end_time - start_time
+#     logging.debug(f"Transcription execution time: {execution_time} seconds")
+
+#     if cleanup:
+#         cleaned_results: list[WhisperResult | None] = []
+#         for result in results:
+#             try:
+#                 cleaned_results.append(cleanup_transcript(result, cleanup_config))
+#             except WhisperException:
+#                 cleaned_results.append(None)
+#         return cleaned_results
+#     return results  # type: ignore
 
 
-def cleanup_transcript(result: WhisperResult) -> WhisperResult:
-    config = get_transcript_cleanup_config()
-
+def cleanup_transcript(
+    result: WhisperResult, config: TranscriptCleanupConfig
+) -> WhisperResult:
     indices_to_delete = set()
 
     hallucination_count = 0

@@ -2,11 +2,13 @@ import os
 
 from app.models.metadata import Metadata, SrcListItem
 from app.models.transcript import Transcript
+from app.utils.cache import get_ttl_hash
 from app.whisper.base import (
-    TranscriptKwargs,
+    TranscribeOptions,
     WhisperSegment,
     WhisperResult,
 )
+from app.whisper.config import get_transcript_cleanup_config, get_whisper_config
 
 
 def get_closest_src(srcList: list[SrcListItem], segment: WhisperSegment) -> SrcListItem:
@@ -17,9 +19,9 @@ def get_closest_src(srcList: list[SrcListItem], segment: WhisperSegment) -> SrcL
     return closest_src
 
 
-def build_transcribe_kwargs(
+def build_transcribe_options(
     metadata: Metadata, initial_prompt: str = ""
-) -> TranscriptKwargs:
+) -> TranscribeOptions:
     initial_prompt = ""
 
     for src in metadata["srcList"]:
@@ -33,6 +35,8 @@ def build_transcribe_kwargs(
         "initial_prompt": initial_prompt,
         "cleanup": True,
         "vad_filter": os.getenv("VAD_FILTER_DIGITAL", "").lower() == "true",
+        "decode_options": get_whisper_config(get_ttl_hash(cache_seconds=60)),
+        "cleanup_config": get_transcript_cleanup_config(get_ttl_hash(cache_seconds=60)),
     }
 
 

@@ -1,11 +1,10 @@
 import os
-from typing import Any
 
 import torch
 import whisper_s2t
 from whisper_s2t.backends.ctranslate2.model import BEST_ASR_CONFIG
 
-from .base import BaseWhisper, WhisperResult
+from .base import BaseWhisper, TranscribeOptions, WhisperResult
 
 
 class WhisperS2T(BaseWhisper):
@@ -39,19 +38,17 @@ class WhisperS2T(BaseWhisper):
     def transcribe(
         self,
         audio: str,
+        options: TranscribeOptions,
         language: str = "en",
-        initial_prompt: str | None = None,
-        vad_filter: bool = False,
-        **decode_options: dict[Any, Any],
     ) -> WhisperResult:
         method = self.model.transcribe
-        if vad_filter:
+        if options["vad_filter"]:
             method = self.model.transcribe_with_vad
         output = method(
             [audio],
             lang_codes=[language],
             tasks=["transcribe"],
-            initial_prompts=[initial_prompt],
+            initial_prompts=[options["initial_prompt"]],
             batch_size=16,
         )
         result: WhisperResult = {
@@ -73,10 +70,9 @@ class WhisperS2T(BaseWhisper):
     def transcribe_bulk(
         self,
         audio_files: list[str],
+        options_list: list[TranscribeOptions],
         lang_codes: list[str] = [],
-        initial_prompts: list[str] = [],
         vad_filter: bool = False,
-        **decode_options: dict[Any, Any],
     ) -> list[WhisperResult]:
         method = self.model.transcribe
         if vad_filter:
@@ -87,9 +83,7 @@ class WhisperS2T(BaseWhisper):
             audio_files,
             lang_codes=lang_codes,
             tasks=["transcribe" for _ in audio_files],
-            initial_prompts=(
-                initial_prompts if initial_prompts else [""] * len(audio_files)
-            ),
+            initial_prompts=[options["initial_prompt"] for options in options_list],
             batch_size=16,
         )
         results: list[WhisperResult] = []

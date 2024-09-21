@@ -2,7 +2,7 @@ from csv import DictReader
 import os
 import subprocess
 
-from .base import BaseWhisper, WhisperResult
+from .base import BaseWhisper, TranscribeOptions, WhisperResult
 
 
 class WhisperCpp(BaseWhisper):
@@ -14,10 +14,8 @@ class WhisperCpp(BaseWhisper):
     def transcribe(
         self,
         audio: str,
+        options: TranscribeOptions,
         language: str = "en",
-        initial_prompt: str | None = None,
-        vad_filter: bool = False,
-        **decode_options,
     ) -> WhisperResult:
         args = [
             "whisper-cpp",
@@ -28,14 +26,20 @@ class WhisperCpp(BaseWhisper):
             "--output-csv",
         ]
 
-        if initial_prompt:
-            args += ["--prompt", initial_prompt]
+        if options["initial_prompt"]:
+            args += ["--prompt", options["initial_prompt"]]
 
-        if "best_of" in decode_options and decode_options["best_of"]:
-            args += ["--best-of", str(decode_options["best_of"])]
+        if (
+            "best_of" in options["decode_options"]
+            and options["decode_options"]["best_of"]
+        ):
+            args += ["--best-of", str(options["decode_options"]["best_of"])]
 
-        if "beam_size" in decode_options and decode_options["beam_size"]:
-            args += ["--beam-size", str(decode_options["beam_size"])]
+        if (
+            "beam_size" in options["decode_options"]
+            and options["decode_options"]["beam_size"]
+        ):
+            args += ["--beam-size", str(options["decode_options"]["beam_size"])]
 
         args.append(audio)
 

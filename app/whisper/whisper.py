@@ -1,8 +1,6 @@
-from typing import Any
-
 import whisper
 
-from .base import BaseWhisper, WhisperResult
+from .base import BaseWhisper, TranscribeOptions, WhisperResult
 
 
 class Whisper(BaseWhisper):
@@ -12,14 +10,12 @@ class Whisper(BaseWhisper):
     def transcribe(
         self,
         audio: str,
+        options: TranscribeOptions,
         language: str = "en",
-        initial_prompt: str | None = None,
-        vad_filter: bool = False,
-        **decode_options: dict[Any, Any],
     ) -> WhisperResult:
         return self.model.transcribe(
             audio=audio,
             language=language,
-            initial_prompt=initial_prompt,
-            **decode_options,
+            initial_prompt=options["initial_prompt"],
+            **options["decode_options"],
         )
