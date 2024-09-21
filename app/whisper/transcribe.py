@@ -3,9 +3,11 @@ import logging
 import os
 import time
 
+from app.utils.cache import get_ttl_hash
+
 from .base import WhisperResult, BaseWhisper
 from .exceptions import WhisperException
-from .config import get_transcript_cleanup_config
+from .config import get_transcript_cleanup_config, get_whisper_config
 
 
 def transcribe(
@@ -28,6 +30,7 @@ def transcribe(
             language="en",
             initial_prompt=initial_prompt,
             vad_filter=vad_filter,
+            **get_whisper_config(get_ttl_hash(cache_seconds=60)),
         )
     finally:
         os.unlink(audio_file)
@@ -55,6 +58,7 @@ def transcribe_bulk(
             audio_files=audio_files,
             initial_prompts=initial_prompts,
             vad_filter=vad_filter,
+            **get_whisper_config(get_ttl_hash(cache_seconds=60)),
         )
     finally:
         for audio_file in audio_files:
