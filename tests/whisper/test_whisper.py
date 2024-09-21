@@ -1,16 +1,20 @@
 import unittest
 import csv
 import json
+from app.utils.cache import get_ttl_hash
+from app.whisper.config import get_transcript_cleanup_config
 from app.whisper.exceptions import WhisperException
 from app.models.transcript import RawTranscript
 from app.whisper.transcribe import WhisperResult, cleanup_transcript
 
 
+transcript_cleanup_config = get_transcript_cleanup_config(get_ttl_hash(cache_seconds=60))
+
 class TestTranscript(unittest.TestCase):
     def _transform_into_whisper_result(
         self, raw_transcript: RawTranscript
     ) -> WhisperResult:
-        result = {"text": "", "segments": [], "language": "en"}
+        result: WhisperResult = {"text": "", "segments": [], "language": "en"}
         pos = 0
         for _, transcript in raw_transcript:
             for segment in transcript.splitlines():
@@ -30,13 +34,14 @@ class TestTranscript(unittest.TestCase):
 
         for h in hallucinations:
             with self.assertRaises(WhisperException):
-                whisperresult = {
+                whisperresult: WhisperResult = {
+                    "language": "en",
                     "text": "\n".join(h),
                     "segments": [
                         {"start": 0, "end": 0, "text": segment} for segment in h
                     ],
                 }
-                cleanup_transcript(whisperresult)  # type: ignore
+                cleanup_transcript(whisperresult, transcript_cleanup_config)
 
     def test_transcript_cleanup_on_dataset(self):
         with open(
@@ -53,7 +58,7 @@ class TestTranscript(unittest.TestCase):
                 original_text = original_result["text"]
 
                 try:
-                    transformed_result = cleanup_transcript(original_result)
+                    transformed_result = cleanup_transcript(original_result, transcript_cleanup_config)
                     if original_text != transformed_result["text"]:
                         edited_count += 1
                 except WhisperException:

@@ -10,6 +10,8 @@ class WhisperCpp(BaseWhisper):
         model_path = f"{model_dir}/ggml-{model_name}.bin"
         if os.path.isfile(model_path):
             self.model_path = model_path
+        else:
+            raise FileNotFoundError(f"Model file not found: {model_path}")
 
     def transcribe(
         self,

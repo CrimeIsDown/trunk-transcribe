@@ -3,7 +3,7 @@
 #
 # PLEASE DO NOT EDIT IT DIRECTLY.
 #
-FROM ubuntu:22.04 AS whispercpp
+FROM ubuntu:24.04 AS whispercpp
 
 RUN apt-get update && \
     apt-get -y upgrade && \
@@ -15,7 +15,7 @@ RUN apt-get update && \
     && \
     rm -rf /var/lib/apt/lists/*
 
-ARG WHISPERCPP_VERSION=v1.5.4
+ARG WHISPERCPP_VERSION=v1.6.2
 RUN git clone --depth 1 --branch $WHISPERCPP_VERSION https://github.com/ggerganov/whisper.cpp.git
 
 WORKDIR /whisper.cpp
@@ -54,6 +54,8 @@ RUN poetry install --without dev --no-root --no-interaction --no-ansi
 COPY --from=whispercpp /whisper.cpp/main /usr/local/bin/whisper-cpp
 COPY --from=whispercpp /whisper.cpp/models/ggml-*.bin /usr/local/lib/whisper-models/
 ENV WHISPER_IMPLEMENTATION=whisper.cpp
+ARG WHISPER_MODEL=base.en
+ENV WHISPER_MODEL=${WHISPER_MODEL}
 ENV WHISPERCPP_MODEL_DIR=/usr/local/lib/whisper-models
 
 COPY app app

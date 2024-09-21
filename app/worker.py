@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from hashlib import sha256
+from multiprocessing.pool import AsyncResult
 from typing import Optional
 import json
 import logging
@@ -49,6 +50,9 @@ if sentry_dsn:
         before_send=before_send,
     )
 
+CELERY_DEFAULT_QUEUE = os.getenv("CELERY_DEFAULT_QUEUE", "transcribe")
+CELERY_GPU_QUEUE = f"{CELERY_DEFAULT_QUEUE}_gpu"
+
 broker_url = os.getenv("CELERY_BROKER_URL")
 result_backend = os.getenv("CELERY_RESULT_BACKEND")
 celery = Celery(
@@ -60,20 +64,31 @@ celery = Celery(
     worker_prefetch_multiplier=os.getenv("CELERY_PREFETCH_MULTIPLIER", 1),
     timezone="UTC",
 )
-celery.conf.task_default_queue = "transcribe"
-celery.conf.task_routes = (
-    {
-        "app.worker.transcribe_task": {
-            "queue": celery.conf.task_default_queue
-            if os.getenv("WHISPER_IMPLEMENTATION") in API_IMPLEMENTATIONS
-            else f"{celery.conf.task_default_queue}_gpu"
-        },
-    },
-)
+celery.conf.task_default_queue = CELERY_DEFAULT_QUEUE
 
 recent_job_results: list[str] = []
 
 logger = logging.getLogger(__name__)
+
+
+def queue_task(
+    audio_url: str,
+    metadata: Metadata,
+    options: TranscribeOptions,
+    whisper_implementation: Optional[str] = None,
+    id: Optional[int | str] = None,
+    index_name: Optional[str] = None,
+) -> AsyncResult[str]:
+    return (
+        transcribe_task.s(options, audio_url, whisper_implementation).set(
+            queue=CELERY_DEFAULT_QUEUE
+            if os.getenv("WHISPER_IMPLEMENTATION") in API_IMPLEMENTATIONS
+            else CELERY_GPU_QUEUE
+        )
+        | post_transcribe_task.s(metadata, audio_url, id, index_name).set(
+            queue=CELERY_DEFAULT_QUEUE
+        )
+    ).apply_async()
 
 
 @signals.task_prerun.connect

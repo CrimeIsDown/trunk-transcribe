@@ -59,6 +59,8 @@ export WHISPER_INSTALL_INSTRUCTIONS="Install Whisper.cpp
 COPY --from=whispercpp /whisper.cpp/main /usr/local/bin/whisper-cpp
 COPY --from=whispercpp /whisper.cpp/models/ggml-*.bin /usr/local/lib/whisper-models/
 ENV WHISPER_IMPLEMENTATION=whisper.cpp
+ARG WHISPER_MODEL=base.en
+ENV WHISPER_MODEL=\${WHISPER_MODEL}
 ENV WHISPERCPP_MODEL_DIR=/usr/local/lib/whisper-models"
 
 envsubst '$WHISPER_INSTALL_INSTRUCTIONS' < Dockerfile >> Dockerfile.whispercpp

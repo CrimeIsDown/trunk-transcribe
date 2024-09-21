@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Annotated, Any
+from typing import Annotated
 import json
 import logging
 import os
@@ -200,10 +200,13 @@ def create_call_from_sdrtrunk(
     elif metadata["audio_type"] == "analog":
         from app.radio.analog import build_transcribe_options
 
-    (
-        worker.transcribe_task.s(build_transcribe_options(metadata), audio_url)
-        | worker.post_transcribe_task.s(metadata, audio_url, db_call.id)
-    ).apply_async()
+    worker.queue_task(
+        audio_url,
+        metadata,
+        build_transcribe_options(metadata),
+        whisper_implementation=None,
+        id=db_call.id,  # type: ignore
+    )
 
     return Response("Call imported successfully.", status_code=200)
 
@@ -243,14 +246,11 @@ def queue_for_transcription(
     finally:
         os.unlink(raw_audio.name)
 
-    task: AsyncResult[Any] = (
-        worker.transcribe_task.s(
-            build_transcribe_options(metadata), audio_url, whisper_implementation
-        )
-        | worker.post_transcribe_task.s(metadata, audio_url)
-    ).apply_async()
+    task = worker.queue_task(
+        audio_url, metadata, build_transcribe_options(metadata), whisper_implementation
+    )
 
-    return JSONResponse({"task_id": task.id}, status_code=201)
+    return JSONResponse({"task_id": task.id}, status_code=201)  # type: ignore
 
 
 @app.get("/tasks/{task_id}")
@@ -331,14 +331,20 @@ def create_call(
 
     db_call = call_model.create_call(db=db, call=call)
 
-    task: AsyncResult[Any] = (
-        worker.transcribe_task.s(
-            build_transcribe_options(metadata), audio_url, whisper_implementation
-        )
-        | worker.post_transcribe_task.s(metadata, audio_url, db_call.id)
-    ).apply_async()
+    task = worker.queue_task(
+        audio_url,
+        metadata,
+        build_transcribe_options(metadata),
+        whisper_implementation,
+        db_call.id,  # type: ignore
+    )
 
-    return JSONResponse({"task_id": task.id}, status_code=201)
+    return JSONResponse(
+        {
+            "task_id": task.id  # type: ignore
+        },
+        status_code=201,
+    )
 
 
 @app.patch("/calls/{call_id}", response_model=call_model.CallSchema)

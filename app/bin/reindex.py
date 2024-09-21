@@ -10,7 +10,7 @@ import re
 from functools import lru_cache
 import tempfile
 from time import sleep
-from typing import Any, Generator, Tuple, TypedDict
+from typing import Generator, Tuple, TypedDict
 
 from celery.result import AsyncResult
 from dotenv import load_dotenv
@@ -118,22 +118,22 @@ def reindex(index: Index, documents: list[search.Document]) -> TaskInfo:
 
 def retranscribe(
     index: Index, documents: list[search.Document]
-) -> Generator[AsyncResult]:
+) -> Generator[AsyncResult[str]]:
     for doc in documents:
         audio_url = doc["raw_audio_url"]
-        metadata = json.loads(doc["raw_metadata"])
+        metadata: Metadata = json.loads(doc["raw_metadata"])
         if "digital" in metadata["audio_type"]:
-            from app.radio.digital import build_transcribe_kwargs
+            from app.radio.digital import build_transcribe_options
         elif metadata["audio_type"] == "analog":
-            from app.radio.analog import build_transcribe_kwargs
+            from app.radio.analog import build_transcribe_options
 
-        task: AsyncResult[Any] = (
-            worker.transcribe_task.s(build_transcribe_kwargs(metadata), audio_url)
-            | worker.post_transcribe_task.s(
-                metadata, audio_url, id=doc["id"], index_name=index.uid
-            )
-        ).apply_async()
-        yield task
+        yield worker.queue_task(
+            audio_url,
+            metadata,
+            build_transcribe_options(metadata),
+            id=doc["id"],
+            index_name=index.uid,
+        )  # type: ignore
 
 
 def get_documents(
