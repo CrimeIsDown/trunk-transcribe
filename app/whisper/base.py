@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import Any, List, Optional, TypedDict
+from typing import Any, Optional, TypedDict
+
+from app.whisper.config import TranscriptCleanupConfig
 
 
 class WhisperSegment(TypedDict):
@@ -10,15 +12,16 @@ class WhisperSegment(TypedDict):
 
 class WhisperResult(TypedDict):
     text: str
-    segments: List[WhisperSegment]
+    segments: list[WhisperSegment]
     language: Optional[str]
 
 
-class TranscriptKwargs(TypedDict):
-    audio_file: str
+class TranscribeOptions(TypedDict):
     initial_prompt: str
     cleanup: bool
     vad_filter: bool
+    decode_options: dict[str, Any]
+    cleanup_config: TranscriptCleanupConfig
 
 
 class BaseWhisper(ABC):
@@ -26,19 +29,7 @@ class BaseWhisper(ABC):
     def transcribe(
         self,
         audio: str,
+        options: TranscribeOptions,
         language: str = "en",
-        initial_prompt: str | None = None,
-        vad_filter: bool = False,
-        **decode_options: dict[Any, Any],
     ) -> WhisperResult:
         pass
-
-    def transcribe_bulk(
-        self,
-        audio_files: list[str],
-        lang_codes: list[str] = [],
-        initial_prompts: list[str] = [],
-        vad_filter: bool = False,
-        **decode_options: dict[Any, Any],
-    ) -> list[WhisperResult]:
-        raise NotImplementedError

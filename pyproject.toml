@@ -52,6 +52,7 @@ build-backend = "poetry.core.masonry.api"
 strict = false
 exclude = ["bin", "whisper"]
 ignore_missing_imports = true
+enable_incomplete_feature = "NewGenericSyntax"
 
 [tool.ruff]
 target-version = "py312"

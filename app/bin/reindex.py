@@ -10,7 +10,7 @@ import re
 from functools import lru_cache
 import tempfile
 from time import sleep
-from typing import Tuple, TypedDict
+from typing import Generator, Tuple, TypedDict
 
 from celery.result import AsyncResult
 from dotenv import load_dotenv
@@ -21,12 +21,12 @@ from meilisearch.models.task import TaskInfo
 # Load the .env file of our choice if specified before the regular .env can load
 load_dotenv(os.getenv("ENV"))
 
+from app import worker
 from app.search import search
 from app.utils import storage
 from app.geocoding.geocoding import GeoResponse, lookup_geo
 from app.models.metadata import Metadata
 from app.models.transcript import Transcript
-from app.worker import transcribe_task
 
 
 class SrcListItemUpdate(TypedDict):
@@ -116,19 +116,24 @@ def reindex(index: Index, documents: list[search.Document]) -> TaskInfo:
     return index.add_documents(documents)  # type: ignore
 
 
-def retranscribe(index: Index, documents: list[search.Document]) -> list[AsyncResult]:
-    return [
-        transcribe_task.apply_async(
-            queue="retranscribe",
-            kwargs={
-                "metadata": json.loads(doc["raw_metadata"]),
-                "audio_url": doc["raw_audio_url"],
-                "id": doc["id"],
-                "index_name": index.uid,
-            },
-        )
-        for doc in documents
-    ]
+def retranscribe(
+    index: Index, documents: list[search.Document]
+) -> Generator[AsyncResult[str]]:
+    for doc in documents:
+        audio_url = doc["raw_audio_url"]
+        metadata: Metadata = json.loads(doc["raw_metadata"])
+        if "digital" in metadata["audio_type"]:
+            from app.radio.digital import build_transcribe_options
+        elif metadata["audio_type"] == "analog":
+            from app.radio.analog import build_transcribe_options
+
+        yield worker.queue_task(
+            audio_url,
+            metadata,
+            build_transcribe_options(metadata),
+            id=doc["id"],
+            index_name=index.uid,
+        )  # type: ignore
 
 
 def get_documents(

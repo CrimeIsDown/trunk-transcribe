@@ -11,7 +11,7 @@ env:
   IMAGE_NAME: crimeisdown/trunk-transcribe
 
 jobs:
-  build:
+  test:
 
     runs-on: ubuntu-latest
     strategy:
@@ -57,7 +57,6 @@ jobs:
         run: |
           set -x
           cp .env.testing .env
-          sed -i 's/^COMPOSE_FILE=docker-compose.server.yml:docker-compose.worker.yml:docker-compose.minio.yml$/COMPOSE_FILE=docker-compose.server.yml:docker-compose.worker.yml:docker-compose.openai.yml:docker-compose.minio.yml/g' .env
           echo "VERSION=${{ github.sha }}" >> .env
           cat .env
 
@@ -71,7 +70,6 @@ jobs:
           sed -i 's/^# ARCGIS_PASSWORD=$/ARCGIS_PASSWORD=${{ secrets.ARCGIS_PASSWORD }}/g' .env
           set -x
 
-          cp config/whisper.json.testing config/whisper.json
           echo "{}" > config/notifications.json
           docker compose --ansi never up -d --quiet-pull
       - name: Run tests

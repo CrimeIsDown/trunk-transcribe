@@ -1,8 +1,9 @@
+from multiprocessing import process
 import unittest
 from unittest.mock import Mock, patch
 from threading import Lock
 
-from app.radio.analog import transcribe_call
+from app.radio.analog import process_response
 from app.models.transcript import Transcript
 
 
@@ -19,24 +20,12 @@ class TestAnalog(unittest.TestCase):
             ],
         }
 
-    @patch("app.radio.analog.transcribe")
-    def test_transcribe_call(self, mock_transcribe):
-        mock_transcribe.return_value = self.response
-
+    def test_process_response(self):
         expected_transcript = Transcript()
         expected_transcript.append("Hello")
         expected_transcript.append("world")
 
-        result = transcribe_call(self.model, self.model_lock, self.audio_file)
-
-        mock_transcribe.assert_called_once_with(
-            model=self.model,
-            model_lock=self.model_lock,
-            audio_file=self.audio_file,
-            cleanup=True,
-            vad_filter=False,
-            initial_prompt="",
-        )
+        result = process_response(self.response, {}) # type: ignore
 
         self.assertEqual(expected_transcript.json, result.json)
 

@@ -51,6 +51,7 @@ def calculate_route_duration_via_isochrone(
         "isochrone_cache",
         expire_after=timedelta(hours=1),
         ignored_parameters=["access_token"],
+        use_temp=True,
     )
 
     response = session.get(

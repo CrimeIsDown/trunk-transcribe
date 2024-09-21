@@ -82,20 +82,17 @@ The worker can be run on Windows if needed.
 
 ### Running workers on Vast.ai
 
-The worker can be run on the cloud GPU service [vast.ai](https://vast.ai/). To get started, sign up for a vast.ai account. Next, create a copy of your `.env` called `.env.vast`. Update any settings such that a machine on the public internet could access the API and queue backend (*please ensure all services are protected by strong passwords*). Then, install the [Vast CLI](https://console.vast.ai/cli/) and login.
+The worker can be run on the cloud GPU service [vast.ai](https://vast.ai/). To get started, sign up for a vast.ai account. After that, update any settings in your `.env` such that a machine on the public internet could access the queue backend (*please ensure all services are protected by strong passwords*). Then, install the [Vast CLI](https://console.vast.ai/cli/) and login.
 
-Run `app/bin/autoscale-vast.py` to start workers and autoscale them as needed. Run `app/bin/autoscale-vast.py -h` to see available arguments.
-
-To keep the autoscaler running, set the following in your `.env`:
+To start the autoscaler, set the following in your `.env`:
 
 ```bash
-COMPOSE_FILE=COMPOSE_FILE=docker-compose.server.yml:docker-compose.autoscaler.yml
+COMPOSE_FILE=docker-compose.server.yml:docker-compose.worker.yml:docker-compose.autoscaler.yml
 # your API key from vast.ai, or omit to have it read from ~/.vast_api_key
 VAST_API_KEY=
 # Tune these settings as needed
 AUTOSCALE_MIN_INSTANCES=1
 AUTOSCALE_MAX_INSTANCES=10
-AUTOSCALE_THROUGHPUT=20
 ```
 
 If you want to maintain a constant number of instances on Vast.ai instead of autoscaling, just set the min and max instances to the same value.
@@ -177,19 +174,19 @@ File is cached in memory for 60 seconds upon reading from the worker's filesyste
 If a change is made to the search index settings or document data structure, it may be needed to re-index existing calls to migrate them to the new structure. This can be done by running the following:
 
 ```bash
-app/bin/reindex.py --update-settings
+docker compose run --rm api poetry run app/bin/reindex.py --update-settings
 ```
 
-A more complex command, which uses the connection settings from `.env.vast` to update calls in the `calls_demo` index without a `raw_transcript` attribute, and updating radio IDs for those calls from the chi_cfd system.
+A more complex command, which updates calls in the `calls_demo` index without a `raw_transcript` attribute, and updating radio IDs for those calls from the chi_cfd system.
 
 ```bash
-ENV=.env.vast app/bin/reindex.py --unit_tags chi_cfd ../trunk-recorder/config/cfd-radio-ids.csv --filter 'not hasattr(document, "raw_transcript")' --index calls_demo
+docker compose run --rm api poetry run app/bin/reindex.py --unit_tags chi_cfd ../trunk-recorder/config/cfd-radio-ids.csv --filter 'not hasattr(document, "raw_transcript")' --index calls_demo
 ```
 
 This command can also be used to re-transcribe calls if improvements are made to the transcription accuracy. Beware that this will take a lot of resources, so consider adding a `--filter` argument with some Python code to limit what documents are re-transcribed.
 
 ```bash
-app/bin/reindex.py --retranscribe
+docker compose run --rm api poetry run app/bin/reindex.py --retranscribe
 ```
 
 Get the full list of arguments with `app/bin/reindex.py -h`.

@@ -1,7 +1,7 @@
 import os
 from openai import OpenAI
 
-from .base import BaseWhisper, WhisperResult
+from .base import BaseWhisper, TranscribeOptions, WhisperResult
 
 
 class OpenAIApi(BaseWhisper):
@@ -11,17 +11,15 @@ class OpenAIApi(BaseWhisper):
     def transcribe(
         self,
         audio: str,
+        options: TranscribeOptions,
         language: str = "en",
-        initial_prompt: str | None = None,
-        vad_filter: bool = False,
-        **decode_options,
     ) -> WhisperResult:
         audio_file = open(audio, "rb")
         prompt = os.getenv(
             "OPENAI_PROMPT", "This is a police radio dispatch transcript."
         )
-        if initial_prompt:
-            prompt += " The following words may appear: " + initial_prompt
+        if options["initial_prompt"]:
+            prompt += " The following words may appear: " + options["initial_prompt"]
         return self.client.audio.transcriptions.create(
             model="whisper-1",
             file=audio_file,

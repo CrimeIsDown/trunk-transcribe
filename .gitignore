@@ -137,4 +137,3 @@ docker-compose.override.yml
 config/*.json
 !config/transcript_cleanup.json
 scratch
-isochrone_cache.sqlite

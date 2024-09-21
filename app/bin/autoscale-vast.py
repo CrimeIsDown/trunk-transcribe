@@ -17,7 +17,7 @@ from typing import Tuple
 from celery import Celery
 import requests
 import sentry_sdk
-from dotenv import dotenv_values, load_dotenv
+from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -67,10 +67,14 @@ class Autoscaler:
             self.vast_api_key = open(os.path.expanduser("~/.vast_api_key")).read()
         self.vast_api_key = self.vast_api_key.strip()
 
-        self.envs = dotenv_values(".env.vast")  # type: ignore
-
         self.model = os.getenv("WHISPER_MODEL", "large-v3")
         self.implementation = os.getenv("WHISPER_IMPLEMENTATION", "faster-whisper")
+
+        # get all envs starting with CELERY
+        self.envs = {k: v for k, v in os.environ.items() if k.startswith("CELERY")}
+
+        if os.getenv("SENTRY_DSN"):
+            self.envs["SENTRY_DSN"] = os.getenv("SENTRY_DSN", "")
 
         desired_cuda = os.getenv("DESIRED_CUDA", "cu121")
         cuda_version_matches = re.match(r"cu(\d\d)(\d)", desired_cuda)
@@ -209,7 +213,14 @@ class Autoscaler:
             headers={"Authorization": f"Bearer {self.vast_api_key}"},
         )
         r.raise_for_status()
-        instances = r.json()["instances"]
+        # Filter instances to those owned by this API
+        instances = list(
+            filter(
+                lambda i: ["API_BASE_URL", os.getenv("API_BASE_URL", "")]
+                in i["extra_env"],
+                r.json()["instances"],
+            )
+        )
         self._update_running_instances(instances)
         return instances
 

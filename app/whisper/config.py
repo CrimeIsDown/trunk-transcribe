@@ -1,10 +1,11 @@
 import json
 import os
 from functools import lru_cache
+from typing import Any, TypedDict
 
 
 @lru_cache()
-def get_whisper_config(ttl_hash=None) -> dict:  # type: ignore
+def get_whisper_config(ttl_hash=None) -> dict[str, Any]:  # type: ignore
     del ttl_hash
 
     whisper_kwargs = {
@@ -18,8 +19,19 @@ def get_whisper_config(ttl_hash=None) -> dict:  # type: ignore
     return whisper_kwargs
 
 
+class TranscriptCleanupConfigItem(TypedDict):
+    pattern: str
+    replacement: str
+    match_type: str
+    action: str
+    is_hallucination: bool
+
+
+type TranscriptCleanupConfig = list[TranscriptCleanupConfigItem]
+
+
 @lru_cache()
-def get_transcript_cleanup_config(ttl_hash=None) -> list[dict]:  # type: ignore
+def get_transcript_cleanup_config(ttl_hash=None) -> TranscriptCleanupConfig:
     del ttl_hash
 
     config = "config/transcript_cleanup.json"

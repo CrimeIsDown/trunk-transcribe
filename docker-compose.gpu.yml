@@ -1,6 +1,6 @@
 services:
 
-  worker:
+  whisper:
     deploy:
       resources:
         reservations:

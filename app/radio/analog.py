@@ -1,23 +1,25 @@
 import os
-from threading import Lock
 
+from app.models.metadata import Metadata
 from app.models.transcript import Transcript
-from app.whisper.base import BaseWhisper, TranscriptKwargs, WhisperResult
-from app.whisper.transcribe import transcribe
+from app.utils.cache import get_ttl_hash
+from app.whisper.base import TranscribeOptions, WhisperResult
+from app.whisper.config import get_transcript_cleanup_config, get_whisper_config
 
 
-def build_transcribe_kwargs(
-    audio_file: str, initial_prompt: str = ""
-) -> TranscriptKwargs:
+def build_transcribe_options(
+    metadata: Metadata, initial_prompt: str = ""
+) -> TranscribeOptions:
     return {
-        "audio_file": audio_file,
         "cleanup": True,
         "vad_filter": os.getenv("VAD_FILTER_ANALOG", "").lower() == "true",
         "initial_prompt": initial_prompt,
+        "decode_options": get_whisper_config(get_ttl_hash(cache_seconds=60)),
+        "cleanup_config": get_transcript_cleanup_config(get_ttl_hash(cache_seconds=60)),
     }
 
 
-def process_response(response: WhisperResult) -> Transcript:
+def process_response(response: WhisperResult, metadata: Metadata) -> Transcript:
     transcript = Transcript()
 
     for segment in response["segments"]:
@@ -27,15 +29,3 @@ def process_response(response: WhisperResult) -> Transcript:
             transcript.append(text)
 
     return transcript.validate()
-
-
-def transcribe_call(
-    model: BaseWhisper, model_lock: Lock, audio_file: str, prompt: str = ""
-) -> Transcript:
-    response = transcribe(
-        model=model,
-        model_lock=model_lock,
-        **build_transcribe_kwargs(audio_file, prompt),
-    )
-
-    return process_response(response)

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Annotated, Any
+from typing import Annotated
 import json
 import logging
 import os
@@ -20,21 +20,10 @@ import sentry_sdk
 load_dotenv()
 
 from app.utils.exceptions import before_send
-from app.geocoding import geocoding
 from app.models.database import SessionLocal, engine
 from app.models.metadata import Metadata
-from app.models.transcript import Transcript
-from app.notifications import notification
-from app.search import search
 from app.utils import storage
-from app.whisper.task import WhisperTask
-from app.worker import (
-    transcribe_from_db_batch_task,
-    transcribe_from_db_task,
-    transcribe_task,
-    transcribe,
-)
-from app.worker import celery as celery_app
+from app import worker
 from app.models import call as call_model, base as base_model
 
 sentry_dsn = os.getenv("SENTRY_DSN")
@@ -67,8 +56,6 @@ log_formatter = logging.Formatter(
 )
 stream_handler.setFormatter(log_formatter)
 logger.addHandler(stream_handler)
-
-task = WhisperTask()
 
 
 # Dependency
@@ -208,16 +195,18 @@ def create_call_from_sdrtrunk(
 
     db_call = call_model.create_call(db=db, call=call)
 
-    if os.getenv("WHISPER_IMPLEMENTATION") == "whispers2t":
-        transcribe_from_db_batch_task.apply_async(
-            queue="transcribe",
-            kwargs={"id": db_call.id},
-        )
-    else:
-        transcribe_from_db_task.apply_async(
-            queue="transcribe",
-            kwargs={"id": db_call.id},
-        )
+    if "digital" in metadata["audio_type"]:
+        from app.radio.digital import build_transcribe_options
+    elif metadata["audio_type"] == "analog":
+        from app.radio.analog import build_transcribe_options
+
+    worker.queue_task(
+        audio_url,
+        metadata,
+        build_transcribe_options(metadata),
+        whisper_implementation=None,
+        id=db_call.id,  # type: ignore
+    )
 
     return Response("Call imported successfully.", status_code=200)
 
@@ -232,6 +221,15 @@ def queue_for_transcription(
 
     if metadata["call_length"] < float(os.getenv("MIN_CALL_LENGTH", "2")):
         raise HTTPException(status_code=400, detail="Call too short to transcribe")
+
+    if "digital" in metadata["audio_type"]:
+        from app.radio.digital import build_transcribe_options
+    elif metadata["audio_type"] == "analog":
+        from app.radio.analog import build_transcribe_options
+    else:
+        raise HTTPException(
+            status_code=400, detail=f"Audio type {metadata['audio_type']} not supported"
+        )
 
     raw_audio = tempfile.NamedTemporaryFile(
         delete=False, suffix=f"_{call_audio.filename}"
@@ -248,20 +246,16 @@ def queue_for_transcription(
     finally:
         os.unlink(raw_audio.name)
 
-    task = transcribe_task.apply_async(
-        queue="transcribe",
-        kwargs={
-            "metadata": metadata,
-            "audio_url": audio_url,
-            "whisper_implementation": whisper_implementation,
-        },
+    task = worker.queue_task(
+        audio_url, metadata, build_transcribe_options(metadata), whisper_implementation
     )
-    return JSONResponse({"task_id": task.id}, status_code=201)
+
+    return JSONResponse({"task_id": task.id}, status_code=201)  # type: ignore
 
 
 @app.get("/tasks/{task_id}")
 def get_status(task_id: str) -> JSONResponse:
-    task_result = AsyncResult(task_id, app=celery_app)  # type: ignore
+    task_result = AsyncResult(task_id, app=worker.celery)  # type: ignore
     result = {
         "task_id": task_id,
         "task_status": task_result.status,
@@ -304,6 +298,15 @@ def create_call(
     if metadata["call_length"] < float(os.getenv("MIN_CALL_LENGTH", "2")):
         raise HTTPException(status_code=400, detail="Call too short to transcribe")
 
+    if "digital" in metadata["audio_type"]:
+        from app.radio.digital import build_transcribe_options
+    elif metadata["audio_type"] == "analog":
+        from app.radio.analog import build_transcribe_options
+    else:
+        raise HTTPException(
+            status_code=400, detail=f"Audio type {metadata['audio_type']} not supported"
+        )
+
     if call_audio:
         raw_audio = tempfile.NamedTemporaryFile(
             delete=False, suffix=f"_{call_audio.filename}"
@@ -328,24 +331,20 @@ def create_call(
 
     db_call = call_model.create_call(db=db, call=call)
 
-    task: AsyncResult[Any]
+    task = worker.queue_task(
+        audio_url,
+        metadata,
+        build_transcribe_options(metadata),
+        whisper_implementation,
+        db_call.id,  # type: ignore
+    )
 
-    if batch:
-        if os.getenv("WHISPER_IMPLEMENTATION") != "whispers2t":
-            raise HTTPException(
-                status_code=400,
-                detail="Batch transcription only supported with whispers2t",
-            )
-        task = transcribe_from_db_batch_task.apply_async(
-            queue="transcribe",
-            kwargs={"id": db_call.id},
-        )
-    else:
-        task = transcribe_from_db_task.apply_async(
-            queue="transcribe",
-            kwargs={"id": db_call.id, "whisper_implementation": whisper_implementation},
-        )
-    return JSONResponse({"task_id": task.id}, status_code=201)
+    return JSONResponse(
+        {
+            "task_id": task.id  # type: ignore
+        },
+        status_code=201,
+    )
 
 
 @app.patch("/calls/{call_id}", response_model=call_model.CallSchema)
@@ -356,76 +355,7 @@ def update_call(
     if db_call is None:
         raise HTTPException(status_code=404, detail="Call not found")
 
-    metadata = Metadata(db_call.raw_metadata)  # type: ignore
-    transcript = Transcript(call.raw_transcript)  # type: ignore
-    call.geo = geocoding.lookup_geo(metadata, transcript)
-
-    db_call = call_model.update_call(db=db, call=call, db_call=db_call)
-
-    search_url = search.index_call(
-        db_call.id,  # type: ignore
-        metadata,
-        db_call.raw_audio_url,  # type: ignore
-        transcript,
-        db_call.geo,  # type: ignore
-    )
-
-    notification.send_notifications(
-        db_call.raw_audio_url,  # type: ignore
-        metadata,
-        transcript,
-        db_call.geo,  # type: ignore
-        search_url,  # type: ignore
-    )
-
-    search.make_next_index()
-
-    return db_call
-
-
-@app.post("/transcribe")
-def transcribe_audio(
-    call_audio: UploadFile,
-    call_json: UploadFile,
-    prompt: Annotated[str | None, Form()] = None,
-    whisper_implementation: str | None = None,
-) -> JSONResponse:
-    metadata = json.loads(call_json.file.read())
-
-    if metadata["call_length"] < float(os.getenv("MIN_CALL_LENGTH", "2")):
-        raise HTTPException(status_code=400, detail="Call too short to transcribe")
-
-    raw_audio = tempfile.NamedTemporaryFile(
-        delete=False, suffix=f"_{call_audio.filename}"
-    )
-    while True:
-        data = call_audio.file.read(1024 * 1024)
-        if not data:
-            raw_audio.close()
-            break
-        raw_audio.write(data)
-
-    audio_file = raw_audio.name
-
-    try:
-        transcript = transcribe(
-            task.model(whisper_implementation),
-            task.model_lock,
-            metadata,
-            audio_file,
-            prompt=prompt if prompt else "",
-        )
-    finally:
-        try:
-            os.unlink(audio_file)
-        except OSError:
-            pass
-
-    if transcript:
-        return JSONResponse(
-            {"raw_transcript": transcript.transcript, "transcript": transcript.txt}
-        )
-    raise HTTPException(status_code=500, detail="Transcription failed, no transcript")
+    return call_model.update_call(db=db, call=call, db_call=db_call)
 
 
 @app.get("/config/{filename}")
