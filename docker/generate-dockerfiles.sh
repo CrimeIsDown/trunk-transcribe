@@ -29,7 +29,7 @@ ENV WHISPER_IMPLEMENTATION=whisper"
 
 envsubst '$WHISPER_INSTALL_INSTRUCTIONS' < Dockerfile >> Dockerfile.whisper
 
-sed -i 's#FROM ubuntu:24.04#FROM nvidia/cuda:12.6.0-base-ubuntu24.04#g' Dockerfile.whisper
+sed -i 's#FROM ubuntu:24.04#FROM nvidia/cuda:12.6.1-base-ubuntu24.04#g' Dockerfile.whisper
 
 sed -i 's#CMD \["api"\]#CMD ["worker"]#g' Dockerfile.whisper
 
@@ -47,7 +47,7 @@ ENV WHISPER_IMPLEMENTATION=faster-whisper"
 
 envsubst '$WHISPER_INSTALL_INSTRUCTIONS' < Dockerfile >> Dockerfile.fasterwhisper
 
-sed -i 's#FROM ubuntu:24.04#FROM nvidia/cuda:12.6.0-cudnn8-runtime-ubuntu24.04#g' Dockerfile.fasterwhisper
+sed -i 's#FROM ubuntu:24.04#FROM nvidia/cuda:12.6.1-cudnn-runtime-ubuntu24.04#g' Dockerfile.fasterwhisper
 
 sed -i 's#CMD \["api"\]#CMD ["worker"]#g' Dockerfile.fasterwhisper
 
@@ -82,7 +82,7 @@ ENV TQDM_DISABLE=1"
 
 envsubst '$WHISPER_INSTALL_INSTRUCTIONS' < Dockerfile >> Dockerfile.whispers2t
 
-sed -i 's#FROM ubuntu:24.04#FROM nvidia/cuda:12.6.0-cudnn8-runtime-ubuntu24.04#g' Dockerfile.whispers2t
+sed -i 's#FROM ubuntu:24.04#FROM nvidia/cuda:12.6.1-cudnn-runtime-ubuntu24.04#g' Dockerfile.whispers2t
 
 sed -i 's#CMD \["api"\]#CMD ["worker"]#g' Dockerfile.whispers2t
 

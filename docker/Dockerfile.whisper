@@ -3,7 +3,7 @@
 #
 # PLEASE DO NOT EDIT IT DIRECTLY.
 #
-FROM nvidia/cuda:12.6.0-base-ubuntu24.04
+FROM nvidia/cuda:12.6.1-base-ubuntu24.04
 
 RUN apt-get update && \
     apt-get -y upgrade && \
