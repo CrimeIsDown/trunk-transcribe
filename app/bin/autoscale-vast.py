@@ -153,7 +153,7 @@ class Autoscaler:
 
     def get_queue_status(self) -> dict:
         broker_api = os.getenv("FLOWER_BROKER_API")
-        url = f"{broker_api}queues/%2F/transcribe"
+        url = f"{broker_api}queues/%2F/{worker.CELERY_GPU_QUEUE}"
         r = requests.get(url, timeout=5)
         r.raise_for_status()
         return r.json()
