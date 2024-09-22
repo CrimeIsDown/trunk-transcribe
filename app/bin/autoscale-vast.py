@@ -13,11 +13,13 @@ from math import floor
 from statistics import mean
 from threading import Thread
 from typing import Tuple
+from urllib.parse import urlparse
 
-from celery import Celery
 import requests
 import sentry_sdk
 from dotenv import load_dotenv
+
+from app import worker
 
 load_dotenv()
 
@@ -70,8 +72,16 @@ class Autoscaler:
         self.model = os.getenv("WHISPER_MODEL", "large-v3")
         self.implementation = os.getenv("WHISPER_IMPLEMENTATION", "faster-whisper")
 
-        # get all envs starting with CELERY
-        self.envs = {k: v for k, v in os.environ.items() if k.startswith("CELERY")}
+        # Figure out the public IP/host for external access
+        hostname = urlparse(os.getenv("API_BASE_URL", "")).hostname
+        if not hostname:
+            hostname = requests.get("https://checkip.amazonaws.com").text.strip()
+
+        self.envs = {
+            k: v.replace("rabbitmq", hostname)
+            for k, v in os.environ.items()
+            if k.startswith("CELERY")
+        }
 
         if os.getenv("SENTRY_DSN"):
             self.envs["SENTRY_DSN"] = os.getenv("SENTRY_DSN", "")
@@ -129,30 +139,15 @@ class Autoscaler:
             )
         ]
 
-    def _get_celery_client(self) -> Celery:
-        broker_url = os.getenv("CELERY_BROKER_URL")
-        result_backend = os.getenv("CELERY_RESULT_BACKEND")
-        return Celery(
-            "worker",
-            broker=broker_url,
-            backend=result_backend,
-            task_cls="app.whisper:WhisperTask",
-            task_acks_late=True,
-            worker_cancel_long_running_tasks_on_connection_loss=True,
-            worker_prefetch_multiplier=1,
-            timezone="UTC",
-        )
-
     def get_worker_status(self) -> list[dict]:
         workers = []
-        result = self._get_celery_client().control.inspect(timeout=10).stats()
+        result = worker.celery.control.inspect(timeout=10).stats()
         if result:
             for name, stats in result.items():
                 # If this was one of our pending instances, remove it from the list
                 if name in self.pending_instances:
                     del self.pending_instances[name]
-                worker = {"name": name, "stats": stats}
-                workers.append(worker)
+                workers.append({"name": name, "stats": stats})
         return workers
 
     def get_queue_status(self) -> dict:
