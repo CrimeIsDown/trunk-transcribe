@@ -76,8 +76,8 @@ class Autoscaler:
         if os.getenv("SENTRY_DSN"):
             self.envs["SENTRY_DSN"] = os.getenv("SENTRY_DSN", "")
 
-        desired_cuda = os.getenv("DESIRED_CUDA", "cu121")
-        cuda_version_matches = re.match(r"cu(\d\d)(\d)", desired_cuda)
+        cuda_version = os.getenv("CUDA_VERSION", "12.1.0")
+        cuda_version_matches = re.match(r"(\d+)\.(\d+)\.(\d+)", cuda_version)
         self.cuda_version = (
             f"{cuda_version_matches.group(1)}.{cuda_version_matches.group(2)}"
             if cuda_version_matches
@@ -87,7 +87,7 @@ class Autoscaler:
         if image:
             self.image = image
         else:
-            self.image = f"ghcr.io/crimeisdown/trunk-transcribe:main-{self.implementation}-{self.model}-{desired_cuda}"
+            self.image = f"ghcr.io/crimeisdown/trunk-transcribe:main-{self.implementation}-{self.model}-cuda_{cuda_version}"
 
         if os.path.isfile(FORBIDDEN_INSTANCE_CONFIG):
             with open(FORBIDDEN_INSTANCE_CONFIG) as config:

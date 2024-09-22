@@ -1,11 +1,11 @@
 services:
   whisper:
-    image: ghcr.io/crimeisdown/trunk-transcribe:${VERSION:-main}-${WHISPER_IMPLEMENTATION:-whisper}-${WHISPER_MODEL:-small.en}-${DESIRED_CUDA:-cpu}
+    image: ghcr.io/crimeisdown/trunk-transcribe:${VERSION:-main}-${WHISPER_IMPLEMENTATION:-whisper}-${WHISPER_MODEL:-small.en}-cuda_${CUDA_VERSION:-12.1.0}
     build:
       context: .
       dockerfile: docker/${WORKER_DOCKERFILE:-Dockerfile.whisper}
       cache_from:
-        - ghcr.io/crimeisdown/trunk-transcribe:main-${WHISPER_IMPLEMENTATION:-whisper}-${WHISPER_MODEL:-small.en}-${DESIRED_CUDA:-cpu}
+        - ghcr.io/crimeisdown/trunk-transcribe:main-${WHISPER_IMPLEMENTATION:-whisper}-${WHISPER_MODEL:-small.en}-cuda_${CUDA_VERSION:-12.1.0}
       args:
         WHISPER_MODEL: ${WHISPER_MODEL:-small.en}
     command: worker

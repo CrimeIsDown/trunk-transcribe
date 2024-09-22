@@ -31,42 +31,37 @@ jobs:
         include:
           - model: small.en
             platform: linux/amd64
-            desired_cuda: cpu
-            variant: whisper
-            dockerfile: Dockerfile.whisper
-          - model: small.en
-            platform: linux/amd64
-            desired_cuda: cu121
+            cuda_version: "12.1.0"
             variant: whisper
             dockerfile: Dockerfile.whisper
           - model: medium.en
             platform: linux/amd64
-            desired_cuda: cu121
+            cuda_version: "12.1.0"
             variant: whisper
             dockerfile: Dockerfile.whisper
           - model: large-v2
             platform: linux/amd64
-            desired_cuda: cu121
+            cuda_version: "12.1.0"
             variant: whisper
             dockerfile: Dockerfile.whisper
           - model: large-v3
             platform: linux/amd64
-            desired_cuda: cu121
+            cuda_version: "12.1.0"
             variant: whisper
             dockerfile: Dockerfile.whisper
           - model: medium.en
             platform: linux/amd64
-            desired_cuda: cpu
+            cuda_version: cpu
             variant: whisper.cpp
             dockerfile: Dockerfile.whispercpp
           - model: large-v2
             platform: linux/amd64
-            desired_cuda: cpu
+            cuda_version: cpu
             variant: whisper.cpp
             dockerfile: Dockerfile.whispercpp
           - model: large-v3
             platform: linux/amd64
-            desired_cuda: cpu
+            cuda_version: cpu
             variant: whisper.cpp
             dockerfile: Dockerfile.whispercpp
     steps:
@@ -93,13 +88,13 @@ jobs:
         context: .
         file: docker/${{ matrix.dockerfile }}
         push: true
-        tags: "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}-${{ matrix.variant }}-${{ matrix.model }}-${{ matrix.desired_cuda }}"
+        tags: "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}-${{ matrix.variant }}-${{ matrix.model }}-cuda_${{ matrix.cuda_version }}"
         platforms: ${{ matrix.platform }}
         build-args: |
+          CUDA_VERSION=${{ matrix.cuda_version }}
           WHISPER_MODEL=${{ matrix.model }}
-          DESIRED_CUDA=${{ matrix.desired_cuda }}
           GIT_COMMIT=${{ github.sha }}
-        cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}-${{ matrix.variant }}-${{ matrix.model }}-${{ matrix.desired_cuda }}
+        cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}-${{ matrix.variant }}-${{ matrix.model }}-cuda_${{ matrix.cuda_version }}
         cache-to: type=inline
 
   build-worker-self-hosted:
@@ -111,27 +106,27 @@ jobs:
         include:
           - model: medium.en
             platform: linux/amd64
-            desired_cuda: cu121
+            cuda_version: "12.1.0"
             variant: faster-whisper
             dockerfile: Dockerfile.fasterwhisper
           - model: large-v2
             platform: linux/amd64
-            desired_cuda: cu121
+            cuda_version: "12.1.0"
             variant: faster-whisper
             dockerfile: Dockerfile.fasterwhisper
           - model: large-v3
             platform: linux/amd64
-            desired_cuda: cu121
+            cuda_version: "12.1.0"
             variant: faster-whisper
             dockerfile: Dockerfile.fasterwhisper
           - model: large-v2
             platform: linux/amd64
-            desired_cuda: cu121
+            cuda_version: "12.1.0"
             variant: whispers2t
             dockerfile: Dockerfile.whispers2t
           - model: large-v3
             platform: linux/amd64
-            desired_cuda: cu121
+            cuda_version: "12.1.0"
             variant: whispers2t
             dockerfile: Dockerfile.whispers2t
     steps:
@@ -160,11 +155,11 @@ jobs:
         context: .
         file: docker/${{ matrix.dockerfile }}
         push: true
-        tags: "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}-${{ matrix.variant }}-${{ matrix.model }}-${{ matrix.desired_cuda }}"
+        tags: "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}-${{ matrix.variant }}-${{ matrix.model }}-cuda_${{ matrix.cuda_version }}"
         platforms: ${{ matrix.platform }}
         build-args: |
+          CUDA_VERSION=${{ matrix.cuda_version }}
           WHISPER_MODEL=${{ matrix.model }}
-          DESIRED_CUDA=${{ matrix.desired_cuda }}
           GIT_COMMIT=${{ github.sha }}
-        cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}-${{ matrix.variant }}-${{ matrix.model }}-${{ matrix.desired_cuda }}
+        cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}-${{ matrix.variant }}-${{ matrix.model }}-cuda_${{ matrix.cuda_version }}
         cache-to: type=inline

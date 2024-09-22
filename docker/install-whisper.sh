@@ -2,22 +2,22 @@
 
 set -eou pipefail
 
-if [ -z "${DESIRED_CUDA:-}" ]; then
+if [ -z "${CUDA_VERSION:-}" ]; then
     if command -v nvidia-smi >/dev/null 2>&1; then
-        # We could try to read the nvidia-smi output but there aren't many compatible PyTorch versions anyway
-        DESIRED_CUDA="cu121"
+        # Read the cuda version from nvidia-smi
+        CUDA_VERSION="12.1.0"
     else
         echo "Could not find nvidia-smi, using CPU-only PyTorch" >&2
-        DESIRED_CUDA="cpu"
+        CUDA_VERSION="cpu"
     fi
 fi
 
-if [[ -n "${DESIRED_CUDA-}" ]] && [[ "${DESIRED_CUDA}" != "cu121" ]]; then
-    EXTRA_INDEX_URL="--extra-index-url https://download.pytorch.org/whl/$DESIRED_CUDA"
+if [ "$CUDA_VERSION" = "cpu" ]; then
+    EXTRA_INDEX_URL="--extra-index-url https://download.pytorch.org/whl/cpu"
 else
-    EXTRA_INDEX_URL=""
+    EXTRA_INDEX_URL="--extra-index-url https://download.pytorch.org/whl/cu$(echo $CUDA_VERSION | cut -d. -f1-2 | tr -d .)"
 fi
 
 poetry run pip3 install --use-pep517 $EXTRA_INDEX_URL --no-cache-dir torch torchaudio
 
-poetry run pip3 install --use-pep517 $EXTRA_INDEX_URL --no-cache-dir git+https://github.com/openai/whisper.git@${WHISPER_VERSION:-ba3f3cd54b0e5b8ce1ab3de13e32122d0d5f98ab}
+poetry run pip3 install --use-pep517 $EXTRA_INDEX_URL --no-cache-dir $1

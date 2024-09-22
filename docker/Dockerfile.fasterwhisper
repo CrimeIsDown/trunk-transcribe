@@ -3,7 +3,8 @@
 #
 # PLEASE DO NOT EDIT IT DIRECTLY.
 #
-FROM nvidia/cuda:12.1.0-cudnn8-runtime-ubuntu22.04
+ARG CUDA_VERSION=12.1.0
+FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-runtime-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -39,9 +40,8 @@ RUN poetry env use python3.12 && \
     poetry install --without dev --no-root --no-interaction --no-ansi
 
 # Install Faster Whisper
-COPY docker/install-faster-whisper.sh /usr/local/bin/install-whisper.sh
-ARG DESIRED_CUDA
-RUN install-whisper.sh
+COPY docker/install-whisper.sh /usr/local/bin/install-whisper.sh
+RUN install-whisper.sh git+https://github.com/SYSTRAN/faster-whisper.git@v1.0.2
 
 ARG WHISPER_MODEL=base.en
 ENV WHISPER_MODEL=${WHISPER_MODEL}
