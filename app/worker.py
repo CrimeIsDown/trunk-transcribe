@@ -149,9 +149,6 @@ def transcribe_task(
             audio_file=audio_file,
             options=options,
         )
-    except WhisperException as e:
-        logger.warning(e)
-        raise Reject(str(e), requeue=False)
     finally:
         try:
             os.unlink(audio_file)
