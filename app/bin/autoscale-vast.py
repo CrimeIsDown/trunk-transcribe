@@ -429,9 +429,9 @@ class Autoscaler:
             f"Current avg message rate: {message_rate:.2f} / Current message count: {queue['messages']} / Current instances: {current_instances}"
         )
 
-        if message_rate > 0.4:
+        if message_rate > 0.4 or not queue["consumers"]:
             needed_instances += 1
-        elif queue["messages"] > 400:
+        elif queue["messages"] > 400 and queue["consumers"] > 0:
             ack_rate_per_consumer = (
                 queue["message_stats"]["ack_details"]["rate"] / queue["consumers"]
             )
