@@ -36,7 +36,7 @@ services:
     environment:
       - CELERY_BROKER_URL
       - CELERY_RESULT_BACKEND
-      - CELERY_QUEUES=transcribe,transcribe_gpu
+      - CELERY_QUEUES=transcribe,transcribe_gpu,post_transcribe
       - FLOWER_PURGE_OFFLINE_WORKERS=120
       - FLOWER_PERSISTENT=1
       - FLOWER_DB=/src/data/flower

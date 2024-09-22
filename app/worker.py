@@ -86,7 +86,7 @@ def queue_task(
             else CELERY_GPU_QUEUE
         )
         | post_transcribe_task.s(metadata, audio_url, id, index_name).set(
-            queue=CELERY_DEFAULT_QUEUE
+            queue=f"post_{CELERY_DEFAULT_QUEUE}"
         )
     ).apply_async()
 
@@ -174,7 +174,7 @@ def post_transcribe_task(
     elif metadata["audio_type"] == "analog":
         from app.radio.analog import process_response
     else:
-        raise Reject(f"Audio type {metadata['audio_type']} not supported")
+        raise Reject(f"Audio type {metadata['audio_type']} not supported", requeue=False)
     try:
         transcript = process_response(result, metadata)
     except WhisperException as e:

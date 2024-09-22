@@ -31,7 +31,7 @@ elif [ "$1" = 'worker' ]; then
         -c ${CELERY_CONCURRENCY:-1} \
         -l ${CELERY_LOGLEVEL:-info} \
         -n $CELERY_HOSTNAME \
-        -Q ${CELERY_QUEUES:-transcribe}
+        -Q ${CELERY_QUEUES:-transcribe,post_transcribe}
 elif [ "$1" = 'flower' ]; then
     exec poetry run celery --app=app.worker.celery flower --port=5555
 fi

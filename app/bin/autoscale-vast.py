@@ -275,7 +275,7 @@ class Autoscaler:
                 "image": image,
                 "args": ["worker"],
                 "env": self.envs,
-                "disk": 0.5,
+                "disk": 16,
                 "runtype": "args",
             }
 
