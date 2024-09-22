@@ -69,12 +69,29 @@ You may also want to set `CELERY_CONCURRENCY` to a higher number since the GPU i
 
 The worker can be run on Windows if needed.
 
-1. Make sure you have the ffmpeg and sox prerequisites installed, per the getting started section.
-1. Follow steps 1-3 in the earlier getting started section to setup the repo and configuration.
-1. Make a Python virtualenv in the repo:
+1. Clone the repo or otherwise download the zip file from GitHub and extract it.
+1. Copy `.env.example` to `.env` and update it with the appropriate settings. Your `COMPOSE_FILE` line should be set to `COMPOSE_FILE=docker-compose.whisper.yml:docker-compose.gpu.yml`.
+1. Choose one of the two paths below for actually running the worker.
+
+#### Using Docker / WSL (Recommended)
+
+The recommended way is to use Docker for Windows which has Docker Compose support, and so there's no Python setup needed.
+
+1. [Follow these instructions](https://docs.docker.com/desktop/install/windows-install/) to install Docker Desktop.
+1. Open a terminal in the trunk-transcribe directory.
+1. In your terminal, run `docker compose up -d` to start the worker.
+1. Verify the container is running properly by looking at the status and logs in the Docker Desktop application.
+
+#### Using native Python
+
+(this is not frequently tested, so this may require some troubleshooting)
+
+1. Install all the prerequsites per the Prerequsites section above.
+1. [Download and install Python 3.12](https://www.python.org/downloads/) if it is not already installed.
+1. Make a Python 3.12 virtualenv in the trunk-transcribe directory with your terminal:
 
     ```bat
-    python -m venv .venv
+    python3.12 -m venv .venv
     ```
 
 1. Setup the Python dependencies by running `setup.bat`
