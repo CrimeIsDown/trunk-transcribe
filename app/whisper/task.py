@@ -4,7 +4,6 @@ from threading import Lock
 
 from celery_batches import Batches
 
-from .exceptions import WhisperException
 from app.task import Task
 from .base import BaseWhisper
 
@@ -26,7 +25,7 @@ class WhisperTask(Task):
     def default_implementation(self) -> str:
         whisper_implementation = os.getenv("WHISPER_IMPLEMENTATION")
         if not whisper_implementation:
-            raise WhisperException("WHISPER_IMPLEMENTATION env must be set.")
+            raise RuntimeError("WHISPER_IMPLEMENTATION env must be set.")
 
         model_name = os.getenv("WHISPER_MODEL")
 
@@ -64,14 +63,14 @@ class WhisperTask(Task):
             if implementation == "openai":
                 api_key = os.getenv("OPENAI_API_KEY")
                 if not api_key:
-                    raise WhisperException("OPENAI_API_KEY env must be set.")
+                    raise RuntimeError("OPENAI_API_KEY env must be set.")
                 from .openai import OpenAIApi
 
                 return OpenAIApi(api_key)
             if implementation == "deepgram":
                 api_key = os.getenv("DEEPGRAM_API_KEY")
                 if not api_key:
-                    raise WhisperException("DEEPGRAM_API_KEY env must be set.")
+                    raise RuntimeError("DEEPGRAM_API_KEY env must be set.")
                 from .deepgram import DeepgramApi
 
                 return DeepgramApi(api_key, model)
@@ -82,7 +81,7 @@ class WhisperTask(Task):
                     base_url=os.getenv("ASR_API_URL", "http://localhost:5000")
                 )
 
-            raise WhisperException(f"Unknown implementation {implementation}")
+            raise RuntimeError(f"Unknown implementation {implementation}")
 
 
 class WhisperBatchTask(Batches, WhisperTask):
