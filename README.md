@@ -39,7 +39,7 @@ This is experimental alpha-version software, use at your own risk. Expect breaki
     ```json
     "audioArchive": true,
     "callLog": true,
-    "uploadScript": "transcribe.sh"
+    "uploadScript": "./transcribe.sh"
     ```
     An example upload script that can be used is available at [examples/transcribe.sh](./examples/transcribe.sh). Make sure to put that in the same location as the config.
 
