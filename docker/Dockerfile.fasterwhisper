@@ -29,13 +29,14 @@ RUN add-apt-repository ppa:deadsnakes/ppa && \
     && \
     rm -rf /var/lib/apt/lists/*
 
-RUN curl -sSL https://install.python-poetry.org | python3 -
+RUN curl -sSL https://install.python-poetry.org | python3.12 -
 
 ENV PATH="/root/.local/bin:${PATH}"
 
 WORKDIR /src
 COPY pyproject.toml poetry.lock ./
-RUN poetry install --without dev --no-root --no-interaction --no-ansi
+RUN poetry env use python3.12 && \
+    poetry install --without dev --no-root --no-interaction --no-ansi
 
 # Install Faster Whisper
 COPY docker/install-faster-whisper.sh /usr/local/bin/install-whisper.sh

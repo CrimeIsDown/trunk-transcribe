@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import os
 
 from dotenv import load_dotenv
 
@@ -15,9 +16,15 @@ from app.whisper.task import WhisperTask
 parser = argparse.ArgumentParser(description="Audio Transcription CLI")
 parser.add_argument("audio_file", help="Path to the audio file")
 parser.add_argument(
-    "--implementation", default="whisper", help="Specify the implementation to use"
+    "--implementation",
+    default=os.getenv("WHISPER_IMPLEMENTATION", "whisper"),
+    help="Specify the implementation to use",
 )
-parser.add_argument("--model", default="small.en", help="Whisper model to use")
+parser.add_argument(
+    "--model",
+    default=os.getenv("WHISPER_MODEL", "small.en"),
+    help="Whisper model to use",
+)
 parser.add_argument("--prompt", help="Prompt to pass to Whisper")
 parser.add_argument(
     "--cleanup", action="store_true", help="Perform cleanup on the transcript"
@@ -41,7 +48,11 @@ def main():
     }
     result = model.transcribe(args.audio_file, options)
 
-    print(cleanup_transcript(result, options["cleanup_config"]) if args.cleanup else result)
+    print(
+        cleanup_transcript(result, options["cleanup_config"])
+        if args.cleanup
+        else result
+    )
 
 
 if __name__ == "__main__":
