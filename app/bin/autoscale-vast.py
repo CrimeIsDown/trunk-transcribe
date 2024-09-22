@@ -82,6 +82,7 @@ class Autoscaler:
             for k, v in os.environ.items()
             if k.startswith("CELERY")
         }
+        self.envs["CELERY_QUEUES"] = worker.CELERY_GPU_QUEUE
 
         if os.getenv("SENTRY_DSN"):
             self.envs["SENTRY_DSN"] = os.getenv("SENTRY_DSN", "")
