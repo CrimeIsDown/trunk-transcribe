@@ -178,11 +178,9 @@ def post_transcribe_task(
 
     geo = lookup_geo(metadata, transcript)
 
-    new_call = False
     if not id:
         raw_metadata = json.dumps(metadata)
         id = sha256(raw_metadata.encode("utf-8")).hexdigest()
-        new_call = True
     else:
         api_client.call(
             "patch",
@@ -192,9 +190,7 @@ def post_transcribe_task(
 
     search_url = index_call(id, metadata, raw_audio_url, transcript, geo, index_name)
 
-    # Do not send Telegram messages for calls we already have transcribed previously
-    if new_call:
-        send_notifications(raw_audio_url, metadata, transcript, geo, search_url)
+    send_notifications(raw_audio_url, metadata, transcript, geo, search_url)
 
     make_next_index()
 
