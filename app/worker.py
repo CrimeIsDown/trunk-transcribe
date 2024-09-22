@@ -174,7 +174,9 @@ def post_transcribe_task(
     elif metadata["audio_type"] == "analog":
         from app.radio.analog import process_response
     else:
-        raise Reject(f"Audio type {metadata['audio_type']} not supported", requeue=False)
+        raise Reject(
+            f"Audio type {metadata['audio_type']} not supported", requeue=False
+        )
     try:
         transcript = process_response(result, metadata)
     except WhisperException as e:
