@@ -181,8 +181,15 @@ def should_send_alert(
         matched_keywords, matched_lines = check_transcript_for_alert_keywords(
             transcript, keywords
         )
+        ignore_keywords = config.get("ignore_keywords")
+        if ignore_keywords:
+            matched_ignore_keywords, _ = check_transcript_for_alert_keywords(
+                transcript, ignore_keywords
+            )
+        else:
+            matched_ignore_keywords = []
 
-        match = len(matched_keywords) > 0
+        match = len(matched_keywords) > 0 and len(matched_ignore_keywords) == 0
         condition_results.append(match)
         if match:
             title = (

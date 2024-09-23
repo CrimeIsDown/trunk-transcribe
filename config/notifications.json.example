@@ -54,7 +54,19 @@
             "tgram://$TELEGRAM_BOT_TOKEN/redacted_chat_id"
         ],
         "append_talkgroup": false,
-        "alerts": []
+        "alerts": [
+            {
+                "channels": [
+                    "tgram://$TELEGRAM_BOT_TOKEN/redacted_chat_id"
+                ],
+                "keywords": [
+                    "dead body"
+                ],
+                "ignore_keywords: [
+                    "dead body cam"
+                ]
+            }
+        ]
     },
     "^14@chi_cpd$": {
         "channels": [

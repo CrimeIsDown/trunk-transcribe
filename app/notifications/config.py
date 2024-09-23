@@ -16,6 +16,7 @@ class LocationAlertConfig(TypedDict):
 class AlertConfig(TypedDict):
     channels: list[str]
     keywords: Optional[list[str]]
+    ignore_keywords: Optional[list[str]]
     location: Optional[LocationAlertConfig]
     append_talkgroup: bool
 
