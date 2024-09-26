@@ -4,7 +4,7 @@ import logging
 import os
 from itertools import chain, starmap
 from time import sleep
-from typing import Any, Generator
+from typing import Any, Generator, Optional
 from urllib.parse import urlencode
 
 from meilisearch import Client
@@ -54,12 +54,13 @@ def get_default_index_name(
     return index_name
 
 
-def make_next_index() -> None:
+def make_next_index(client: Optional[Client] = None) -> None:
     future_index_name = get_default_index_name(
         datetime.datetime.now() + datetime.timedelta(hours=1)
     )
     if get_default_index_name() != future_index_name:
-        client = get_client()
+        if not client:
+            client = get_client()
         create_or_update_index(client, future_index_name)
 
 

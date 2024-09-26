@@ -14,10 +14,6 @@ from dotenv import load_dotenv
 from sentry_sdk.integrations.celery import CeleryIntegration
 import sentry_sdk
 
-from app.whisper.exceptions import WhisperException
-from app.whisper.task import API_IMPLEMENTATIONS, WhisperTask
-
-
 load_dotenv()
 
 from app.utils.storage import fetch_audio
@@ -26,9 +22,11 @@ from app.whisper.transcribe import transcribe
 from app.geocoding.geocoding import lookup_geo
 from app.models.metadata import Metadata
 from app.notifications.notification import send_notifications
-from app.search.search import index_call, make_next_index
 from app.utils import api_client
 from app.utils.exceptions import before_send
+from app.search import search
+from app.whisper.exceptions import WhisperException
+from app.whisper.task import API_IMPLEMENTATIONS, WhisperTask
 
 sentry_dsn = os.getenv("SENTRY_DSN")
 if sentry_dsn:
@@ -69,6 +67,9 @@ celery.conf.task_default_queue = CELERY_DEFAULT_QUEUE
 recent_job_results: list[str] = []
 
 logger = logging.getLogger(__name__)
+
+search_client = search.get_client()
+search.create_or_update_index(search_client, search.get_default_index_name())
 
 
 def queue_task(
@@ -192,10 +193,12 @@ def post_transcribe_task(
             json={"raw_transcript": transcript.transcript},
         )
 
-    search_url = index_call(id, metadata, raw_audio_url, transcript, geo, index_name)
+    search_url = search.index_call(
+        id, metadata, raw_audio_url, transcript, geo, index_name
+    )
 
     send_notifications(raw_audio_url, metadata, transcript, geo, search_url)
 
-    make_next_index()
+    search.make_next_index(search_client)
 
     return transcript.txt

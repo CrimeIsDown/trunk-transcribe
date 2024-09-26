@@ -60,6 +60,12 @@ def fetch_audio(audio_url: str) -> str:
         mp3_file.write(uri.data)  # type: ignore
         mp3_file.close()
     else:
+        # Do this replacement so we can use the correct URL inside of Docker
+        localhost_url = "http://127.0.0.1:9000"
+        if audio_url.startswith(localhost_url):
+            audio_url = audio_url.replace(
+                localhost_url, os.getenv("S3_ENDPOINT", "http://minio:9000")
+            )
         with requests.get(audio_url, stream=True) as r:
             r.raise_for_status()
             for chunk in r.iter_content(chunk_size=1024 * 1024):
