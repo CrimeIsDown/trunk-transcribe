@@ -37,7 +37,7 @@ def get_client(
     url: str | None = None, api_key: str | None = None
 ) -> Client:  # pragma: no cover
     if not url:
-        url = os.getenv("MEILI_URL", "http://127.0.0.1:7700")
+        url = os.getenv("MEILI_URL", "http://meilisearch:7700")
     if not api_key:
         api_key = os.getenv("MEILI_MASTER_KEY")
     return Client(url=url, api_key=api_key)
