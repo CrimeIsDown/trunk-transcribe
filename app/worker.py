@@ -68,9 +68,6 @@ recent_job_results: list[str] = []
 
 logger = logging.getLogger(__name__)
 
-search_client = search.get_client()
-search.create_or_update_index(search_client, search.get_default_index_name())
-
 
 def queue_task(
     audio_url: str,
@@ -199,6 +196,6 @@ def post_transcribe_task(
 
     send_notifications(raw_audio_url, metadata, transcript, geo, search_url)
 
-    search.make_next_index(search_client)
+    search.make_next_index()
 
     return transcript.txt

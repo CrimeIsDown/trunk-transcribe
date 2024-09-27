@@ -19,6 +19,7 @@ import sentry_sdk
 
 load_dotenv()
 
+from app.search import search
 from app.utils.exceptions import before_send
 from app.models.database import SessionLocal, engine
 from app.models.metadata import Metadata
@@ -56,6 +57,11 @@ log_formatter = logging.Formatter(
 )
 stream_handler.setFormatter(log_formatter)
 logger.addHandler(stream_handler)
+
+
+# Create the search index on boot
+search_client = search.get_client()
+search.create_or_update_index(search_client, search.get_default_index_name())
 
 
 # Dependency
