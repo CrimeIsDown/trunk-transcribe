@@ -20,7 +20,7 @@ head -n -1 Dockerfile.whisper > Dockerfile.whispercpp
 export WHISPER_INSTALL_INSTRUCTIONS="Install Whisper
 ARG TARGETPLATFORM
 COPY docker/install-whisper.sh /usr/local/bin/install-whisper.sh
-RUN install-whisper.sh git+https://github.com/openai/whisper.git@ba3f3cd54b0e5b8ce1ab3de13e32122d0d5f98ab
+RUN install-whisper.sh git+https://github.com/openai/whisper.git@271445b2f24f00f8175c4fb7ae91876f7451dfc1
 
 ARG WHISPER_MODEL=base.en
 ENV WHISPER_MODEL=\${WHISPER_MODEL}
@@ -37,7 +37,7 @@ sed -i 's#CMD \["api"\]#CMD ["worker"]#g' Dockerfile.whisper
 # Setup Dockerfile.fasterwhisper
 export WHISPER_INSTALL_INSTRUCTIONS="Install Faster Whisper
 COPY docker/install-whisper.sh /usr/local/bin/install-whisper.sh
-RUN install-whisper.sh git+https://github.com/SYSTRAN/faster-whisper.git@v1.0.2
+RUN install-whisper.sh git+https://github.com/SYSTRAN/faster-whisper.git@v1.0.3
 
 ARG WHISPER_MODEL=base.en
 ENV WHISPER_MODEL=\${WHISPER_MODEL}

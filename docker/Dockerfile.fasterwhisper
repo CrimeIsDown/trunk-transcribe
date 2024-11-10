@@ -41,7 +41,7 @@ RUN poetry env use python3.12 && \
 
 # Install Faster Whisper
 COPY docker/install-whisper.sh /usr/local/bin/install-whisper.sh
-RUN install-whisper.sh git+https://github.com/SYSTRAN/faster-whisper.git@v1.0.2
+RUN install-whisper.sh git+https://github.com/SYSTRAN/faster-whisper.git@v1.0.3
 
 ARG WHISPER_MODEL=base.en
 ENV WHISPER_MODEL=${WHISPER_MODEL}
