@@ -7,6 +7,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import threading
 
 from celery.result import AsyncResult
 from dotenv import load_dotenv
@@ -59,9 +60,12 @@ stream_handler.setFormatter(log_formatter)
 logger.addHandler(stream_handler)
 
 
-# Create the search index on boot
-search_client = search.get_client()
-search.create_or_update_index(search_client, search.get_default_index_name())
+def create_search_index():
+    search_client = search.get_client()
+    search.create_or_update_index(search_client, search.get_default_index_name())
+
+thread = threading.Thread(target=create_search_index)
+thread.start()
 
 
 # Dependency
