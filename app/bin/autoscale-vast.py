@@ -144,8 +144,7 @@ class Autoscaler:
         pending_instances = {}
         for instance in list(
             filter(
-                lambda i: i["next_state"] != "running"
-                and "deletion_reason" not in i,
+                lambda i: i["next_state"] != "running" and "deletion_reason" not in i,
                 instances,
             )
         ):

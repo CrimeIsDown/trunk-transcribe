@@ -64,6 +64,7 @@ def create_search_index():
     search_client = search.get_client()
     search.create_or_update_index(search_client, search.get_default_index_name())
 
+
 thread = threading.Thread(target=create_search_index)
 thread.start()
 
