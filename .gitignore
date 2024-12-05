@@ -137,3 +137,6 @@ docker-compose.override.yml
 config/*.json
 !config/transcript_cleanup.json
 scratch
+
+# Made by the Vast.ai CLI
+gpu_names_cache.json

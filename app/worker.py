@@ -1,32 +1,33 @@
 #!/usr/bin/env python3
 
-from hashlib import sha256
-from multiprocessing.pool import AsyncResult
-from typing import Optional
 import json
 import logging
 import os
 import signal
+from hashlib import sha256
+from multiprocessing.pool import AsyncResult
+from typing import Optional
 
+import requests
+import sentry_sdk
 from celery import Celery, signals, states
 from celery.exceptions import Reject
 from dotenv import load_dotenv
 from sentry_sdk.integrations.celery import CeleryIntegration
-import sentry_sdk
 
 load_dotenv()
 
-from app.utils.storage import fetch_audio
-from app.whisper.base import TranscribeOptions, WhisperResult
-from app.whisper.transcribe import transcribe
 from app.geocoding.geocoding import lookup_geo
 from app.models.metadata import Metadata
 from app.notifications.notification import send_notifications
+from app.search import search
 from app.utils import api_client
 from app.utils.exceptions import before_send
-from app.search import search
+from app.utils.storage import fetch_audio
+from app.whisper.base import TranscribeOptions, WhisperResult
 from app.whisper.exceptions import WhisperException
 from app.whisper.task import API_IMPLEMENTATIONS, WhisperTask
+from app.whisper.transcribe import transcribe
 
 sentry_dsn = os.getenv("SENTRY_DSN")
 if sentry_dsn:
@@ -96,6 +97,16 @@ def task_prerun(**kwargs):  # type: ignore
         logger.fatal(
             "Exceeded job failure threshold, exiting...\n" + str(recent_job_results)
         )
+        # If this is a vast.ai instance, delete itself since it must not be working properly
+        vast_api_key = os.getenv("CONTAINER_API_KEY")
+        vast_instance_id = os.getenv("CONTAINER_ID")
+        if vast_api_key and vast_instance_id:
+            logger.info("Deleting this vast.ai instance...")
+            requests.delete(
+                f"https://console.vast.ai/api/v0/instances/{vast_instance_id}/",
+                headers={"Authorization": f"Bearer {vast_api_key}"},
+                json={},
+            )
         os.kill(
             os.getppid(),
             signal.SIGQUIT if hasattr(signal, "SIGQUIT") else signal.SIGTERM,

@@ -140,14 +140,36 @@ class Autoscaler:
             )
         ]
 
+    def _update_pending_instances(self, instances: list[dict]):
+        pending_instances = {}
+        for instance in list(
+            filter(
+                lambda i: i["next_state"] != "running"
+                and "deletion_reason" not in i,
+                instances,
+            )
+        ):
+            hostname = None
+            concurrency = 0
+            for env in instance["extra_env"]:
+                key = env[0]
+                value = env[1]
+                if key == "CELERY_HOSTNAME":
+                    hostname = value
+                    continue
+                if key == "CELERY_CONCURRENCY":
+                    concurrency = int(value)
+                    continue
+            if hostname and concurrency:
+                pending_instances[hostname] = concurrency
+
+        self.pending_instances = pending_instances
+
     def get_worker_status(self) -> list[dict]:
         workers = []
         result = worker.celery.control.inspect(timeout=10).stats()
         if result:
             for name, stats in result.items():
-                # If this was one of our pending instances, remove it from the list
-                if name in self.pending_instances:
-                    del self.pending_instances[name]
                 workers.append({"name": name, "stats": stats})
         return workers
 
@@ -218,6 +240,7 @@ class Autoscaler:
             )
         )
         self._update_running_instances(instances)
+        self._update_pending_instances(instances)
         return instances
 
     def create_instances(self, count: int) -> int:
@@ -294,8 +317,6 @@ class Autoscaler:
             logging.info(
                 f"Started instance {instance_id}, a {instance['gpu_name']} for ${instance['dph_total'] if os.getenv('VAST_ONDEMAND') else body['price']}/hr"
             )
-            # Add the instance to our list of pending instances so we can check when it comes online
-            self.pending_instances[self.envs["CELERY_HOSTNAME"]] = concurrency
             # Update our other vars
             self.running_instances.append(hostname)
             instances_created += 1
@@ -387,6 +408,7 @@ class Autoscaler:
                 )
 
         self._update_running_instances(instances)
+        self._update_pending_instances(instances)
 
         return len(deletable_instances)
 
@@ -443,6 +465,8 @@ class Autoscaler:
         self.delete_instances(delete_exited=True, delete_errored=True)
 
         current_instances, needed_instances = self.calculate_needed_instances()
+        current_instances += len(self.pending_instances)
+
         target_instances = min(max(needed_instances, self.min), self.max)
 
         if target_instances > current_instances:
