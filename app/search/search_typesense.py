@@ -2,18 +2,16 @@ import datetime
 import json
 import logging
 import os
-from time import sleep
 from typing import Optional
+from urllib.parse import urlparse
 
-from meilisearch import Client
-from meilisearch.errors import MeilisearchApiError, MeilisearchError
-from meilisearch.index import Index
+import typesense
+from typesense.exceptions import ObjectNotFound, TypesenseClientError
 
 from app.models.metadata import Metadata, SearchableMetadata
 from app.models.transcript import Transcript
 from app.geocoding.geocoding import GeoResponse
 from app.search.url import encode_params
-
 
 client = None
 
@@ -33,13 +31,25 @@ class Document(SearchableMetadata):
 
 
 def get_client(
-    url: str | None = None, api_key: str | None = None
-) -> Client:  # pragma: no cover
+    url: str | None = None, api_key: str | None = None, timeout: int = 2
+) -> typesense.Client:  # pragma: no cover
     if not url:
-        url = os.getenv("MEILI_URL", "http://meilisearch:7700")
+        url = os.getenv("TYPESENSE_URL", "http://typesense:8108")
     if not api_key:
-        api_key = os.getenv("MEILI_MASTER_KEY")
-    return Client(url=url, api_key=api_key)
+        api_key = os.getenv("TYPESENSE_API_KEY")
+
+    parsed_url = urlparse(url)
+    host = parsed_url.hostname
+    port = parsed_url.port or "8108"
+    protocol = parsed_url.scheme or "http"
+
+    return typesense.Client(
+        {
+            "nodes": [{"host": host, "port": port, "protocol": protocol}],
+            "api_key": api_key,
+            "connection_timeout_seconds": timeout,
+        }
+    )
 
 
 def get_default_index_name(
@@ -53,7 +63,7 @@ def get_default_index_name(
     return index_name
 
 
-def make_next_index(client: Optional[Client] = None) -> None:
+def make_next_index(client: Optional[typesense.Client] = None) -> None:
     future_index_name = get_default_index_name(
         datetime.datetime.now() + datetime.timedelta(hours=1)
     )
@@ -63,7 +73,6 @@ def make_next_index(client: Optional[Client] = None) -> None:
         create_or_update_index(client, future_index_name)
 
 
-# TODO: write tests
 def build_document(
     id: str | int,
     metadata: Metadata,
@@ -96,15 +105,15 @@ def build_document(
         "talkgroup_description": metadata["talkgroup_description"],
         "talkgroup_group_tag": metadata["talkgroup_group_tag"],
         "talkgroup_group": metadata["talkgroup_group"],
-        "talkgroup_hierarchy": {
-            "lvl0": metadata["short_name"],
-            "lvl1": metadata["short_name"] + " > " + metadata["talkgroup_group"],
-            "lvl2": metadata["short_name"]
-            + " > "
-            + metadata["talkgroup_group"]
-            + " > "
-            + metadata["talkgroup_tag"],
-        },
+        "talkgroup_hierarchy.lvl0": metadata["short_name"],
+        "talkgroup_hierarchy.lvl1": metadata["short_name"]
+        + " > "
+        + metadata["talkgroup_group"],
+        "talkgroup_hierarchy.lvl2": metadata["short_name"]
+        + " > "
+        + metadata["talkgroup_group"]
+        + " > "
+        + metadata["talkgroup_tag"],
         "audio_type": metadata["audio_type"],
         "short_name": metadata["short_name"],
         "srcList": list(srcList),
@@ -115,12 +124,15 @@ def build_document(
         "raw_transcript": transcript.json,
         "raw_metadata": raw_metadata,
         "raw_audio_url": raw_audio_url,
-        "id": id,
+        "id": str(id),
     }
 
     if geo:
         doc.update(
-            {"_geo": geo["geo"], "geo_formatted_address": geo["geo_formatted_address"]}
+            {
+                "_geo": [geo["geo"]["lat"], geo["geo"]["lng"]],
+                "geo_formatted_address": geo["geo_formatted_address"],
+            }
         )
 
     return doc  # type: ignore
@@ -168,78 +180,48 @@ def index_call(
     client = get_client()
 
     try:
-        client.index(index_name).add_documents([doc])  # type: ignore
-    except MeilisearchApiError as err:
-        # Raise a different exception because of https://github.com/celery/celery/issues/6990
-        raise MeilisearchError(str(err))
+        client.collections[index_name].documents.create(doc)  # type: ignore
+    except TypesenseClientError as err:
+        raise Exception(str(err))
 
     return build_search_url(doc, index_name)
 
 
 def create_or_update_index(
-    client: Client, index_name: str
-) -> Index:  # pragma: no cover
-    index = client.index(index_name)
-
-    try:
-        current_settings = index.get_settings()
-    except MeilisearchApiError as err:
-        if err.code == "index_not_found":
-            current_settings = {}
-        else:
-            raise err
-
-    desired_settings = {
-        "searchableAttributes": [
-            "transcript_plaintext",
+    client: typesense.Client, index_name: str
+) -> None:  # pragma: no cover
+    schema = {
+        "name": index_name,
+        "fields": [
+            {"name": "freq", "type": "int32"},
+            {"name": "start_time", "type": "int64", "facet": True},
+            {"name": "stop_time", "type": "int64"},
+            {"name": "call_length", "type": "int32"},
+            {"name": "talkgroup", "type": "int32", "facet": True},
+            {"name": "talkgroup_tag", "type": "string", "facet": True},
+            {"name": "talkgroup_description", "type": "string", "facet": True},
+            {"name": "talkgroup_group_tag", "type": "string", "facet": True},
+            {"name": "talkgroup_group", "type": "string", "facet": True},
+            {"name": "talkgroup_hierarchy.lvl0", "type": "string", "facet": True},
+            {"name": "talkgroup_hierarchy.lvl1", "type": "string", "facet": True},
+            {"name": "talkgroup_hierarchy.lvl2", "type": "string", "facet": True},
+            {"name": "audio_type", "type": "string", "facet": True},
+            {"name": "short_name", "type": "string", "facet": True},
+            {"name": "srcList", "type": "string[]", "facet": True},
+            {"name": "units", "type": "string[]", "facet": True},
+            {"name": "radios", "type": "string[]", "facet": True},
+            {"name": "transcript", "type": "string"},
+            {"name": "transcript_plaintext", "type": "string"},
+            {"name": "raw_transcript", "type": "string"},
+            {"name": "raw_metadata", "type": "string"},
+            {"name": "raw_audio_url", "type": "string"},
+            {"name": "geo_formatted_address", "type": "string", "optional": True},
+            {"name": "_geo", "type": "geopoint", "optional": True},
         ],
-        "filterableAttributes": [
-            "start_time",
-            "talkgroup",
-            "talkgroup_tag",
-            "talkgroup_description",
-            "talkgroup_group_tag",
-            "talkgroup_group",
-            "talkgroup_hierarchy.lvl0",
-            "talkgroup_hierarchy.lvl1",
-            "talkgroup_hierarchy.lvl2",
-            "audio_type",
-            "short_name",
-            "units",
-            "radios",
-            "srcList",
-            "_geo",
-        ],
-        "sortableAttributes": [
-            "start_time",
-            "_geo",
-        ],
-        "rankingRules": [
-            "sort",
-            "words",
-            "typo",
-            "proximity",
-            "attribute",
-            "exactness",
-        ],
+        "default_sorting_field": "start_time",
     }
 
-    for key, value in desired_settings.copy().items():
-        if key in current_settings and current_settings[key] == value:
-            del desired_settings[key]
-
-    # If all the settings match, return the index
-    if not desired_settings:
-        return index
-
-    logging.info(f"Updating settings: {str(desired_settings)}")
-    task = index.update_settings(desired_settings)
-    logging.info(f"Waiting for settings update task {task.task_uid} to complete...")
-    while client.get_task(task.task_uid).status not in [
-        "succeeded",
-        "failed",
-        "canceled",
-    ]:
-        sleep(2)
-
-    return index
+    try:
+        client.collections[index_name].retrieve()  # type: ignore
+    except ObjectNotFound:
+        client.collections.create(schema)

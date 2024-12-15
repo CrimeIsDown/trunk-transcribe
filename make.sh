@@ -52,7 +52,7 @@ test() {
 
 retest() {
 	restart
-	test
+	test $@
 }
 
 if [ -z "$1" ]; then

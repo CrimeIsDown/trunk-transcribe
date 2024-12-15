@@ -20,7 +20,7 @@ load_dotenv()
 from app.geocoding.geocoding import lookup_geo
 from app.models.metadata import Metadata
 from app.notifications.notification import send_notifications
-from app.search import search
+from app.search import search_typesense as search
 from app.utils import api_client
 from app.utils.exceptions import before_send
 from app.utils.storage import fetch_audio

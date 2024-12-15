@@ -20,7 +20,7 @@ import sentry_sdk
 
 load_dotenv()
 
-from app.search import search
+from app.search import search_typesense as search
 from app.utils.exceptions import before_send
 from app.models.database import SessionLocal, engine
 from app.models.metadata import Metadata

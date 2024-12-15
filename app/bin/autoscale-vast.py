@@ -166,7 +166,7 @@ class Autoscaler:
 
     def get_worker_status(self) -> list[dict]:
         workers = []
-        result = worker.celery.control.inspect(timeout=10).stats()
+        result = worker.celery.control.inspect(timeout=10).stats()  # type: ignore
         if result:
             for name, stats in result.items():
                 workers.append({"name": name, "stats": stats})
@@ -245,7 +245,7 @@ class Autoscaler:
     def create_instances(self, count: int) -> int:
         logging.info(f"Scaling up by {count} instances")
 
-        mem_util_factor = 1
+        mem_util_factor = 1.0
         # Decrease the memory needed for certain forks
         if self.implementation in ["faster-whisper", "whisper.cpp"]:
             mem_util_factor = 0.4

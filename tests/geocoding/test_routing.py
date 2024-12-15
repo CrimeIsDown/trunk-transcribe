@@ -10,9 +10,7 @@ class TestRouting(unittest.TestCase):
         origin = Point(latitude=41.8303654, longitude=-87.6239086)
         destination = Point(latitude=41.8867315, longitude=-87.7644538)
 
-        duration = routing.calculate_route_duration_via_directions(
-            origin, destination
-        )
+        duration = routing.calculate_route_duration_via_directions(origin, destination)
 
         self.assertLess(duration, 3600)
 
