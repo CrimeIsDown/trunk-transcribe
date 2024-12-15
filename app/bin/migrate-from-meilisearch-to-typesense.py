@@ -61,8 +61,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--index",
         type=str,
-        default="calls",
-        help="The index to reindex, defaults to 'calls'",
+        default=search.get_default_index_name(),
+        help=f"The index to reindex, defaults to '{search.get_default_index_name()}'",
+    )
+    parser.add_argument(
+        "--all-indices",
+        action="store_true",
+        help="Reindex all indices",
     )
     parser.add_argument(
         "--verbose",
@@ -84,72 +89,83 @@ if __name__ == "__main__":
     meili_client = search.get_client()
     typesense_client = search_typesense.get_client(timeout=86400)
 
-    index = meili_client.index(args.index)
+    indicies = [args.index]
 
-    # Create collection in typesense
-    search_typesense.create_or_update_index(typesense_client, args.index)
-    collection_docs = typesense_client.collections[args.index].documents  # type: ignore
+    if args.all_indices:
+        indicies = [index.uid for index in meili_client.get_indexes()["results"]]
 
-    total, _ = get_documents(index, {"limit": 1})
-    logging.info(f"Found {total} total documents")
-    limit = args.batch_size
-    offset = 0
-    total_processed = 0
-    updated_documents = []
+    # Sort indicies to ensure we always process them in the same order
+    indicies.sort()
 
-    while offset < total:
-        total, documents = get_documents(index, {"offset": offset, "limit": limit})
-        offset += limit
+    for index in indicies:
+        logging.info(f"Reindexing index: {index}")
 
-        completion = min((offset / total) * 100, 100)
+        meili_index = meili_client.index(index)
 
-        if len(documents):
-            logging.log(
-                logging.INFO if args.dry_run else logging.DEBUG,
-                "First 5 documents that were matched:\n"
-                + json.dumps(
-                    [dict(doc)["_Document__doc"] for doc in documents[:5]],
-                    sort_keys=True,
-                    indent=4,
-                ),
-            )
-            docs_to_add = list(
-                filter(
-                    lambda doc: doc is not None,
-                    map(lambda d: convert_document(d), documents),
+        # Create collection in typesense
+        search_typesense.create_or_update_index(typesense_client, index)
+        collection_docs = typesense_client.collections[index].documents  # type: ignore
+
+        total, _ = get_documents(meili_index, {"limit": 1})
+        logging.info(f"Found {total} total documents")
+        limit = args.batch_size
+        offset = 0
+        total_processed = 0
+        updated_documents = []
+
+        while offset < total:
+            total, documents = get_documents(meili_index, {"offset": offset, "limit": limit})
+            offset += limit
+
+            completion = min((offset / total) * 100, 100)
+
+            if len(documents):
+                logging.log(
+                    logging.INFO if args.dry_run else logging.DEBUG,
+                    "First 5 documents that were matched:\n"
+                    + json.dumps(
+                        [dict(doc)["_Document__doc"] for doc in documents[:5]],
+                        sort_keys=True,
+                        indent=4,
+                    ),
                 )
-            )
-            updated_documents += docs_to_add
-            logging.info(f"Added {len(docs_to_add)} documents to be indexed")
-            total_processed += len(updated_documents)
-            logging.log(
-                logging.INFO if args.dry_run else logging.DEBUG,
-                f"The documents to be imported:\n"
-                + json.dumps(updated_documents[:5], sort_keys=True, indent=4),
-            )
-
-            if args.dry_run:
-                logging.warning(
-                    f"Dry run enabled, exiting. We would have imported at least {len(documents)} documents"
-                )
-                break
-
-            if len(updated_documents):
-                # Only send the updated docs to be reindexed when we have a big enough batch
-                if (
-                    len(updated_documents) >= limit
-                    or offset >= total
-                ):
-                    logging.info(
-                        f"Waiting for {len(updated_documents)} documents to be imported"
+                docs_to_add = list(
+                    filter(
+                        lambda doc: doc is not None,
+                        map(lambda d: convert_document(d), documents),
                     )
-                    _import(collection_docs, updated_documents)
-                    # Reset the list of updated documents
-                    updated_documents = []
+                )
+                updated_documents += docs_to_add
+                logging.info(f"Added {len(docs_to_add)} documents to be indexed")
+                total_processed += len(updated_documents)
+                logging.log(
+                    logging.INFO if args.dry_run else logging.DEBUG,
+                    f"The documents to be imported:\n"
+                    + json.dumps(updated_documents[:5], sort_keys=True, indent=4),
+                )
 
-        logging.info(f"{completion:.2f}% complete ({min(offset, total)}/{total})")
+                if args.dry_run:
+                    logging.warning(
+                        f"Dry run enabled, exiting. We would have imported at least {len(documents)} documents"
+                    )
+                    break
 
-    if not args.dry_run:
-        logging.info(
-            f"Successfully imported {total_processed} total matching documents"
-        )
+                if len(updated_documents):
+                    # Only send the updated docs to be reindexed when we have a big enough batch
+                    if (
+                        len(updated_documents) >= limit
+                        or offset >= total
+                    ):
+                        logging.info(
+                            f"Waiting for {len(updated_documents)} documents to be imported"
+                        )
+                        _import(collection_docs, updated_documents)
+                        # Reset the list of updated documents
+                        updated_documents = []
+
+            logging.info(f"{completion:.2f}% complete ({min(offset, total)}/{total})")
+
+        if not args.dry_run:
+            logging.info(
+                f"Successfully imported {total_processed} total matching documents"
+            )
