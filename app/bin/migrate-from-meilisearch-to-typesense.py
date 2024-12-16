@@ -89,8 +89,8 @@ if __name__ == "__main__":
         level=logging.DEBUG if args.verbose else logging.INFO,
     )
 
-    meili_adapter = adapters.MeilisearchAdapter(timeout=60*60)
-    typesense_adapter = adapters.TypesenseAdapter(timeout=60*60)
+    meili_adapter = adapters.MeilisearchAdapter(timeout=60 * 60)
+    typesense_adapter = adapters.TypesenseAdapter(timeout=60 * 60)
 
     indicies = [args.index]
 

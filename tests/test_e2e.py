@@ -5,9 +5,10 @@ from time import sleep
 
 import requests
 from dotenv import load_dotenv
-from typesense.exceptions import ObjectNotFound
 
-from app.search import search_typesense as search
+from app.search.adapters import get_default_adapter
+from app.search.helpers import get_default_index_name
+
 
 load_dotenv()
 
@@ -15,18 +16,15 @@ original_s3_public_url = os.getenv("S3_PUBLIC_URL")
 
 load_dotenv(".env.testing.local", override=True)
 
+adapter = get_default_adapter()
+
 
 class TestEndToEnd(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        index_name = search.get_default_index_name()
-        client = search.get_client()
-        index = client.collections[index_name]
-        try:
-            index.delete()  # type: ignore
-        except ObjectNotFound:
-            pass
-        index = search.create_or_update_index(client, index_name)
+        index_name = get_default_index_name()
+        adapter.delete_index(index_name)
+        adapter.create_or_update_index(index_name)
 
     def transcribe(
         self,
@@ -53,7 +51,7 @@ class TestEndToEnd(unittest.TestCase):
         if r.status_code >= 300:
             try:
                 print(r.json())
-            except:
+            except json.JSONDecodeError:
                 print(r.text)
         r.raise_for_status()
         result = r.json()
@@ -75,12 +73,6 @@ class TestEndToEnd(unittest.TestCase):
         self.assertEqual(task_id, result.pop("task_id"))
         return result
 
-    def search(self, query: str, options):
-        index = search.get_client().collections[search.get_default_index_name()]
-        options["q"] = query
-        options["query_by"] = "transcript_plaintext"
-        return index.documents.search(options) # type: ignore
-
     def test_transcribes_digital(self):
         result = self.transcribe(
             "tests/data/1-1673118015_477787500-call_1.wav",
@@ -92,20 +84,18 @@ class TestEndToEnd(unittest.TestCase):
 
         sleep(2)  # Wait for search to update
 
-        result = self.search("96 central", {"filter_by": "units := E96"})
+        result = adapter.search(
+            get_default_index_name(), "96 central", {"filter_by": "units := E96"}
+        )
 
         self.assertEqual(1, len(result["hits"]))
 
         hit = result["hits"][0]["document"]
 
-        self.assertTrue(
-            '<i data-src="1410967">E96:</i> ' in hit["transcript"]
-        )
+        self.assertTrue('<i data-src="1410967">E96:</i> ' in hit["transcript"])
 
         self.assertTrue(isinstance(json.loads(hit["raw_metadata"]), dict))
-        self.assertTrue(
-            isinstance(json.loads(hit["raw_transcript"]), list)
-        )
+        self.assertTrue(isinstance(json.loads(hit["raw_transcript"]), list))
 
         r = requests.get(
             hit["raw_audio_url"].replace(
@@ -129,23 +119,20 @@ class TestEndToEnd(unittest.TestCase):
 
         sleep(2)  # Wait for search to update
 
-        result = self.search(
-            "2011", {"filter_by": "short_name := chi_cpd && audio_type := analog"}
+        result = adapter.search(
+            get_default_index_name(),
+            "2011",
+            {"filter_by": "short_name := chi_cpd && audio_type := analog"},
         )
 
         self.assertEqual(1, len(result["hits"]))
 
         hit = result["hits"][0]["document"]
 
-        self.assertTrue(
-            "<br>" in hit["transcript"]
-            and "\n" not in hit["transcript"]
-        )
+        self.assertTrue("<br>" in hit["transcript"] and "\n" not in hit["transcript"])
 
         self.assertTrue(isinstance(json.loads(hit["raw_metadata"]), dict))
-        self.assertTrue(
-            isinstance(json.loads(hit["raw_transcript"]), list)
-        )
+        self.assertTrue(isinstance(json.loads(hit["raw_transcript"]), list))
 
         r = requests.get(
             hit["raw_audio_url"].replace(
@@ -168,7 +155,8 @@ class TestEndToEnd(unittest.TestCase):
 
         sleep(2)  # Wait for search to update
 
-        result = self.search(
+        result = adapter.search(
+            get_default_index_name(),
             "additional information",
             {"filter_by": 'talkgroup_group := "ISP Troop 3 - Chicago"'},
         )
@@ -177,14 +165,10 @@ class TestEndToEnd(unittest.TestCase):
 
         hit = result["hits"][0]["document"]
 
-        self.assertTrue(
-            '<i data-src="1904399">1904399:</i> ' in hit["transcript"]
-        )
+        self.assertTrue('<i data-src="1904399">1904399:</i> ' in hit["transcript"])
 
         self.assertTrue(isinstance(json.loads(hit["raw_metadata"]), dict))
-        self.assertTrue(
-            isinstance(json.loads(hit["raw_transcript"]), list)
-        )
+        self.assertTrue(isinstance(json.loads(hit["raw_transcript"]), list))
 
         r = requests.get(
             hit["raw_audio_url"].replace(
@@ -209,7 +193,8 @@ class TestEndToEnd(unittest.TestCase):
 
         sleep(2)  # Wait for search to update
 
-        result = self.search(
+        result = adapter.search(
+            get_default_index_name(),
             "additional information",
             {"filter_by": 'talkgroup_group := "ISP Troop 3 - Chicago"'},
         )
@@ -218,14 +203,10 @@ class TestEndToEnd(unittest.TestCase):
 
         hit = result["hits"][0]["document"]
 
-        self.assertTrue(
-            '<i data-src="1904399">1904399:</i> ' in hit["transcript"]
-        )
+        self.assertTrue('<i data-src="1904399">1904399:</i> ' in hit["transcript"])
 
         self.assertTrue(isinstance(json.loads(hit["raw_metadata"]), dict))
-        self.assertTrue(
-            isinstance(json.loads(hit["raw_transcript"]), list)
-        )
+        self.assertTrue(isinstance(json.loads(hit["raw_transcript"]), list))
 
         r = requests.get(
             hit["raw_audio_url"].replace(

@@ -38,6 +38,8 @@ lint() {
 fmt() {
 	ruff check app --fix
 	ruff format app
+	ruff check tests --fix
+	ruff format tests
 }
 
 restart() {

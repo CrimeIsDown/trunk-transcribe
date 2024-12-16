@@ -1,6 +1,5 @@
-from multiprocessing import process
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 from threading import Lock
 
 from app.radio.analog import process_response

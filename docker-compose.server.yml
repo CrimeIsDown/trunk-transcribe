@@ -69,10 +69,10 @@ services:
       - TYPESENSE_CORS_DOMAINS
     volumes:
       - typesense-data:/data
-    healthcheck:
-      test: ["CMD", "curl", "-f",  "http://localhost:8108/health"]
-      retries: 3
-      timeout: 5s
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f",  "http://localhost:8108/health"]
+    #   retries: 3
+    #   timeout: 5s
     restart: always
     labels:
       - autoheal=true

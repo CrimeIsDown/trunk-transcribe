@@ -1,11 +1,8 @@
 import os
-from sqlite3 import adapt
 from unittest import TestCase
 
 import meilisearch
-from meilisearch.errors import MeilisearchApiError
 import typesense
-from typesense.exceptions import ObjectNotFound
 from dotenv import load_dotenv
 
 from app.geocoding.geocoding import GeoResponse
@@ -25,13 +22,7 @@ class TestMeilisearchAdapter(TestCase):
     @classmethod
     def setUpClass(cls):
         adapter = MeilisearchAdapter()
-        index_name = get_default_index_name()
-        index = adapter.client.index(index_name)
-        try:
-            index.delete()
-        except MeilisearchApiError as err:
-            if err.code != "index_not_found":
-                raise err
+        adapter.delete_index(get_default_index_name())
 
     def test_get_client(self):
         adapter = MeilisearchAdapter()
@@ -117,21 +108,15 @@ class TestMeilisearchAdapter(TestCase):
     def test_create_or_update_index(self):
         adapter = MeilisearchAdapter()
         adapter.create_or_update_index("calls")
-        collection = client.collections["calls"].retrieve()  # type: ignore
-        self.assertIsNotNone(collection)
-
+        index = adapter.client.get_index("calls")
+        self.assertIsNotNone(index)
 
 
 class TestTypesenseAdapter(TestCase):
     @classmethod
     def setUpClass(cls):
         adapter = TypesenseAdapter()
-        index_name = get_default_index_name()
-        index = adapter.client.collections[index_name]
-        try:
-            index.delete()  # type: ignore
-        except ObjectNotFound:
-            pass
+        adapter.delete_index(get_default_index_name())
 
     def test_get_client(self):
         adapter = TypesenseAdapter()

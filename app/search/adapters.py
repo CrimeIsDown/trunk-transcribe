@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 
 import typesense
 from typesense.collections import Collection
-from meilisearch import Client
+import meilisearch
 from meilisearch.errors import MeilisearchApiError, MeilisearchError
 from meilisearch.index import Index
 from typesense.exceptions import ObjectNotFound, TypesenseClientError
@@ -57,6 +57,14 @@ class SearchAdapter(ABC):
     def create_or_update_index(self, index_name: str):
         pass
 
+    @abstractmethod
+    def delete_index(self, index_name: str) -> None:
+        pass
+
+    @abstractmethod
+    def search(self, index_name: str, query: str, options: dict) -> dict:
+        pass
+
     def make_next_index(self) -> None:
         future_index_name = get_default_index_name(
             datetime.datetime.now() + datetime.timedelta(hours=1)
@@ -73,7 +81,7 @@ class MeilisearchAdapter(SearchAdapter):
             url = os.getenv("MEILI_URL", "http://meilisearch:7700")
         if not api_key:
             api_key = os.getenv("MEILI_MASTER_KEY")
-        self.client = Client(url=url, api_key=api_key, timeout=timeout)
+        self.client = meilisearch.Client(url=url, api_key=api_key, timeout=timeout)
 
     def build_document(
         self,
@@ -253,6 +261,17 @@ class MeilisearchAdapter(SearchAdapter):
 
         return index
 
+    def delete_index(self, index_name: str) -> None:
+        index = self.client.index(index_name)
+        try:
+            index.delete()
+        except MeilisearchApiError as err:
+            if err.code != "index_not_found":
+                raise err
+
+    def search(self, index_name: str, query: str, options: dict) -> dict:
+        return self.client.index(index_name).search(query, options)
+
 
 class TypesenseAdapter(SearchAdapter):
     def __init__(
@@ -423,6 +442,18 @@ class TypesenseAdapter(SearchAdapter):
             return self.client.collections[index_name].retrieve()  # type: ignore
         except ObjectNotFound:
             return self.client.collections.create(schema)
+
+    def delete_index(self, index_name: str) -> None:
+        try:
+            self.client.collections[index_name].delete()  # type: ignore
+        except ObjectNotFound:
+            pass
+
+    def search(self, index_name: str, query: str, options: dict) -> dict:
+        index = self.client.collections[index_name]
+        options["q"] = query
+        options["query_by"] = "transcript_plaintext"
+        return index.documents.search(options)  # type: ignore
 
 
 def get_default_adapter() -> SearchAdapter:
