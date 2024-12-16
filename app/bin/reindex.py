@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 
 import argparse
-from base64 import b64decode
 import csv
 import json
 import logging
 import os
 import re
-from functools import lru_cache
 import tempfile
+from base64 import b64decode
+from functools import lru_cache
 from time import sleep
 from typing import Generator, Tuple, TypedDict
 
@@ -22,16 +22,20 @@ from meilisearch.models.task import TaskInfo
 load_dotenv(os.getenv("ENV"))
 
 from app import worker
-from app.search import search
-from app.utils import storage
 from app.geocoding.geocoding import GeoResponse, lookup_geo
 from app.models.metadata import Metadata
 from app.models.transcript import Transcript
+from app.search import helpers
+from app.search.adapters import MeilisearchAdapter, SearchAdapter
+from app.utils import storage
 
 
 class SrcListItemUpdate(TypedDict):
     tag: str
     transcript_prompt: str
+
+
+adapter: SearchAdapter
 
 
 @lru_cache
@@ -75,7 +79,7 @@ def update_audio_url(metadata: Metadata, raw_audio_url: str) -> str:
 
 def update_document(
     document: MeiliDocument, reuse: bool = False, should_lookup_geo: bool = False
-) -> search.Document:
+) -> helpers.Document:
     if reuse:
         return dict(document)["_Document__doc"]
 
@@ -99,6 +103,7 @@ def update_document(
 
     raw_audio_url = update_audio_url(metadata, document.raw_audio_url)
 
+    geo: GeoResponse | None
     if hasattr(document, "_geo") and hasattr(document, "geo_formatted_address"):
         geo = GeoResponse(
             geo=document._geo,  # type: ignore
@@ -109,15 +114,15 @@ def update_document(
     else:
         geo = None
 
-    return search.build_document(document.id, metadata, raw_audio_url, transcript, geo)
+    return adapter.build_document(document.id, metadata, raw_audio_url, transcript, geo)
 
 
-def reindex(index: Index, documents: list[search.Document]) -> TaskInfo:
+def reindex(index: Index, documents: list[helpers.Document]) -> TaskInfo:
     return index.add_documents(documents)  # type: ignore
 
 
 def retranscribe(
-    index: Index, documents: list[search.Document]
+    index: Index, documents: list[helpers.Document]
 ) -> Generator[AsyncResult[str]]:
     for doc in documents:
         audio_url = doc["raw_audio_url"]
@@ -154,8 +159,8 @@ def get_documents(
                 MeiliDocument(hit) for hit in results["hits"]
             ]
 
-    results = index.get_documents(opts)
-    return results.total, results.results
+    results = index.get_documents(opts)  # type: ignore
+    return results.total, results.results  # type: ignore
 
 
 if __name__ == "__main__":
@@ -181,7 +186,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--index",
         type=str,
-        default=search.get_default_index_name(),
+        default=helpers.get_default_index_name(),
         help="Meilisearch index to use",
     )
     parser.add_argument(
@@ -248,8 +253,8 @@ if __name__ == "__main__":
         for system, file in args.unit_tags:
             tags = []
             with open(file, newline="") as csvfile:
-                reader = csv.reader(csvfile, escapechar="\\")
-                for row in reader:
+                unit_reader = csv.reader(csvfile, escapechar="\\")  # type: ignore
+                for row in unit_reader:
                     tags.append(row)
             UNIT_TAGS[system] = tags
 
@@ -258,25 +263,25 @@ if __name__ == "__main__":
         for system, file in args.talkgroups:
             talkgroups = {}
             with open(file, newline="") as csvfile:
-                reader = csv.DictReader(csvfile)
-                for row in reader:
+                tg_reader = csv.DictReader(csvfile)
+                for row in tg_reader:
                     talkgroups[int(row["Decimal"])] = row
             TALKGROUPS[system] = talkgroups
 
-    client = search.get_client()
+    adapter = MeilisearchAdapter()
 
     if args.update_settings:
         logging.info(f"Updating settings for index {args.index}")
-        search.create_or_update_index(client, args.index)
+        adapter.create_or_update_index(args.index)
 
-    index = client.index(args.index)
+    index = adapter.client.index(args.index)
     source_index = None
     if args.copy_from_index:
         if "@" in args.copy_from_index:
             parts = args.copy_from_index.split("@")
-            source_index = search.get_client(parts[1]).index(parts[0])
+            source_index = MeilisearchAdapter(parts[1]).client.index(parts[0])
         else:
-            source_index = client.index(args.copy_from_index)
+            source_index = adapter.client.index(args.copy_from_index)
 
     total, _ = get_documents(source_index or index, {"limit": 1}, args.search)
     logging.info(f"Found {total} total documents")
@@ -347,7 +352,7 @@ if __name__ == "__main__":
                             f"Waiting for {len(updated_documents)} documents to be {action}"
                         )
                         task = reindex(index, updated_documents)
-                        while client.get_task(task.task_uid).status not in [
+                        while adapter.client.get_task(task.task_uid).status not in [
                             "succeeded",
                             "failed",
                             "canceled",

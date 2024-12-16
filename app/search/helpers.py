@@ -1,6 +1,36 @@
-from typing import Any, Generator, Optional
+import datetime
+import os
+from typing import Any, Generator
 from itertools import chain, starmap
 from urllib.parse import urlencode
+
+
+from app.models.metadata import SearchableMetadata
+
+
+class Document(SearchableMetadata):
+    units: list[str]
+    radios: list[str]
+    srcList: list[str]
+    transcript: str
+    transcript_plaintext: str
+    raw_transcript: str
+    raw_metadata: str
+    raw_audio_url: str
+    id: str
+    _geo: dict[str, float]
+    geo_formatted_address: str
+
+
+def get_default_index_name(
+    time: datetime.datetime | None = None,
+) -> str:  # pragma: no cover
+    index_name = os.getenv("MEILI_INDEX", "calls")
+    if os.getenv("MEILI_INDEX_SPLIT_BY_MONTH") == "true":
+        if not time:
+            time = datetime.datetime.now()
+        index_name += time.strftime("_%Y_%m")
+    return index_name
 
 
 def flatten_dict(dictionary: dict[Any, Any]) -> dict[Any, Any]:
@@ -29,6 +59,7 @@ def flatten_dict(dictionary: dict[Any, Any]) -> dict[Any, Any]:
         if not any(isinstance(value, dict) for value in dictionary.values()):
             break
     return dictionary
+
 
 def encode_params(params: dict):
     return urlencode(flatten_dict(params))

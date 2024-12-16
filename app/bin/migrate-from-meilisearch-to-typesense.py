@@ -17,10 +17,10 @@ load_dotenv(os.getenv("ENV"))
 from app.geocoding.geocoding import GeoResponse
 from app.models.metadata import Metadata
 from app.models.transcript import Transcript
-from app.search import search, search_typesense
+from app.search import helpers, adapters
 
 
-def convert_document(document: MeiliDocument) -> search_typesense.Document:
+def convert_document(document: MeiliDocument) -> helpers.Document:
     metadata: Metadata = json.loads(document.raw_metadata)
     transcript = Transcript(json.loads(document.raw_transcript))
 
@@ -32,13 +32,15 @@ def convert_document(document: MeiliDocument) -> search_typesense.Document:
     else:
         geo = None
 
-    return search_typesense.build_document(
+    return typesense_adapter.build_document(
         document.id, metadata, document.raw_audio_url, transcript, geo
     )
 
 
-def _import(collection: Documents, documents: list[search_typesense.Document]):
-    return collection.import_(documents, {"action": "upsert"})
+def _import(collection: Documents, documents: list[helpers.Document]):
+    return collection.import_(
+        documents, {"action": "upsert", "batch_size": len(documents)}
+    )
 
 
 def get_documents(index: Index, pagination: dict) -> Tuple[int, list[MeiliDocument]]:
@@ -50,7 +52,8 @@ def get_documents(index: Index, pagination: dict) -> Tuple[int, list[MeiliDocume
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Import calls from Meilisearch into Typesense.", formatter_class=argparse.RawTextHelpFormatter
+        description="Import calls from Meilisearch into Typesense.",
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     parser.add_argument(
         "--batch-size",
@@ -61,8 +64,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--index",
         type=str,
-        default=search.get_default_index_name(),
-        help=f"The index to reindex, defaults to '{search.get_default_index_name()}'",
+        default=helpers.get_default_index_name(),
+        help=f"The index to reindex, defaults to '{helpers.get_default_index_name()}'",
     )
     parser.add_argument(
         "--all-indices",
@@ -86,13 +89,15 @@ if __name__ == "__main__":
         level=logging.DEBUG if args.verbose else logging.INFO,
     )
 
-    meili_client = search.get_client()
-    typesense_client = search_typesense.get_client(timeout=86400)
+    meili_adapter = adapters.MeilisearchAdapter(timeout=60*60)
+    typesense_adapter = adapters.TypesenseAdapter(timeout=60*60)
 
     indicies = [args.index]
 
     if args.all_indices:
-        indicies = [index.uid for index in meili_client.get_indexes()["results"]]
+        indicies = [
+            index.uid for index in meili_adapter.client.get_indexes()["results"]
+        ]
 
     # Sort indicies to ensure we always process them in the same order
     indicies.sort()
@@ -100,11 +105,11 @@ if __name__ == "__main__":
     for index in indicies:
         logging.info(f"Reindexing index: {index}")
 
-        meili_index = meili_client.index(index)
+        meili_index = meili_adapter.client.index(index)
 
         # Create collection in typesense
-        search_typesense.create_or_update_index(typesense_client, index)
-        collection_docs = typesense_client.collections[index].documents  # type: ignore
+        typesense_adapter.create_or_update_index(index)
+        collection_docs = typesense_adapter.client.collections[index].documents  # type: ignore
 
         total, _ = get_documents(meili_index, {"limit": 1})
         logging.info(f"Found {total} total documents")
@@ -114,7 +119,9 @@ if __name__ == "__main__":
         updated_documents = []
 
         while offset < total:
-            total, documents = get_documents(meili_index, {"offset": offset, "limit": limit})
+            total, documents = get_documents(
+                meili_index, {"offset": offset, "limit": limit}
+            )
             offset += limit
 
             completion = min((offset / total) * 100, 100)
@@ -140,7 +147,7 @@ if __name__ == "__main__":
                 total_processed += len(updated_documents)
                 logging.log(
                     logging.INFO if args.dry_run else logging.DEBUG,
-                    f"The documents to be imported:\n"
+                    "The documents to be imported:\n"
                     + json.dumps(updated_documents[:5], sort_keys=True, indent=4),
                 )
 
@@ -152,10 +159,7 @@ if __name__ == "__main__":
 
                 if len(updated_documents):
                     # Only send the updated docs to be reindexed when we have a big enough batch
-                    if (
-                        len(updated_documents) >= limit
-                        or offset >= total
-                    ):
+                    if len(updated_documents) >= limit or offset >= total:
                         logging.info(
                             f"Waiting for {len(updated_documents)} documents to be imported"
                         )

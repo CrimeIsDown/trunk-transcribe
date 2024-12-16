@@ -20,7 +20,8 @@ import sentry_sdk
 
 load_dotenv()
 
-from app.search import search_typesense as search
+from app.search.helpers import get_default_index_name
+from app.search.adapters import get_default_adapter as get_default_search_adapter
 from app.utils.exceptions import before_send
 from app.models.database import SessionLocal, engine
 from app.models.metadata import Metadata
@@ -60,12 +61,11 @@ stream_handler.setFormatter(log_formatter)
 logger.addHandler(stream_handler)
 
 
-def create_search_index():
-    search_client = search.get_client()
-    search.create_or_update_index(search_client, search.get_default_index_name())
-
-
-thread = threading.Thread(target=create_search_index)
+thread = threading.Thread(
+    target=lambda: get_default_search_adapter().create_or_update_index(
+        get_default_index_name()
+    )
+)
 thread.start()
 
 

@@ -20,7 +20,7 @@ load_dotenv()
 from app.geocoding.geocoding import lookup_geo
 from app.models.metadata import Metadata
 from app.notifications.notification import send_notifications
-from app.search import search_typesense as search
+from app.search.adapters import get_default_adapter as get_default_search_adapter
 from app.utils import api_client
 from app.utils.exceptions import before_send
 from app.utils.storage import fetch_audio
@@ -64,6 +64,7 @@ celery = Celery(
     timezone="UTC",
 )
 celery.conf.task_default_queue = CELERY_DEFAULT_QUEUE
+search = get_default_search_adapter()
 
 recent_job_results: list[str] = []
 
