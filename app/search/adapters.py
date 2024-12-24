@@ -400,7 +400,7 @@ class TypesenseAdapter(SearchAdapter):
             index_name = get_default_index_name(call_time)
 
         try:
-            self.client.collections[index_name].documents.create(doc)  # type: ignore
+            self.client.collections[index_name].documents.upsert(doc)  # type: ignore
         except TypesenseClientError as err:
             raise Exception(str(err))
 
