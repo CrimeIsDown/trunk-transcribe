@@ -20,7 +20,7 @@ load_dotenv()
 from app.geocoding.geocoding import lookup_geo
 from app.models.metadata import Metadata
 from app.notifications.notification import send_notifications
-from app.search.adapters import get_default_adapter as get_default_search_adapter
+from app.search.adapters import SearchAdapter
 from app.utils import api_client
 from app.utils.exceptions import before_send
 from app.utils.storage import fetch_audio
@@ -64,7 +64,7 @@ celery = Celery(
     timezone="UTC",
 )
 celery.conf.task_default_queue = CELERY_DEFAULT_QUEUE
-search = get_default_search_adapter()
+search_adapters: list[SearchAdapter] = []
 
 recent_job_results: list[str] = []
 
@@ -202,12 +202,25 @@ def post_transcribe_task(
             json={"raw_transcript": transcript.transcript},
         )
 
-    search_url = search.index_call(
-        id, metadata, raw_audio_url, transcript, geo, index_name
-    )
+    global search_adapters
+    if not search_adapters:
+        if os.getenv("MEILI_URL") and os.getenv("MEILI_API_KEY"):
+            from app.search.adapters import MeilisearchAdapter
+
+            search_adapters.append(MeilisearchAdapter())
+        if os.getenv("TYPESENSE_URL") and os.getenv("TYPESENSE_API_KEY"):
+            from app.search.adapters import TypesenseAdapter
+
+            search_adapters.append(TypesenseAdapter())
+
+    for search in search_adapters:
+        search_url = search.index_call(
+            id, metadata, raw_audio_url, transcript, geo, index_name
+        )
 
     send_notifications(raw_audio_url, metadata, transcript, geo, search_url)
 
-    search.make_next_index()
+    for search in search_adapters:
+        search.make_next_index()
 
     return transcript.txt
