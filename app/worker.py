@@ -204,7 +204,7 @@ def post_transcribe_task(
 
     global search_adapters
     if not search_adapters:
-        if os.getenv("MEILI_URL") and os.getenv("MEILI_API_KEY"):
+        if os.getenv("MEILI_URL") and os.getenv("MEILI_MASTER_KEY"):
             from app.search.adapters import MeilisearchAdapter
 
             search_adapters.append(MeilisearchAdapter())

@@ -457,7 +457,7 @@ class TypesenseAdapter(SearchAdapter):
 
 
 def get_default_adapter() -> SearchAdapter:
-    if os.getenv("MEILI_URL") and os.getenv("MEILI_API_KEY"):
+    if os.getenv("MEILI_URL") and os.getenv("MEILI_MASTER_KEY"):
         from app.search.adapters import MeilisearchAdapter
 
         return MeilisearchAdapter()
