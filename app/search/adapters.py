@@ -54,7 +54,7 @@ class SearchAdapter(ABC):
         pass
 
     @abstractmethod
-    def create_or_update_index(self, index_name: str):
+    def create_or_update_index(self, index_name: str, update: bool = True):
         pass
 
     @abstractmethod
@@ -195,11 +195,15 @@ class MeilisearchAdapter(SearchAdapter):
 
         return self.build_search_url(doc, index_name)
 
-    def create_or_update_index(self, index_name: str) -> Index:  # pragma: no cover
+    def create_or_update_index(
+        self, index_name: str, update: bool = True
+    ) -> Index:  # pragma: no cover
         index = self.client.index(index_name)
 
         try:
             current_settings = index.get_settings()
+            if not update:
+                return index
         except MeilisearchApiError as err:
             if err.code == "index_not_found":
                 current_settings = {}
@@ -406,7 +410,9 @@ class TypesenseAdapter(SearchAdapter):
 
         return self.build_search_url(doc, index_name)
 
-    def create_or_update_index(self, index_name: str) -> Collection:
+    def create_or_update_index(
+        self, index_name: str, update: bool = True
+    ) -> Collection:
         schema = {
             "name": index_name,
             "fields": [

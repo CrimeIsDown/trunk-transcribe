@@ -92,10 +92,10 @@ def update_document(
     if TALKGROUPS.get(metadata["short_name"]):
         try:
             talkgroup = TALKGROUPS[metadata["short_name"]][metadata["talkgroup"]]
-            metadata["talkgroup_tag"] = talkgroup["Alpha Tag"].strip() # type: ignore
-            metadata["talkgroup_description"] = talkgroup["Description"].strip() # type: ignore
-            metadata["talkgroup_group"] = talkgroup["Category"].strip() # type: ignore
-            metadata["talkgroup_group_tag"] = talkgroup["Tag"].strip() # type: ignore
+            metadata["talkgroup_tag"] = talkgroup["Alpha Tag"].strip()  # type: ignore
+            metadata["talkgroup_description"] = talkgroup["Description"].strip()  # type: ignore
+            metadata["talkgroup_group"] = talkgroup["Category"].strip()  # type: ignore
+            metadata["talkgroup_group_tag"] = talkgroup["Tag"].strip()  # type: ignore
         except KeyError:
             logging.warning(
                 f"Could not find talkgroup {metadata['talkgroup']} in {metadata['short_name']} CSV file"
@@ -264,8 +264,8 @@ if __name__ == "__main__":
             talkgroups = {}
             with open(file, newline="") as csvfile:
                 tg_reader = csv.DictReader(csvfile)
-                for row in tg_reader: # type: ignore
-                    talkgroups[int(row["Decimal"])] = row # type: ignore
+                for row in tg_reader:  # type: ignore
+                    talkgroups[int(row["Decimal"])] = row  # type: ignore
             TALKGROUPS[system] = talkgroups
 
     adapter = MeilisearchAdapter()

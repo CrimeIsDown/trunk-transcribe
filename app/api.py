@@ -61,9 +61,10 @@ stream_handler.setFormatter(log_formatter)
 logger.addHandler(stream_handler)
 
 
+# Create the index if it doesn't exist
 thread = threading.Thread(
     target=lambda: get_default_search_adapter().create_or_update_index(
-        get_default_index_name()
+        get_default_index_name(), update=False
     )
 )
 thread.start()
@@ -367,6 +368,12 @@ def update_call(
         raise HTTPException(status_code=404, detail="Call not found")
 
     return call_model.update_call(db=db, call=call, db_call=db_call)
+
+
+@app.get("/talkgroups")
+def talkgroups(db: Session = Depends(get_db)) -> JSONResponse:
+    tgs = call_model.get_talkgroups(db, get_default_index_name())
+    return JSONResponse({"talkgroups": tgs})
 
 
 @app.get("/config/{filename}")
