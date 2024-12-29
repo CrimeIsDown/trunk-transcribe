@@ -4,25 +4,36 @@ import logging
 import os
 from abc import ABC, abstractmethod
 from time import sleep
+from typing import NotRequired, Tuple, TypedDict
 from urllib.parse import urlparse
 
 import typesense
 from typesense.collections import Collection
 import meilisearch
 from meilisearch.errors import MeilisearchApiError, MeilisearchError
+from meilisearch.models.document import Document as MeiliDocument
 from meilisearch.index import Index
 from typesense.exceptions import ObjectNotFound, TypesenseClientError
 
 from app.geocoding.geocoding import GeoResponse
 from app.models.metadata import Metadata
 from app.models.transcript import Transcript
-from app.search.helpers import Document, encode_params, get_default_index_name
+from app.search.helpers import (
+    Document,
+    encode_params,
+    get_default_index_name,
+    get_default_engine,
+)
 
 
 class SearchAdapter(ABC):
     @abstractmethod
     def __init__(
-        self, url: str | None = None, api_key: str | None = None, timeout: int = 2
+        self,
+        url: str | None = None,
+        api_key: str | None = None,
+        timeout: int = 2,
+        index_name: str | None = None,
     ):
         pass
 
@@ -54,15 +65,35 @@ class SearchAdapter(ABC):
         pass
 
     @abstractmethod
-    def create_or_update_index(self, index_name: str, update: bool = True):
+    def index_calls(self, documents: list[Document]) -> bool:
         pass
 
     @abstractmethod
-    def delete_index(self, index_name: str) -> None:
+    def upsert_index(
+        self,
+        index_name: str | None = None,
+        update: bool = True,
+        enable_embeddings: bool = False,
+        dry_run: bool = False,
+    ) -> Index | Collection:
         pass
 
     @abstractmethod
-    def search(self, index_name: str, query: str, options: dict) -> dict:
+    def set_index(self, index_name: str) -> None:
+        pass
+
+    @abstractmethod
+    def delete_index(self) -> None:
+        pass
+
+    @abstractmethod
+    def search(self, query: str, options: dict) -> dict:
+        pass
+
+    @abstractmethod
+    def get_documents(
+        self, pagination: dict, search: dict | None = None
+    ) -> Tuple[int, list[Document]]:
         pass
 
     def make_next_index(self) -> None:
@@ -70,18 +101,28 @@ class SearchAdapter(ABC):
             datetime.datetime.now() + datetime.timedelta(hours=1)
         )
         if get_default_index_name() != future_index_name:
-            self.create_or_update_index(future_index_name)
+            self.upsert_index(future_index_name)
 
 
 class MeilisearchAdapter(SearchAdapter):
     def __init__(
-        self, url: str | None = None, api_key: str | None = None, timeout: int = 10
+        self,
+        url: str | None = None,
+        api_key: str | None = None,
+        timeout: int = 10,
+        index_name: str | None = None,
     ):
         if not url:
             url = os.getenv("MEILI_URL", "http://meilisearch:7700")
         if not api_key:
             api_key = os.getenv("MEILI_MASTER_KEY")
         self.client = meilisearch.Client(url=url, api_key=api_key, timeout=timeout)
+        if not index_name:
+            index_name = get_default_index_name()
+        self.set_index(index_name)
+
+    def set_index(self, index_name: str) -> None:
+        self.index = self.client.index(index_name)
 
     def build_document(
         self,
@@ -148,6 +189,9 @@ class MeilisearchAdapter(SearchAdapter):
 
         return doc  # type: ignore
 
+    def parse_document(self, meili_document: MeiliDocument) -> Document:
+        return dict(meili_document)["_Document__doc"]
+
     def build_search_url(self, document: Document, index_name: str) -> str:
         base_url = os.getenv("SEARCH_UI_URL")
         if not base_url:
@@ -195,10 +239,17 @@ class MeilisearchAdapter(SearchAdapter):
 
         return self.build_search_url(doc, index_name)
 
-    def create_or_update_index(
-        self, index_name: str, update: bool = True
+    def upsert_index(
+        self,
+        index_name: str | None = None,
+        update: bool = True,
+        enable_embeddings: bool = False,
+        dry_run: bool = False,
     ) -> Index:  # pragma: no cover
-        index = self.client.index(index_name)
+        if index_name:
+            index = self.client.index(index_name)
+        else:
+            index = self.index
 
         try:
             current_settings = index.get_settings()
@@ -245,8 +296,19 @@ class MeilisearchAdapter(SearchAdapter):
             ],
         }
 
+        if enable_embeddings:
+            desired_settings["embedders"] = {  # type: ignore
+                "openai": {
+                    "source": "openAi",
+                    "apiKey": os.getenv("OPENAI_API_KEY"),
+                    "dimensions": 1536,
+                    "documentTemplate": "{{doc.transcript_plaintext}}",
+                    "model": "text-embedding-3-small",
+                }
+            }
+
         for key, value in desired_settings.copy().items():
-            if key in current_settings and current_settings[key] == value:
+            if key in current_settings and set(current_settings[key]) == set(value):
                 del desired_settings[key]
 
         # If all the settings match, return the index
@@ -254,6 +316,9 @@ class MeilisearchAdapter(SearchAdapter):
             return index
 
         logging.info(f"Updating settings: {str(desired_settings)}")
+        if dry_run:
+            return index
+
         task = index.update_settings(desired_settings)
         logging.info(f"Waiting for settings update task {task.task_uid} to complete...")
         while self.client.get_task(task.task_uid).status not in [
@@ -265,21 +330,73 @@ class MeilisearchAdapter(SearchAdapter):
 
         return index
 
-    def delete_index(self, index_name: str) -> None:
-        index = self.client.index(index_name)
+    def delete_index(self) -> None:
         try:
-            index.delete()
+            self.index.delete()
         except MeilisearchApiError as err:
             if err.code != "index_not_found":
                 raise err
 
-    def search(self, index_name: str, query: str, options: dict) -> dict:
-        return self.client.index(index_name).search(query, options)
+    def search(self, query: str, options: dict) -> dict:
+        return self.index.search(query, options)
+
+    def index_calls(self, documents: list[Document]) -> bool:
+        taskinfo = self.index.add_documents(documents)
+        task = self.client.get_task(taskinfo.task_uid)
+        while task.status not in [
+            "succeeded",
+            "failed",
+            "canceled",
+        ]:
+            sleep(2)
+            task = self.client.get_task(task.uid)
+        return task.status == "succeeded"
+
+    def get_documents(
+        self, pagination: dict, search: dict | None = None
+    ) -> Tuple[int, list[Document]]:
+        opts = pagination
+        if search:
+            opts.update(search)
+
+            if "q" in search:
+                query = search["q"]
+                # Delete it from opts, not search, so we don't modify the original dict which gets reused
+                del opts["q"]
+
+                # Perform the search and process results into the same format as index.get_documents()
+                search_results = self.search(query, opts)
+                return search_results["estimatedTotalHits"], [
+                    self.parse_document(MeiliDocument(hit))
+                    for hit in search_results["hits"]
+                ]
+
+        results = self.index.get_documents(opts)
+        return results.total, [self.parse_document(doc) for doc in results.results]
+
+
+class TypesenseField(TypedDict):
+    name: str
+    type: NotRequired[str]
+    facet: NotRequired[bool]
+    optional: NotRequired[bool]
+    embed: NotRequired[dict[str, str | dict[str, str | list[str]] | list[str]]]
+    drop: NotRequired[bool]
+
+
+class TypesenseSchema(TypedDict):
+    name: str
+    fields: list[TypesenseField]
+    default_sorting_field: str
 
 
 class TypesenseAdapter(SearchAdapter):
     def __init__(
-        self, url: str | None = None, api_key: str | None = None, timeout: int = 10
+        self,
+        url: str | None = None,
+        api_key: str | None = None,
+        timeout: int = 10,
+        index_name: str | None = None,
     ):
         if not url:
             url = os.getenv("TYPESENSE_URL", "http://typesense:8108")
@@ -288,8 +405,8 @@ class TypesenseAdapter(SearchAdapter):
 
         parsed_url = urlparse(url)
         host = parsed_url.hostname
-        port = parsed_url.port or "8108"
         protocol = parsed_url.scheme or "http"
+        port = parsed_url.port or (443 if protocol == "https" else 80)
 
         self.client = typesense.Client(
             {
@@ -298,6 +415,13 @@ class TypesenseAdapter(SearchAdapter):
                 "connection_timeout_seconds": timeout,
             }
         )
+
+        if not index_name:
+            index_name = get_default_index_name()
+        self.set_index(index_name)
+
+    def set_index(self, index_name: str) -> None:
+        self.index: Collection = self.client.collections[index_name]  # type: ignore
 
     def build_document(
         self,
@@ -364,6 +488,12 @@ class TypesenseAdapter(SearchAdapter):
 
         return doc  # type: ignore
 
+    def parse_document(self, typesense_document: dict) -> Document:
+        doc = typesense_document
+        if "_geo" in doc:
+            doc["_geo"] = {"lat": doc["_geo"][0], "lng": doc["_geo"][1]}
+        return doc  # type: ignore
+
     def build_search_url(self, document: Document, index_name: str) -> str:
         base_url = os.getenv("SEARCH_UI_URL")
         if not base_url:
@@ -410,10 +540,16 @@ class TypesenseAdapter(SearchAdapter):
 
         return self.build_search_url(doc, index_name)
 
-    def create_or_update_index(
-        self, index_name: str, update: bool = True
+    def upsert_index(
+        self,
+        index_name: str | None = None,
+        update: bool = True,
+        enable_embeddings: bool = False,
+        dry_run: bool = False,
     ) -> Collection:
-        schema = {
+        if not index_name:
+            index_name = get_default_index_name()
+        schema: TypesenseSchema = {
             "name": index_name,
             "fields": [
                 {"name": "freq", "type": "int32"},
@@ -444,32 +580,118 @@ class TypesenseAdapter(SearchAdapter):
             "default_sorting_field": "start_time",
         }
 
+        if enable_embeddings:
+            schema["fields"].append(  # type: ignore
+                {
+                    "name": "embedding",
+                    "type": "float[]",
+                    "embed": {
+                        "from": [
+                            "transcript_plaintext",
+                            "talkgroup_hierarchy.lvl2",
+                            "geo_formatted_address",
+                        ],
+                        "model_config": {
+                            "model_name": os.getenv(
+                                "TYPESENSE_EMBEDDING_MODEL",
+                                "openai/text-embedding-3-small",
+                            ),
+                            "api_key": os.getenv(
+                                "TYPESENSE_EMBEDDING_API_KEY",
+                                os.getenv("OPENAI_API_KEY", ""),
+                            ),
+                        },
+                    },
+                }
+            )
+
+        collection: Collection = self.client.collections[index_name]  # type: ignore
+
         try:
-            return self.client.collections[index_name].retrieve()  # type: ignore
+            collection_details = collection.retrieve()  # type: ignore
         except ObjectNotFound:
             return self.client.collections.create(schema)
 
-    def delete_index(self, index_name: str) -> None:
+        if update:
+            current_fields = {
+                field["name"]: field for field in collection_details["fields"]
+            }
+            fields_to_update: list[TypesenseField] = []
+
+            def assert_equal(expected: TypesenseField, actual: TypesenseField) -> bool:
+                return all(
+                    expected[key] == actual[key]
+                    for key in expected  # type: ignore
+                )
+
+            # Add new or modified fields
+            for field in schema["fields"]:
+                if field["name"] not in current_fields or not assert_equal(
+                    field, current_fields[field["name"]]
+                ):
+                    if field["name"] in current_fields:
+                        # Log the difference between the current and desired field
+                        logging.info(
+                            f"Updating field {field['name']}: {str(field)} vs {str(current_fields[field['name']])}"
+                        )
+                        fields_to_update.append({"name": field["name"], "drop": True})
+                    fields_to_update.append(field)
+
+            # Drop fields that are not in the desired schema
+            schema_field_names = {field["name"] for field in schema["fields"]}
+            for field_name in current_fields:
+                if field_name not in schema_field_names:
+                    fields_to_update.append({"name": field_name, "drop": True})
+
+            if fields_to_update:
+                logging.info(f"Updating schema: {str(fields_to_update)}")
+                if not dry_run:
+                    collection.update({"fields": fields_to_update})  # type: ignore
+        return collection
+
+    def delete_index(self) -> None:
         try:
-            self.client.collections[index_name].delete()  # type: ignore
+            self.index.delete()  # type: ignore
         except ObjectNotFound:
             pass
 
-    def search(self, index_name: str, query: str, options: dict) -> dict:
-        index = self.client.collections[index_name]
+    def index_calls(self, documents: list[Document]) -> bool:
+        try:
+            self.index.documents.import_(documents)
+        except TypesenseClientError as err:
+            raise Exception(str(err))
+        return True
+
+    def search(self, query: str, options: dict) -> dict:
         options["q"] = query
         options["query_by"] = "transcript_plaintext"
-        return index.documents.search(options)  # type: ignore
+        return self.index.documents.search(options)  # type: ignore
+
+    def get_documents(
+        self, pagination: dict, search: dict | None = None
+    ) -> Tuple[int, list[Document]]:
+        opts = pagination
+        if not search:
+            search = {
+                "q": "",
+                "query_by": "transcript_plaintext",
+                "sort_by": "start_time:desc",
+            }
+
+        opts.update(search)
+
+        # Perform the search and process results into the same format as index.get_documents()
+        search_results = self.index.documents.search(opts)
+        return search_results["found"], [
+            self.parse_document(hit["document"]) for hit in search_results["hits"]
+        ]
 
 
-def get_default_adapter() -> SearchAdapter:
-    if os.getenv("MEILI_URL") and os.getenv("MEILI_MASTER_KEY"):
-        from app.search.adapters import MeilisearchAdapter
-
-        return MeilisearchAdapter()
-    elif os.getenv("TYPESENSE_URL") and os.getenv("TYPESENSE_API_KEY"):
-        from app.search.adapters import TypesenseAdapter
-
-        return TypesenseAdapter()
+def get_default_adapter(index_name: str | None = None) -> SearchAdapter:
+    engine = get_default_engine()
+    if engine == "meilisearch":
+        return MeilisearchAdapter(index_name=index_name)
+    elif engine == "typesense":
+        return TypesenseAdapter(index_name=index_name)
     else:
         raise ValueError("Invalid search adapter")

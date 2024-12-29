@@ -108,7 +108,7 @@ if __name__ == "__main__":
         meili_index = meili_adapter.client.index(index)
 
         # Create collection in typesense
-        typesense_adapter.create_or_update_index(index)
+        typesense_adapter.upsert_index(index)
         collection_docs = typesense_adapter.client.collections[index].documents  # type: ignore
 
         total, _ = get_documents(meili_index, {"limit": 1})

@@ -16,15 +16,14 @@ original_s3_public_url = os.getenv("S3_PUBLIC_URL")
 
 load_dotenv(".env.testing.local", override=True)
 
-adapter = get_default_adapter()
+adapter = get_default_adapter(index_name=get_default_index_name())
 
 
 class TestEndToEnd(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        index_name = get_default_index_name()
-        adapter.delete_index(index_name)
-        adapter.create_or_update_index(index_name)
+        adapter.delete_index()
+        adapter.upsert_index()
 
     def transcribe(
         self,
@@ -84,9 +83,7 @@ class TestEndToEnd(unittest.TestCase):
 
         sleep(2)  # Wait for search to update
 
-        result = adapter.search(
-            get_default_index_name(), "96 central", {"filter_by": "units := E96"}
-        )
+        result = adapter.search("96 central", {"filter_by": "units := E96"})
 
         self.assertEqual(1, len(result["hits"]))
 
@@ -120,7 +117,6 @@ class TestEndToEnd(unittest.TestCase):
         sleep(2)  # Wait for search to update
 
         result = adapter.search(
-            get_default_index_name(),
             "2011",
             {"filter_by": "short_name := chi_cpd && audio_type := analog"},
         )
@@ -156,7 +152,6 @@ class TestEndToEnd(unittest.TestCase):
         sleep(2)  # Wait for search to update
 
         result = adapter.search(
-            get_default_index_name(),
             "additional information",
             {"filter_by": 'talkgroup_group := "ISP Troop 3 - Chicago"'},
         )
@@ -194,7 +189,6 @@ class TestEndToEnd(unittest.TestCase):
         sleep(2)  # Wait for search to update
 
         result = adapter.search(
-            get_default_index_name(),
             "additional information",
             {"filter_by": 'talkgroup_group := "ISP Troop 3 - Chicago"'},
         )

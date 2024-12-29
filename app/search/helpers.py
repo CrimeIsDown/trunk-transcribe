@@ -63,3 +63,12 @@ def flatten_dict(dictionary: dict[Any, Any]) -> dict[Any, Any]:
 
 def encode_params(params: dict):
     return urlencode(flatten_dict(params))
+
+
+def get_default_engine() -> str:
+    if os.getenv("MEILI_URL") and os.getenv("MEILI_MASTER_KEY"):
+        return "meilisearch"
+    elif os.getenv("TYPESENSE_URL") and os.getenv("TYPESENSE_API_KEY"):
+        return "typesense"
+    else:
+        raise ValueError("Invalid search adapter")

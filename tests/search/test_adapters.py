@@ -9,7 +9,6 @@ from app.geocoding.geocoding import GeoResponse
 from app.models.metadata import Metadata
 from app.models.transcript import Transcript
 from app.search.adapters import MeilisearchAdapter, TypesenseAdapter
-from app.search.helpers import get_default_index_name
 
 load_dotenv()
 
@@ -22,7 +21,7 @@ class TestMeilisearchAdapter(TestCase):
     @classmethod
     def setUpClass(cls):
         adapter = MeilisearchAdapter()
-        adapter.delete_index(get_default_index_name())
+        adapter.delete_index()
 
     def test_get_client(self):
         adapter = MeilisearchAdapter()
@@ -105,9 +104,9 @@ class TestMeilisearchAdapter(TestCase):
         url = adapter.index_call("1", metadata, raw_audio_url, transcript, geo)
         self.assertIn("Tag1", url)
 
-    def test_create_or_update_index(self):
+    def test_upsert_index(self):
         adapter = MeilisearchAdapter()
-        adapter.create_or_update_index("calls")
+        adapter.upsert_index("calls")
         index = adapter.client.get_index("calls")
         self.assertIsNotNone(index)
 
@@ -116,7 +115,7 @@ class TestTypesenseAdapter(TestCase):
     @classmethod
     def setUpClass(cls):
         adapter = TypesenseAdapter()
-        adapter.delete_index(get_default_index_name())
+        adapter.delete_index()
 
     def test_get_client(self):
         adapter = TypesenseAdapter()
@@ -199,8 +198,8 @@ class TestTypesenseAdapter(TestCase):
         url = adapter.index_call("1", metadata, raw_audio_url, transcript, geo)
         self.assertIn("Tag1", url)
 
-    def test_create_or_update_index(self):
+    def test_upsert_index(self):
         adapter = TypesenseAdapter()
-        adapter.create_or_update_index("calls")
+        adapter.upsert_index("calls")
         collection = adapter.client.collections["calls"].retrieve()  # type: ignore
         self.assertIsNotNone(collection)

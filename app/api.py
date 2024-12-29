@@ -63,9 +63,7 @@ logger.addHandler(stream_handler)
 
 # Create the index if it doesn't exist
 thread = threading.Thread(
-    target=lambda: get_default_search_adapter().create_or_update_index(
-        get_default_index_name(), update=False
-    )
+    target=lambda: get_default_search_adapter().upsert_index(update=False)
 )
 thread.start()
 
