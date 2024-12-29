@@ -4,7 +4,7 @@ import logging
 import os
 from abc import ABC, abstractmethod
 from time import sleep
-from typing import NotRequired, Tuple, TypedDict
+from typing import NotRequired, Set, Tuple, TypedDict
 from urllib.parse import urlparse
 
 import typesense
@@ -105,6 +105,8 @@ class SearchAdapter(ABC):
 
 
 class MeilisearchAdapter(SearchAdapter):
+    created_indexes: Set[str] = set()
+
     def __init__(
         self,
         url: str | None = None,
@@ -230,6 +232,12 @@ class MeilisearchAdapter(SearchAdapter):
         if not index_name:
             call_time = datetime.datetime.fromtimestamp(metadata["start_time"])
             index_name = get_default_index_name(call_time)
+
+        # Since Meilisearch will create a new index with empty settings if we try to index a document into a non-existent index,
+        # we need to ensure the index exists before we try to index a document into it
+        if index_name not in self.created_indexes:
+            self.upsert_index(index_name, update=False)
+            self.created_indexes.add(index_name)
 
         try:
             self.client.index(index_name).add_documents([doc])  # type: ignore
@@ -535,6 +543,9 @@ class TypesenseAdapter(SearchAdapter):
 
         try:
             self.client.collections[index_name].documents.upsert(doc)  # type: ignore
+        except ObjectNotFound:
+            self.upsert_index(index_name)
+            self.client.collections[index_name].documents.upsert(doc)  # type: ignore
         except TypesenseClientError as err:
             raise Exception(str(err))
 
@@ -620,8 +631,8 @@ class TypesenseAdapter(SearchAdapter):
 
             def assert_equal(expected: TypesenseField, actual: TypesenseField) -> bool:
                 return all(
-                    expected[key] == actual[key]
-                    for key in expected  # type: ignore
+                    expected[key] == actual[key]  # type: ignore
+                    for key in expected
                 )
 
             # Add new or modified fields

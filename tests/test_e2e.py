@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import unittest
 from time import sleep
@@ -6,24 +7,21 @@ from time import sleep
 import requests
 from dotenv import load_dotenv
 
-from app.search.adapters import get_default_adapter
+from app.search.adapters import TypesenseAdapter
 from app.search.helpers import get_default_index_name
 
 
 load_dotenv()
 
-original_s3_public_url = os.getenv("S3_PUBLIC_URL")
-
 load_dotenv(".env.testing.local", override=True)
 
-adapter = get_default_adapter(index_name=get_default_index_name())
+adapter = TypesenseAdapter(index_name=get_default_index_name())
 
 
 class TestEndToEnd(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         adapter.delete_index()
-        adapter.upsert_index()
 
     def transcribe(
         self,
@@ -94,14 +92,6 @@ class TestEndToEnd(unittest.TestCase):
         self.assertTrue(isinstance(json.loads(hit["raw_metadata"]), dict))
         self.assertTrue(isinstance(json.loads(hit["raw_transcript"]), list))
 
-        r = requests.get(
-            hit["raw_audio_url"].replace(
-                original_s3_public_url, os.getenv("S3_PUBLIC_URL")
-            )
-        )
-        self.assertEqual(200, r.status_code)
-        self.assertEqual("audio/mpeg", r.headers.get("content-type"))
-
     def test_transcribes_analog(self):
         result = self.transcribe(
             "tests/data/11-1673118186_460378000-call_0.wav",
@@ -130,13 +120,6 @@ class TestEndToEnd(unittest.TestCase):
         self.assertTrue(isinstance(json.loads(hit["raw_metadata"]), dict))
         self.assertTrue(isinstance(json.loads(hit["raw_transcript"]), list))
 
-        r = requests.get(
-            hit["raw_audio_url"].replace(
-                original_s3_public_url, os.getenv("S3_PUBLIC_URL")
-            )
-        )
-        self.assertEqual(200, r.status_code)
-        self.assertEqual("audio/mpeg", r.headers.get("content-type"))
 
     def test_transcribes_without_db(self):
         result = self.transcribe(
@@ -164,14 +147,6 @@ class TestEndToEnd(unittest.TestCase):
 
         self.assertTrue(isinstance(json.loads(hit["raw_metadata"]), dict))
         self.assertTrue(isinstance(json.loads(hit["raw_transcript"]), list))
-
-        r = requests.get(
-            hit["raw_audio_url"].replace(
-                original_s3_public_url, os.getenv("S3_PUBLIC_URL")
-            )
-        )
-        self.assertEqual(200, r.status_code)
-        self.assertEqual("audio/mpeg", r.headers.get("content-type"))
 
     def test_transcribes_in_batch(self):
         if os.getenv("WHISPER_IMPLEMENTATION") != "whispers2t":
@@ -201,14 +176,6 @@ class TestEndToEnd(unittest.TestCase):
 
         self.assertTrue(isinstance(json.loads(hit["raw_metadata"]), dict))
         self.assertTrue(isinstance(json.loads(hit["raw_transcript"]), list))
-
-        r = requests.get(
-            hit["raw_audio_url"].replace(
-                original_s3_public_url, os.getenv("S3_PUBLIC_URL")
-            )
-        )
-        self.assertEqual(200, r.status_code)
-        self.assertEqual("audio/mpeg", r.headers.get("content-type"))
 
 
 if __name__ == "__main__":

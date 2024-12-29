@@ -7,7 +7,6 @@ import os
 import subprocess
 import sys
 import tempfile
-import threading
 
 from celery.result import AsyncResult
 from dotenv import load_dotenv
@@ -21,7 +20,6 @@ import sentry_sdk
 load_dotenv()
 
 from app.search.helpers import get_default_index_name
-from app.search.adapters import get_default_adapter as get_default_search_adapter
 from app.utils.exceptions import before_send
 from app.models.database import SessionLocal, engine
 from app.models.metadata import Metadata
@@ -59,13 +57,6 @@ log_formatter = logging.Formatter(
 )
 stream_handler.setFormatter(log_formatter)
 logger.addHandler(stream_handler)
-
-
-# Create the index if it doesn't exist
-thread = threading.Thread(
-    target=lambda: get_default_search_adapter().upsert_index(update=False)
-)
-thread.start()
 
 
 # Dependency

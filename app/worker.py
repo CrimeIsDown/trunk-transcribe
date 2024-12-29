@@ -20,7 +20,7 @@ load_dotenv()
 from app.geocoding.geocoding import lookup_geo
 from app.models.metadata import Metadata
 from app.notifications.notification import send_notifications
-from app.search.adapters import SearchAdapter
+from app.search.adapters import MeilisearchAdapter, SearchAdapter, TypesenseAdapter
 from app.utils import api_client
 from app.utils.exceptions import before_send
 from app.utils.storage import fetch_audio
@@ -205,12 +205,8 @@ def post_transcribe_task(
     global search_adapters
     if not search_adapters:
         if os.getenv("MEILI_URL") and os.getenv("MEILI_MASTER_KEY"):
-            from app.search.adapters import MeilisearchAdapter
-
             search_adapters.append(MeilisearchAdapter())
         if os.getenv("TYPESENSE_URL") and os.getenv("TYPESENSE_API_KEY"):
-            from app.search.adapters import TypesenseAdapter
-
             search_adapters.append(TypesenseAdapter())
 
     for search in search_adapters:
@@ -219,8 +215,5 @@ def post_transcribe_task(
         )
 
     send_notifications(raw_audio_url, metadata, transcript, geo, search_url)
-
-    for search in search_adapters:
-        search.make_next_index()
 
     return transcript.txt

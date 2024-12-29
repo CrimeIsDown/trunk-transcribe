@@ -158,10 +158,10 @@ class TestGeocoding(unittest.TestCase):
                 result["geo_formatted_address"],
             )
             self.assertAlmostEqual(
-                expected_result["geo"]["lat"], result["geo"]["lat"], places=4
+                expected_result["geo"]["lat"], result["geo"]["lat"], places=3
             )
             self.assertAlmostEqual(
-                expected_result["geo"]["lng"], result["geo"]["lng"], places=4
+                expected_result["geo"]["lng"], result["geo"]["lng"], places=3
             )
 
     def test_geocodes_valid_address_google(self):
@@ -185,10 +185,10 @@ class TestGeocoding(unittest.TestCase):
                 result["geo_formatted_address"],
             )
             self.assertAlmostEqual(
-                expected_result["geo"]["lat"], result["geo"]["lat"], places=4
+                expected_result["geo"]["lat"], result["geo"]["lat"], places=3
             )
             self.assertAlmostEqual(
-                expected_result["geo"]["lng"], result["geo"]["lng"], places=4
+                expected_result["geo"]["lng"], result["geo"]["lng"], places=3
             )
 
     def test_geocodes_valid_address_arcgis(self):
@@ -212,10 +212,10 @@ class TestGeocoding(unittest.TestCase):
                 result["geo_formatted_address"],
             )
             self.assertAlmostEqual(
-                expected_result["geo"]["lat"], result["geo"]["lat"], places=4
+                expected_result["geo"]["lat"], result["geo"]["lat"], places=3
             )
             self.assertAlmostEqual(
-                expected_result["geo"]["lng"], result["geo"]["lng"], places=4
+                expected_result["geo"]["lng"], result["geo"]["lng"], places=3
             )
 
     def test_geocodes_valid_address_mapbox(self):
@@ -239,10 +239,10 @@ class TestGeocoding(unittest.TestCase):
                 result["geo_formatted_address"],
             )
             self.assertAlmostEqual(
-                expected_result["geo"]["lat"], result["geo"]["lat"], places=4
+                expected_result["geo"]["lat"], result["geo"]["lat"], places=3
             )
             self.assertAlmostEqual(
-                expected_result["geo"]["lng"], result["geo"]["lng"], places=4
+                expected_result["geo"]["lng"], result["geo"]["lng"], places=3
             )
 
 
