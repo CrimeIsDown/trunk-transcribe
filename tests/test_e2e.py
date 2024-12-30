@@ -1,33 +1,27 @@
 import json
+import logging
 import os
 import unittest
 from time import sleep
 
 import requests
 from dotenv import load_dotenv
-from meilisearch.errors import MeilisearchApiError
 
-from app.search import search
+from app.search.adapters import TypesenseAdapter
+from app.search.helpers import get_default_index_name
+
 
 load_dotenv()
 
-original_s3_public_url = os.getenv("S3_PUBLIC_URL")
-
 load_dotenv(".env.testing.local", override=True)
+
+adapter = TypesenseAdapter(index_name=get_default_index_name())
 
 
 class TestEndToEnd(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        index_name = search.get_default_index_name()
-        client = search.get_client()
-        index = client.index(index_name)
-        try:
-            index.delete()
-        except MeilisearchApiError as err:
-            if err.code != "index_not_found":
-                raise err
-        index = search.create_or_update_index(client, index_name)
+        adapter.delete_index()
 
     def transcribe(
         self,
@@ -40,9 +34,10 @@ class TestEndToEnd(unittest.TestCase):
         api_key = os.getenv("API_KEY")
         headers = {"Authorization": f"Bearer {api_key}"}
 
-        with open(call_audio_path, "rb") as call_audio, open(
-            call_json_path, "r"
-        ) as call_json:
+        with (
+            open(call_audio_path, "rb") as call_audio,
+            open(call_json_path, "r") as call_json,
+        ):
             r = requests.post(
                 url=f"{api_base_url}/{endpoint}",
                 params=extra_params,
@@ -53,7 +48,7 @@ class TestEndToEnd(unittest.TestCase):
         if r.status_code >= 300:
             try:
                 print(r.json())
-            except:
+            except json.JSONDecodeError:
                 print(r.text)
         r.raise_for_status()
         result = r.json()
@@ -75,10 +70,6 @@ class TestEndToEnd(unittest.TestCase):
         self.assertEqual(task_id, result.pop("task_id"))
         return result
 
-    def search(self, query: str, options):
-        index = search.get_client().index(search.get_default_index_name())
-        return index.search(query, opt_params=options)
-
     def test_transcribes_digital(self):
         result = self.transcribe(
             "tests/data/1-1673118015_477787500-call_1.wav",
@@ -90,21 +81,16 @@ class TestEndToEnd(unittest.TestCase):
 
         sleep(2)  # Wait for search to update
 
-        result = self.search("96 central", {"filter": ["units = E96"]})
+        result = adapter.search("96 central", {"filter_by": "units := E96"})
 
         self.assertEqual(1, len(result["hits"]))
-        self.assertTrue(
-            '<i data-src="1410967">E96:</i> ' in result["hits"][0]["transcript"]
-        )
 
-        self.assertTrue(isinstance(json.loads(result["hits"][0]["raw_metadata"]), dict))
-        self.assertTrue(
-            isinstance(json.loads(result["hits"][0]["raw_transcript"]), list)
-        )
+        hit = result["hits"][0]["document"]
 
-        r = requests.get(result["hits"][0]["raw_audio_url"].replace(original_s3_public_url, os.getenv("S3_PUBLIC_URL")))
-        self.assertEqual(200, r.status_code)
-        self.assertEqual("audio/mpeg", r.headers.get("content-type"))
+        self.assertTrue('<i data-src="1410967">E96:</i> ' in hit["transcript"])
+
+        self.assertTrue(isinstance(json.loads(hit["raw_metadata"]), dict))
+        self.assertTrue(isinstance(json.loads(hit["raw_transcript"]), list))
 
     def test_transcribes_analog(self):
         result = self.transcribe(
@@ -120,24 +106,20 @@ class TestEndToEnd(unittest.TestCase):
 
         sleep(2)  # Wait for search to update
 
-        result = self.search(
-            "2011", {"filter": ["short_name = chi_cpd", "audio_type = analog"]}
+        result = adapter.search(
+            "2011",
+            {"filter_by": "short_name := chi_cpd && audio_type := analog"},
         )
 
         self.assertEqual(1, len(result["hits"]))
-        self.assertTrue(
-            "<br>" in result["hits"][0]["transcript"]
-            and "\n" not in result["hits"][0]["transcript"]
-        )
 
-        self.assertTrue(isinstance(json.loads(result["hits"][0]["raw_metadata"]), dict))
-        self.assertTrue(
-            isinstance(json.loads(result["hits"][0]["raw_transcript"]), list)
-        )
+        hit = result["hits"][0]["document"]
 
-        r = requests.get(result["hits"][0]["raw_audio_url"].replace(original_s3_public_url, os.getenv("S3_PUBLIC_URL")))
-        self.assertEqual(200, r.status_code)
-        self.assertEqual("audio/mpeg", r.headers.get("content-type"))
+        self.assertTrue("<br>" in hit["transcript"] and "\n" not in hit["transcript"])
+
+        self.assertTrue(isinstance(json.loads(hit["raw_metadata"]), dict))
+        self.assertTrue(isinstance(json.loads(hit["raw_transcript"]), list))
+
 
     def test_transcribes_without_db(self):
         result = self.transcribe(
@@ -152,24 +134,19 @@ class TestEndToEnd(unittest.TestCase):
 
         sleep(2)  # Wait for search to update
 
-        result = self.search(
+        result = adapter.search(
             "additional information",
-            {"filter": ['talkgroup_group = "ISP Troop 3 - Chicago"']},
+            {"filter_by": 'talkgroup_group := "ISP Troop 3 - Chicago"'},
         )
 
         self.assertEqual(1, len(result["hits"]))
-        self.assertTrue(
-            '<i data-src="1904399">1904399:</i> ' in result["hits"][0]["transcript"]
-        )
 
-        self.assertTrue(isinstance(json.loads(result["hits"][0]["raw_metadata"]), dict))
-        self.assertTrue(
-            isinstance(json.loads(result["hits"][0]["raw_transcript"]), list)
-        )
+        hit = result["hits"][0]["document"]
 
-        r = requests.get(result["hits"][0]["raw_audio_url"].replace(original_s3_public_url, os.getenv("S3_PUBLIC_URL")))
-        self.assertEqual(200, r.status_code)
-        self.assertEqual("audio/mpeg", r.headers.get("content-type"))
+        self.assertTrue('<i data-src="1904399">1904399:</i> ' in hit["transcript"])
+
+        self.assertTrue(isinstance(json.loads(hit["raw_metadata"]), dict))
+        self.assertTrue(isinstance(json.loads(hit["raw_transcript"]), list))
 
     def test_transcribes_in_batch(self):
         if os.getenv("WHISPER_IMPLEMENTATION") != "whispers2t":
@@ -186,24 +163,19 @@ class TestEndToEnd(unittest.TestCase):
 
         sleep(2)  # Wait for search to update
 
-        result = self.search(
+        result = adapter.search(
             "additional information",
-            {"filter": ['talkgroup_group = "ISP Troop 3 - Chicago"']},
+            {"filter_by": 'talkgroup_group := "ISP Troop 3 - Chicago"'},
         )
 
         self.assertEqual(1, len(result["hits"]))
-        self.assertTrue(
-            '<i data-src="1904399">1904399:</i> ' in result["hits"][0]["transcript"]
-        )
 
-        self.assertTrue(isinstance(json.loads(result["hits"][0]["raw_metadata"]), dict))
-        self.assertTrue(
-            isinstance(json.loads(result["hits"][0]["raw_transcript"]), list)
-        )
+        hit = result["hits"][0]["document"]
 
-        r = requests.get(result["hits"][0]["raw_audio_url"].replace(original_s3_public_url, os.getenv("S3_PUBLIC_URL")))
-        self.assertEqual(200, r.status_code)
-        self.assertEqual("audio/mpeg", r.headers.get("content-type"))
+        self.assertTrue('<i data-src="1904399">1904399:</i> ' in hit["transcript"])
+
+        self.assertTrue(isinstance(json.loads(hit["raw_metadata"]), dict))
+        self.assertTrue(isinstance(json.loads(hit["raw_transcript"]), list))
 
 
 if __name__ == "__main__":

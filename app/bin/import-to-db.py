@@ -14,7 +14,8 @@ from meilisearch.models.document import Document as MeiliDocument
 # Load the .env file of our choice if specified before the regular .env can load
 load_dotenv(os.getenv("ENV"))
 
-from app.search import search
+from app.search import helpers
+from app.search.adapters import MeilisearchAdapter
 from app.models import database
 
 
@@ -35,8 +36,8 @@ def get_documents(
             MeiliDocument(hit) for hit in results["hits"]
         ]
     else:
-        results = index.get_documents(pagination)
-        return results.total, results.results
+        results = index.get_documents(pagination)  # type: ignore
+        return results.total, results.results  # type: ignore
 
 
 if __name__ == "__main__":
@@ -47,7 +48,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--index",
         type=str,
-        default=search.get_default_index_name(),
+        default=helpers.get_default_index_name(),
         help="Meilisearch index to use",
     )
     parser.add_argument(
@@ -77,9 +78,9 @@ if __name__ == "__main__":
         level=logging.DEBUG if args.verbose else logging.INFO,
     )
 
-    client = search.get_client()
+    adapter = MeilisearchAdapter()
 
-    index = client.index(args.index)
+    index = adapter.client.index(args.index)
 
     total, _ = get_documents(index, {"limit": 1}, args.search)
     logging.info(f"Found {total} total documents")

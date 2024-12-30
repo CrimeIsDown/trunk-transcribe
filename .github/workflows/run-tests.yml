@@ -76,4 +76,4 @@ jobs:
         run: |
           docker compose --ansi never logs -f &
           sleep 10
-          ./make.sh test
+          ./make.sh test -s

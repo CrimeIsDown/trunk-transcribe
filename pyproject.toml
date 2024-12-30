@@ -24,7 +24,7 @@ sentry-sdk = {extras = ["celery", "fastapi"], version = "^1.14"}
 openai = "^1.24"
 python-datauri = "^1.1.0"
 psycopg = {extras = ["binary", "pool"], version = "^3.1.12"}
-sqlalchemy = "^2.0.22"
+sqlalchemy = {extras = ["mypy"], version = "^2.0.22"}
 geopy = "^2.4.1"
 google-generativeai = "^0"
 deepgram-sdk = "^3.2.2"
@@ -32,6 +32,7 @@ shapely = "^2.0.4"
 requests-cache = "^1.2.0"
 celery-batches = "^0.8.1"
 vastai = "^0.2.6"
+typesense = "^0.21.0"
 
 
 [tool.poetry.group.dev.dependencies]
@@ -54,6 +55,7 @@ strict = false
 exclude = ["bin", "whisper"]
 ignore_missing_imports = true
 enable_incomplete_feature = "NewGenericSyntax"
+plugins = "sqlalchemy.ext.mypy.plugin"
 
 [tool.ruff]
 target-version = "py312"

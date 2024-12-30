@@ -7,7 +7,6 @@ import os
 import subprocess
 import sys
 import tempfile
-import threading
 
 from celery.result import AsyncResult
 from dotenv import load_dotenv
@@ -20,7 +19,7 @@ import sentry_sdk
 
 load_dotenv()
 
-from app.search import search
+from app.search.helpers import get_default_index_name
 from app.utils.exceptions import before_send
 from app.models.database import SessionLocal, engine
 from app.models.metadata import Metadata
@@ -58,15 +57,6 @@ log_formatter = logging.Formatter(
 )
 stream_handler.setFormatter(log_formatter)
 logger.addHandler(stream_handler)
-
-
-def create_search_index():
-    search_client = search.get_client()
-    search.create_or_update_index(search_client, search.get_default_index_name())
-
-
-thread = threading.Thread(target=create_search_index)
-thread.start()
 
 
 # Dependency
@@ -367,6 +357,12 @@ def update_call(
         raise HTTPException(status_code=404, detail="Call not found")
 
     return call_model.update_call(db=db, call=call, db_call=db_call)
+
+
+@app.get("/talkgroups")
+def talkgroups(db: Session = Depends(get_db)) -> JSONResponse:
+    tgs = call_model.get_talkgroups(db, get_default_index_name())
+    return JSONResponse({"talkgroups": tgs})
 
 
 @app.get("/config/{filename}")

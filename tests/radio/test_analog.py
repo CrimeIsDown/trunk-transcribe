@@ -1,6 +1,5 @@
-from multiprocessing import process
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 from threading import Lock
 
 from app.radio.analog import process_response
@@ -25,7 +24,7 @@ class TestAnalog(unittest.TestCase):
         expected_transcript.append("Hello")
         expected_transcript.append("world")
 
-        result = process_response(self.response, {}) # type: ignore
+        result = process_response(self.response, {})  # type: ignore
 
         self.assertEqual(expected_transcript.json, result.json)
 

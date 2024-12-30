@@ -8,7 +8,10 @@ from app.models.transcript import RawTranscript
 from app.whisper.transcribe import WhisperResult, cleanup_transcript
 
 
-transcript_cleanup_config = get_transcript_cleanup_config(get_ttl_hash(cache_seconds=60))
+transcript_cleanup_config = get_transcript_cleanup_config(
+    get_ttl_hash(cache_seconds=60)
+)
+
 
 class TestTranscript(unittest.TestCase):
     def _transform_into_whisper_result(
@@ -58,7 +61,9 @@ class TestTranscript(unittest.TestCase):
                 original_text = original_result["text"]
 
                 try:
-                    transformed_result = cleanup_transcript(original_result, transcript_cleanup_config)
+                    transformed_result = cleanup_transcript(
+                        original_result, transcript_cleanup_config
+                    )
                     if original_text != transformed_result["text"]:
                         edited_count += 1
                 except WhisperException:

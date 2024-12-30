@@ -50,7 +50,9 @@ class TestBuildSuffix(unittest.TestCase):
             "start_time": time.time(),
         }
         search_url = "https://example.com/search?q=TG123"
-        result = notification.build_suffix(metadata, add_talkgroup=True, search_url=search_url)
+        result = notification.build_suffix(
+            metadata, add_talkgroup=True, search_url=search_url
+        )
 
         linux_format = "%-m/%-d/%Y %-I:%M:%S %p %Z"
         windows_format = linux_format.replace("-", "#")
@@ -84,8 +86,8 @@ class TestCheckTranscriptForAlertKeywords(unittest.TestCase):
             "Another line with FIRE.",
         ]
 
-        matched_keywords, matched_lines = notification.check_transcript_for_alert_keywords(
-            transcript, keywords
+        matched_keywords, matched_lines = (
+            notification.check_transcript_for_alert_keywords(transcript, keywords)
         )
 
         self.assertTrue(set(expected_matched_keywords).issubset(set(matched_keywords)))
@@ -231,7 +233,9 @@ class TestNotification(unittest.TestCase):
             "geo_formatted_address": "333 N Central Ave, Chicago, IL 60644",
         }
 
-        should_send, title, body = notification.should_send_alert(config, transcript, geo)  # type: ignore
+        should_send, title, body = notification.should_send_alert(
+            config, transcript, geo
+        )  # type: ignore
 
         self.assertTrue(should_send)
         self.assertRegex(
@@ -257,7 +261,9 @@ class TestNotification(unittest.TestCase):
             "geo_formatted_address": "333 N Central Ave, Chicago, IL 60644",
         }
 
-        should_send, title, body = notification.should_send_alert(config, transcript, geo)  # type: ignore
+        should_send, title, body = notification.should_send_alert(
+            config, transcript, geo
+        )  # type: ignore
 
         self.assertFalse(should_send)
         self.assertEqual(title, "")
@@ -276,7 +282,9 @@ class TestNotification(unittest.TestCase):
             "geo_formatted_address": "333 N Central Ave, Chicago, IL 60644",
         }
 
-        should_send, title, body = notification.should_send_alert(config, transcript, geo)  # type: ignore
+        should_send, title, body = notification.should_send_alert(
+            config, transcript, geo
+        )  # type: ignore
 
         self.assertFalse(should_send)
         self.assertEqual(title, "")
@@ -295,7 +303,9 @@ class TestNotification(unittest.TestCase):
         transcript = "blah"
         geo = None
 
-        should_send, title, body = notification.should_send_alert(config, transcript, geo)  # type: ignore
+        should_send, title, body = notification.should_send_alert(
+            config, transcript, geo
+        )  # type: ignore
 
         self.assertFalse(should_send)
         self.assertEqual(title, "")

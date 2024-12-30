@@ -1,6 +1,7 @@
 from typing import List, Optional, Tuple
+
 from pydantic import BaseModel
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.mutable import MutableDict, MutableList
 from sqlalchemy.orm import Session
@@ -67,3 +68,22 @@ def update_call(db: Session, call: CallUpdateSchema, db_call: Call) -> Call:
     db.commit()
     db.refresh(db_call)
     return db_call
+
+
+def get_talkgroups(db: Session, table_name: str) -> List[dict]:
+    query = f"""
+        SELECT
+            raw_metadata::jsonb ->> 'short_name' AS short_name,
+            raw_metadata::jsonb ->> 'talkgroup_group' AS talkgroup_group,
+            raw_metadata::jsonb ->> 'talkgroup_tag' AS talkgroup_tag,
+            raw_metadata::jsonb ->> 'talkgroup' AS talkgroup
+        FROM
+            {table_name}
+        WHERE
+            raw_metadata::jsonb ->> 'talkgroup_tag' != ''
+        GROUP BY
+            short_name, talkgroup_group, talkgroup_tag, talkgroup
+    """
+
+    result = db.execute(text(query)).fetchall()
+    return [dict(row._mapping) for row in result]

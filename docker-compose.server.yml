@@ -58,6 +58,25 @@ services:
       - RABBITMQ_DEFAULT_PASS
     restart: always
 
+  typesense:
+    image: typesense/typesense:${TYPESENSE_VERSION:-27.1}
+    ports:
+      - ${TYPESENSE_PORT:-8108}:8108
+    environment:
+      - TYPESENSE_DATA_DIR=/data
+      - TYPESENSE_API_KEY
+      - TYPESENSE_ENABLE_CORS
+      - TYPESENSE_CORS_DOMAINS
+    volumes:
+      - typesense-data:/data
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f",  "http://localhost:8108/health"]
+    #   retries: 3
+    #   timeout: 5s
+    restart: always
+    labels:
+      - autoheal=true
+
   meilisearch:
     image: 'getmeili/meilisearch:${MEILI_VERSION:-latest}'
     ports:
@@ -102,4 +121,5 @@ volumes:
   flower-data:
   rabbitmq-data:
   meilisearch-data:
+  typesense-data:
   postgres-data:
