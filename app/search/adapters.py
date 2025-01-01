@@ -508,7 +508,7 @@ class TypesenseAdapter(SearchAdapter):
             return ""
         params = {
             index_name: {
-                "sortBy": index_name + "/sort/start_time:desc",
+                "sortBy": index_name + ":start_time:desc",
                 "hitsPerPage": 60,
                 "refinementList": {"talkgroup_tag": [document["talkgroup_tag"]]},
                 "range": {
