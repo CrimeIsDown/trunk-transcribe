@@ -11,11 +11,6 @@ class FasterWhisper(BaseWhisper):
         )
         device = torch_device.split(":")[0]
         device_index = torch_device.split(":")[1] if ":" in torch_device else "0"
-        device_index = (
-            [int(i) for i in device_index.split(",")]
-            if "," in device_index
-            else int(device_index)
-        )
         compute_type = os.getenv(
             "TORCH_DTYPE",
             "int8" if "cpu" in os.getenv("TORCH_DEVICE", "") else "float16",
@@ -24,7 +19,11 @@ class FasterWhisper(BaseWhisper):
         self.model = WhisperModel(
             model_name,
             device=device,
-            device_index=device_index,
+            device_index=(
+                [int(i) for i in device_index.split(",")]
+                if "," in device_index
+                else int(device_index)
+            ),
             compute_type=compute_type,
         )
 
@@ -45,7 +44,7 @@ class FasterWhisper(BaseWhisper):
 
         result: WhisperResult = {"segments": [], "text": "", "language": language}
         if len(segments):
-            result["segments"] = [dict(segment._asdict()) for segment in segments]
+            result["segments"] = [dict(segment._asdict()) for segment in segments]  # type: ignore
             result["text"] = "\n".join(
                 [segment["text"] for segment in result["segments"]]
             )

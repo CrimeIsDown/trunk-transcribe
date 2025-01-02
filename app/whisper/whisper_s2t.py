@@ -14,11 +14,6 @@ class WhisperS2T(BaseWhisper):
         )
         device = torch_device.split(":")[0]
         device_index = torch_device.split(":")[1] if ":" in torch_device else "0"
-        device_index = (
-            [int(i) for i in device_index.split(",")]
-            if "," in device_index
-            else int(device_index)
-        )
         compute_type = os.getenv(
             "TORCH_DTYPE",
             "int8" if "cpu" in os.getenv("TORCH_DEVICE", "") else "float16",
@@ -27,7 +22,11 @@ class WhisperS2T(BaseWhisper):
         model_kwargs = {
             "asr_options": BEST_ASR_CONFIG,
             "device": device,
-            "device_index": device_index,
+            "device_index": (
+                [int(i) for i in device_index.split(",")]
+                if "," in device_index
+                else int(device_index)
+            ),
             "compute_type": compute_type,
         }
         backend = "CTranslate2"
