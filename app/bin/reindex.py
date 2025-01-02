@@ -14,7 +14,8 @@ from dotenv import load_dotenv
 # Load the .env file of our choice if specified before the regular .env can load
 load_dotenv(os.getenv("ENV"))
 
-from app.geocoding.geocoding import GeoResponse, lookup_geo
+from app.geocoding.geocoding import lookup_geo
+from app.geocoding.types import GeoResponse
 from app.models.metadata import Metadata
 from app.models.transcript import Transcript
 from app.search import helpers
@@ -68,10 +69,10 @@ def update_document(
     if TALKGROUPS.get(metadata["short_name"]):
         try:
             talkgroup = TALKGROUPS[metadata["short_name"]][metadata["talkgroup"]]
-            metadata["talkgroup_tag"] = talkgroup["Alpha Tag"].strip()  # type: ignore
-            metadata["talkgroup_description"] = talkgroup["Description"].strip()  # type: ignore
-            metadata["talkgroup_group"] = talkgroup["Category"].strip()  # type: ignore
-            metadata["talkgroup_group_tag"] = talkgroup["Tag"].strip()  # type: ignore
+            metadata["talkgroup_tag"] = talkgroup["Alpha Tag"].strip()
+            metadata["talkgroup_description"] = talkgroup["Description"].strip()
+            metadata["talkgroup_group"] = talkgroup["Category"].strip()
+            metadata["talkgroup_group_tag"] = talkgroup["Tag"].strip()
         except KeyError:
             logging.warning(
                 f"Could not find talkgroup {metadata['talkgroup']} in {metadata['short_name']} CSV file"
@@ -84,7 +85,7 @@ def update_document(
         and document["geo_formatted_address"]
     ):
         geo = GeoResponse(
-            geo=document["_geo"],  # type: ignore
+            geo=document["_geo"],
             geo_formatted_address=document["geo_formatted_address"],
         )
     elif should_lookup_geo:
@@ -115,7 +116,7 @@ def update_document(
 #             build_transcribe_options(metadata),
 #             id=doc["id"],
 #             index_name=index.uid,
-#         )  # type: ignore
+#         )
 
 
 def load_csvs(
@@ -126,7 +127,7 @@ def load_csvs(
         for system, file in unit_tags:
             tags = []
             with open(file, newline="") as csvfile:
-                unit_reader = csv.reader(csvfile, escapechar="\\")  # type: ignore
+                unit_reader = csv.reader(csvfile, escapechar="\\")
                 for row in unit_reader:
                     tags.append(row)
             UNIT_TAGS[system] = tags
@@ -137,8 +138,8 @@ def load_csvs(
             tgs = {}
             with open(file, newline="") as csvfile:
                 tg_reader = csv.DictReader(csvfile)
-                for row in tg_reader:  # type: ignore
-                    tgs[int(row["Decimal"])] = row  # type: ignore
+                for row in tg_reader:
+                    tgs[int(row["Decimal"])] = row
             TALKGROUPS[system] = tgs
 
     return UNIT_TAGS, TALKGROUPS

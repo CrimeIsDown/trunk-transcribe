@@ -26,4 +26,4 @@ class OpenAIApi(BaseWhisper):
             prompt=prompt,
             response_format="verbose_json",
             language=language,
-        ).model_dump()  # type: ignore
+        ).model_dump()

@@ -12,7 +12,7 @@ class FasterWhisper(BaseWhisper):
         device = torch_device.split(":")[0]
         device_index = torch_device.split(":")[1] if ":" in torch_device else "0"
         device_index = (
-            [int(i) for i in device_index.split(",")]  # type: ignore
+            [int(i) for i in device_index.split(",")]
             if "," in device_index
             else int(device_index)
         )
@@ -45,7 +45,7 @@ class FasterWhisper(BaseWhisper):
 
         result: WhisperResult = {"segments": [], "text": "", "language": language}
         if len(segments):
-            result["segments"] = [dict(segment._asdict()) for segment in segments]  # type: ignore
+            result["segments"] = [dict(segment._asdict()) for segment in segments]
             result["text"] = "\n".join(
                 [segment["text"] for segment in result["segments"]]
             )

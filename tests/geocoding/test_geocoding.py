@@ -22,7 +22,7 @@ class TestGeocoding(unittest.TestCase):
                         "short_name": "sc21102",
                         "talkgroup_description": "3 East: Elmhurst, Oakbrook Terrace Police",
                         "talkgroup_group": "DuPage County - DuPage Public Safety Communications (DU-COMM)",
-                    }  # type: ignore
+                    }
                 ),
                 Transcript(
                     [
@@ -41,7 +41,7 @@ class TestGeocoding(unittest.TestCase):
                         "short_name": "chisuburbs",
                         "talkgroup_description": "Fire Dispatch: South",
                         "talkgroup_group": "Regional Emergency Dispatch - RED Center (Northbrook)",
-                    }  # type: ignore
+                    }
                 ),
                 Transcript(
                     [
@@ -68,7 +68,7 @@ class TestGeocoding(unittest.TestCase):
                         "short_name": "chi_oemc",
                         "talkgroup_description": "Fire Supression North",
                         "talkgroup_group": "Chicago Fire Department",
-                    }  # type: ignore
+                    }
                 ),
                 Transcript(
                     [
@@ -95,7 +95,7 @@ class TestGeocoding(unittest.TestCase):
                         "short_name": "chi_cpd",
                         "talkgroup_description": "Citywide 1",
                         "talkgroup_group": "Chicago Police Department",
-                    }  # type: ignore
+                    }
                 ),
                 Transcript(
                     [

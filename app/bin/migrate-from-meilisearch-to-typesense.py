@@ -14,7 +14,7 @@ from typesense.documents import Documents
 # Load the .env file of our choice if specified before the regular .env can load
 load_dotenv(os.getenv("ENV"))
 
-from app.geocoding.geocoding import GeoResponse
+from app.geocoding.types import GeoResponse
 from app.models.metadata import Metadata
 from app.models.transcript import Transcript
 from app.search import helpers, adapters
@@ -26,7 +26,7 @@ def convert_document(document: MeiliDocument) -> helpers.Document:
 
     if hasattr(document, "_geo") and hasattr(document, "geo_formatted_address"):
         geo = GeoResponse(
-            geo=document._geo,  # type: ignore
+            geo=document._geo,
             geo_formatted_address=document.geo_formatted_address,
         )
     else:
@@ -109,7 +109,7 @@ if __name__ == "__main__":
 
         # Create collection in typesense
         typesense_adapter.upsert_index(index)
-        collection_docs = typesense_adapter.client.collections[index].documents  # type: ignore
+        collection_docs = typesense_adapter.client.collections[index].documents
 
         total, _ = get_documents(meili_index, {"limit": 1})
         logging.info(f"Found {total} total documents")

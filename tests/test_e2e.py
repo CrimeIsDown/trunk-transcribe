@@ -1,5 +1,4 @@
 import json
-import logging
 import os
 import unittest
 from time import sleep
@@ -119,7 +118,6 @@ class TestEndToEnd(unittest.TestCase):
 
         self.assertTrue(isinstance(json.loads(hit["raw_metadata"]), dict))
         self.assertTrue(isinstance(json.loads(hit["raw_transcript"]), list))
-
 
     def test_transcribes_without_db(self):
         result = self.transcribe(

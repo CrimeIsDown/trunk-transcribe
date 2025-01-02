@@ -1,7 +1,7 @@
 import logging
 import re
 import os
-from typing import Any, TypedDict
+from typing import Any
 
 import sentry_sdk
 from geopy.location import Location
@@ -13,16 +13,7 @@ from app.geocoding.exceptions import GeocodingException
 from app.models.metadata import Metadata
 from app.models.transcript import Transcript
 from app.geocoding import llm
-
-
-class Geo(TypedDict):
-    lat: float
-    lng: float
-
-
-class GeoResponse(TypedDict):
-    geo: Geo
-    geo_formatted_address: str
+from app.geocoding.types import AddressParts, GeoResponse
 
 
 def build_address_regex(include_intersections: bool = True) -> str:
@@ -95,7 +86,7 @@ def contains_address(transcript: str) -> bool:
 
 
 def geocode(
-    address_parts: dict[str, str | None], geocoder: str | None = None
+    address_parts: AddressParts, geocoder: str | None = None
 ) -> GeoResponse | None:  # pragma: no cover
     query: dict[str, Any] = {
         "query": f"{address_parts['address']}, {address_parts['city']}, {address_parts['state']}, {address_parts['country']}"
@@ -243,7 +234,7 @@ def lookup_geo(
     if geocoding_systems == "*" or metadata["short_name"] in filter(
         lambda name: len(name), geocoding_systems.split(",")
     ):
-        default_address_parts = {
+        default_address_parts: AddressParts = {
             "city": os.getenv("GEOCODING_CITY"),
             "state": os.getenv("GEOCODING_STATE"),
             "country": os.getenv("GEOCODING_COUNTRY", "US"),
@@ -251,8 +242,7 @@ def lookup_geo(
         bounds_raw = os.getenv("GEOCODING_BOUNDS")
         if bounds_raw:
             default_address_parts["bounds"] = [
-                Point(bound)
-                for bound in bounds_raw.split("|")  # type: ignore
+                Point(bound) for bound in bounds_raw.split("|")
             ]
         else:
             default_address_parts["bounds"] = None
@@ -261,7 +251,7 @@ def lookup_geo(
 
         transcript_txt = transcript.txt_nosrc
 
-        address_parts = default_address_parts.copy()
+        address_parts: AddressParts = default_address_parts.copy()
         # TODO: how can we extract the city and state from the metadata?
         address_parts["address"] = extract_address(transcript_txt)
         if address_parts["address"]:

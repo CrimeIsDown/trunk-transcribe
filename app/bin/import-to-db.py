@@ -36,8 +36,8 @@ def get_documents(
             MeiliDocument(hit) for hit in results["hits"]
         ]
     else:
-        results = index.get_documents(pagination)  # type: ignore
-        return results.total, results.results  # type: ignore
+        results = index.get_documents(pagination)
+        return results.total, results.results
 
 
 if __name__ == "__main__":

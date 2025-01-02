@@ -1,10 +1,10 @@
 import json
-from typing import Tuple, TypeAlias, Union
+from typing import Tuple, TypeAlias
 
 from app.whisper.exceptions import WhisperException
 from .metadata import SrcListItem
 
-RawTranscript: TypeAlias = list[Tuple[Union[None, SrcListItem], str]]
+RawTranscript: TypeAlias = list[Tuple[None | SrcListItem, str]]
 
 
 # TODO: write tests

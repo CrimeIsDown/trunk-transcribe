@@ -166,7 +166,7 @@ class Autoscaler:
 
     def get_worker_status(self) -> list[dict]:
         workers = []
-        result = worker.celery.control.inspect(timeout=10).stats()  # type: ignore
+        result = worker.celery.control.inspect(timeout=10).stats()
         if result:
             for name, stats in result.items():
                 workers.append({"name": name, "stats": stats})

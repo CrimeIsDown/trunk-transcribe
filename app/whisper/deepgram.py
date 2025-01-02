@@ -27,7 +27,7 @@ class DeepgramApi(BaseWhisper):
         )
         response: PrerecordedResponse = self.client.listen.prerecorded.v(
             "1"
-        ).transcribe_file(payload, deepgram_options, timeout=120)  # type: ignore
+        ).transcribe_file(payload, deepgram_options, timeout=120)
 
         if (
             response.results

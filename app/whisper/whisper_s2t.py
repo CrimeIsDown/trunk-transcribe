@@ -15,7 +15,7 @@ class WhisperS2T(BaseWhisper):
         device = torch_device.split(":")[0]
         device_index = torch_device.split(":")[1] if ":" in torch_device else "0"
         device_index = (
-            [int(i) for i in device_index.split(",")]  # type: ignore
+            [int(i) for i in device_index.split(",")]
             if "," in device_index
             else int(device_index)
         )
