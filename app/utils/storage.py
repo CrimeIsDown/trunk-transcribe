@@ -15,7 +15,7 @@ from app.models.metadata import Metadata
 
 
 @lru_cache()
-def get_storage_client():  # type: ignore
+def get_storage_client():
     return boto3.resource(
         service_name="s3",
         endpoint_url=os.getenv("S3_ENDPOINT"),
@@ -57,7 +57,7 @@ def fetch_audio(audio_url: str) -> str:
     mp3_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
     if audio_url.startswith("data:"):
         uri = DataURI(audio_url)
-        mp3_file.write(uri.data)  # type: ignore
+        mp3_file.write(uri.data)
         mp3_file.close()
     else:
         # Do this replacement so we can use the correct URL inside of Docker

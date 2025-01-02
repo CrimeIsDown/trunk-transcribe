@@ -235,7 +235,7 @@ class TestNotification(unittest.TestCase):
 
         should_send, title, body = notification.should_send_alert(
             config, transcript, geo
-        )  # type: ignore
+        )
 
         self.assertTrue(should_send)
         self.assertRegex(
@@ -263,7 +263,7 @@ class TestNotification(unittest.TestCase):
 
         should_send, title, body = notification.should_send_alert(
             config, transcript, geo
-        )  # type: ignore
+        )
 
         self.assertFalse(should_send)
         self.assertEqual(title, "")
@@ -284,7 +284,7 @@ class TestNotification(unittest.TestCase):
 
         should_send, title, body = notification.should_send_alert(
             config, transcript, geo
-        )  # type: ignore
+        )
 
         self.assertFalse(should_send)
         self.assertEqual(title, "")
@@ -305,7 +305,7 @@ class TestNotification(unittest.TestCase):
 
         should_send, title, body = notification.should_send_alert(
             config, transcript, geo
-        )  # type: ignore
+        )
 
         self.assertFalse(should_send)
         self.assertEqual(title, "")

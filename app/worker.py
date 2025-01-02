@@ -5,7 +5,6 @@ import logging
 import os
 import signal
 from hashlib import sha256
-from multiprocessing.pool import AsyncResult
 from typing import Optional
 
 import requests
@@ -60,8 +59,7 @@ celery = Celery(
     backend=result_backend,
     task_acks_late=True,
     worker_cancel_long_running_tasks_on_connection_loss=True,
-    worker_prefetch_multiplier=os.getenv("CELERY_PREFETCH_MULTIPLIER", 1),
-    timezone="UTC",
+    worker_prefetch_multiplier=int(os.getenv("CELERY_PREFETCH_MULTIPLIER", 1)),
 )
 celery.conf.task_default_queue = CELERY_DEFAULT_QUEUE
 search_adapters: list[SearchAdapter] = []
@@ -78,7 +76,7 @@ def queue_task(
     whisper_implementation: Optional[str] = None,
     id: Optional[int | str] = None,
     index_name: Optional[str] = None,
-) -> AsyncResult[str]:
+):
     return (
         transcribe_task.s(options, audio_url, whisper_implementation).set(
             queue=CELERY_DEFAULT_QUEUE
@@ -92,7 +90,7 @@ def queue_task(
 
 
 @signals.task_prerun.connect
-def task_prerun(**kwargs):  # type: ignore
+def task_prerun(**kwargs):
     # If we've only had failing tasks on this worker, terminate it
     if len(recent_job_results) == 5 and states.SUCCESS not in recent_job_results:
         logger.fatal(
@@ -115,21 +113,21 @@ def task_prerun(**kwargs):  # type: ignore
 
 
 @signals.task_postrun.connect
-def task_postrun(**kwargs):  # type: ignore
+def task_postrun(**kwargs):
     recent_job_results.insert(0, kwargs["state"])
     if len(recent_job_results) > 5:
         recent_job_results.pop()
 
 
-@signals.task_unknown.connect  # type: ignore
-def task_unknown(**kwargs):  # type: ignore
+@signals.task_unknown.connect
+def task_unknown(**kwargs):
     logger.exception(kwargs["exc"])
     logger.fatal("Unknown job, exiting...")
     os.kill(os.getpid(), signal.SIGQUIT)
 
 
-@signals.task_retry.connect  # type: ignore
-def task_retry(**kwargs):  # type: ignore
+@signals.task_retry.connect
+def task_retry(**kwargs):
     if isinstance(kwargs["reason"], WhisperException):
         return
     logger.exception(kwargs["reason"])
@@ -155,7 +153,7 @@ def transcribe_task(
     audio_file = fetch_audio(audio_url)
     try:
         return transcribe(
-            model=self.model(whisper_implementation),  # type: ignore
+            model=self.model(whisper_implementation),
             audio_file=audio_file,
             options=options,
         )
@@ -199,7 +197,7 @@ def post_transcribe_task(
         api_client.call(
             "patch",
             f"calls/{id}",
-            json={"raw_transcript": transcript.transcript},
+            json={"raw_transcript": transcript.transcript, "geo": geo},
         )
 
     global search_adapters

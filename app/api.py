@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Annotated
+from typing import Annotated, Generator
 import json
 import logging
 import os
@@ -14,18 +14,18 @@ from fastapi import Depends, FastAPI, Form, HTTPException, Request, Response, Up
 from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from sqlalchemy.orm import Session
+from sqlmodel import Session, select, func
 import sentry_sdk
 
 load_dotenv()
 
 from app.search.helpers import get_default_index_name
 from app.utils.exceptions import before_send
-from app.models.database import SessionLocal, engine
+from app.models.database import engine
 from app.models.metadata import Metadata
 from app.utils import storage
 from app import worker
-from app.models import call as call_model, base as base_model
+from app.models import models
 
 sentry_dsn = os.getenv("SENTRY_DSN")
 if sentry_dsn:
@@ -44,9 +44,6 @@ if sentry_dsn:
         before_send=before_send,
     )
 
-if os.getenv("POSTGRES_DB") is not None:
-    base_model.Base.metadata.create_all(bind=engine)
-
 app = FastAPI()
 
 logger = logging.getLogger()
@@ -59,17 +56,13 @@ stream_handler.setFormatter(log_formatter)
 logger.addHandler(stream_handler)
 
 
-# Dependency
-def get_db():  # type: ignore
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+def get_db() -> Generator[Session, None, None]:
+    with Session(engine) as session:
+        yield session
 
 
 @app.middleware("http")
-async def authenticate(request: Request, call_next) -> Response:  # type: ignore
+async def authenticate(request: Request, call_next) -> Response:
     api_key = os.getenv("API_KEY", "")
 
     if (
@@ -190,23 +183,25 @@ def create_call_from_sdrtrunk(
     finally:
         os.unlink(raw_audio.name)
 
-    call = call_model.CallCreateSchema(
-        raw_metadata=dict(metadata), raw_audio_url=audio_url
-    )
+    call = models.CallCreate(raw_metadata=metadata, raw_audio_url=audio_url)
 
-    db_call = call_model.create_call(db=db, call=call)
+    db_call = models.create_call(db=db, call=call)
 
     if "digital" in metadata["audio_type"]:
         from app.radio.digital import build_transcribe_options
     elif metadata["audio_type"] == "analog":
         from app.radio.analog import build_transcribe_options
+    else:
+        raise HTTPException(
+            status_code=400, detail=f"Audio type {metadata['audio_type']} not supported"
+        )
 
     worker.queue_task(
         audio_url,
         metadata,
         build_transcribe_options(metadata),
         whisper_implementation=None,
-        id=db_call.id,  # type: ignore
+        id=db_call.id,
     )
 
     return Response("Call imported successfully.", status_code=200)
@@ -251,12 +246,12 @@ def queue_for_transcription(
         audio_url, metadata, build_transcribe_options(metadata), whisper_implementation
     )
 
-    return JSONResponse({"task_id": task.id}, status_code=201)  # type: ignore
+    return JSONResponse({"task_id": task.id}, status_code=201)
 
 
 @app.get("/tasks/{task_id}")
 def get_status(task_id: str) -> JSONResponse:
-    task_result = AsyncResult(task_id, app=worker.celery)  # type: ignore
+    task_result: AsyncResult = AsyncResult(task_id, app=worker.celery)
     result = {
         "task_id": task_id,
         "task_status": task_result.status,
@@ -269,17 +264,22 @@ def get_status(task_id: str) -> JSONResponse:
     return JSONResponse(result)
 
 
-@app.get("/calls/", response_model=list[call_model.CallSchema])
+@app.get("/calls/", response_model=models.CallsPublic)
 def read_calls(
     skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
-) -> list[call_model.Call]:
-    calls = call_model.get_calls(db, skip=skip, limit=limit)
-    return calls
+) -> models.CallsPublic:
+    count_statement = select(func.count()).select_from(models.Call)
+    count = db.exec(count_statement).one()
+
+    statement = select(models.Call).offset(skip).limit(limit)
+    calls = db.exec(statement).all()
+
+    return models.CallsPublic(data=calls, count=count)
 
 
-@app.get("/calls/{call_id}", response_model=call_model.CallSchema)
-def read_call(call_id: int, db: Session = Depends(get_db)) -> call_model.Call:
-    db_call = call_model.get_call(db, call_id=call_id)
+@app.get("/calls/{call_id}", response_model=models.CallPublic)
+def read_call(call_id: int, db: Session = Depends(get_db)) -> models.Call:
+    db_call = db.get(models.Call, call_id)
     if db_call is None:
         raise HTTPException(status_code=404, detail="Call not found")
     return db_call
@@ -328,40 +328,38 @@ def create_call(
     else:
         raise HTTPException(status_code=400, detail="No audio provided")
 
-    call = call_model.CallCreateSchema(raw_metadata=metadata, raw_audio_url=audio_url)
+    call = models.CallCreate(raw_metadata=metadata, raw_audio_url=audio_url)
 
-    db_call = call_model.create_call(db=db, call=call)
+    db_call = models.create_call(db=db, call=call)
 
     task = worker.queue_task(
         audio_url,
         metadata,
         build_transcribe_options(metadata),
         whisper_implementation,
-        db_call.id,  # type: ignore
+        db_call.id,
     )
 
     return JSONResponse(
-        {
-            "task_id": task.id  # type: ignore
-        },
+        {"task_id": task.id},
         status_code=201,
     )
 
 
-@app.patch("/calls/{call_id}", response_model=call_model.CallSchema)
+@app.patch("/calls/{call_id}", response_model=models.CallPublic)
 def update_call(
-    call_id: int, call: call_model.CallUpdateSchema, db: Session = Depends(get_db)
-) -> call_model.Call:
-    db_call = call_model.get_call(db, call_id=call_id)
+    call_id: int, call: models.CallUpdate, db: Session = Depends(get_db)
+) -> models.Call:
+    db_call = db.get(models.Call, call_id)
     if db_call is None:
         raise HTTPException(status_code=404, detail="Call not found")
 
-    return call_model.update_call(db=db, call=call, db_call=db_call)
+    return models.update_call(db=db, call=call, db_call=db_call)
 
 
 @app.get("/talkgroups")
 def talkgroups(db: Session = Depends(get_db)) -> JSONResponse:
-    tgs = call_model.get_talkgroups(db, get_default_index_name())
+    tgs = models.get_talkgroups(db, get_default_index_name())
     return JSONResponse({"talkgroups": tgs})
 
 

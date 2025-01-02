@@ -5,6 +5,7 @@ import os
 import google.generativeai as genai
 import google.ai.generativelanguage as generativelanguage
 
+from app.geocoding.types import AddressParts
 from app.models.metadata import Metadata
 
 
@@ -54,7 +55,7 @@ def generate_content(model: genai.GenerativeModel, prompt: str | list[str]) -> s
 
 def extract_address(
     model: genai.GenerativeModel, transcript: str, metadata: Metadata
-) -> dict[str, str] | None:
+) -> AddressParts | None:
     prompt = [
         "You are a 911 dispatch transcript analyzer. You respond only in JSON. You return the address, city, and state found in a given transcript, if an address is present. If no address is present, you return null. Use the additional talkgroup data in determining the city and state.\n",
         f"Department: {metadata['talkgroup_group']}",
@@ -70,11 +71,13 @@ def extract_address(
         logging.debug("Generated content: " + output)
         result = json.loads(output[output.index("{") : output.rindex("}") + 1])
         if result["address"] and result["city"] and result["state"]:
-            return {
-                "address": result["address"],
-                "city": result["city"],
-                "state": result["state"],
-            }
+            return AddressParts(
+                {
+                    "address": result["address"],
+                    "city": result["city"],
+                    "state": result["state"],
+                }
+            )
     except Exception as e:
         logging.debug(e)
 

@@ -24,7 +24,7 @@ class TestAnalog(unittest.TestCase):
         expected_transcript.append("Hello")
         expected_transcript.append("world")
 
-        result = process_response(self.response, {})  # type: ignore
+        result = process_response(self.response, {})
 
         self.assertEqual(expected_transcript.json, result.json)
 

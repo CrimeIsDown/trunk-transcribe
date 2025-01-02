@@ -1,4 +1,3 @@
-import logging
 import os
 from unittest import TestCase
 
@@ -6,7 +5,7 @@ import meilisearch
 import typesense
 from dotenv import load_dotenv
 
-from app.geocoding.geocoding import GeoResponse
+from app.geocoding.types import GeoResponse
 from app.models.metadata import Metadata
 from app.models.transcript import Transcript
 from app.search.adapters import MeilisearchAdapter, TypesenseAdapter
@@ -202,5 +201,5 @@ class TestTypesenseAdapter(TestCase):
     def test_upsert_index(self):
         adapter = TypesenseAdapter()
         adapter.upsert_index("calls")
-        collection = adapter.client.collections["calls"].retrieve()  # type: ignore
+        collection = adapter.client.collections["calls"].retrieve()
         self.assertIsNotNone(collection)

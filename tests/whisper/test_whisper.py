@@ -29,7 +29,7 @@ class TestTranscript(unittest.TestCase):
 
         result["text"] = result["text"].strip()
 
-        return result  # type: ignore
+        return result
 
     def test_transcript_cleanup_on_hallucinations(self):
         with open("tests/data/hallucinations.json") as file:

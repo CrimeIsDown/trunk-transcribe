@@ -1,10 +1,11 @@
+import json
 import logging
 import os
 
 import requests
 
 
-def call(method: str, path: str, **kwargs):  # type: ignore
+def call(method: str, path: str, **kwargs):
     """Constructs and sends a :class:`Request <Request>`.
 
     :param method: method for the new :class:`Request` object: ``GET``, ``OPTIONS``, ``HEAD``, ``POST``, ``PUT``, ``PATCH``, or ``DELETE``.
@@ -55,7 +56,7 @@ def call(method: str, path: str, **kwargs):  # type: ignore
     )
     if r.status_code >= 400:
         try:
-            logging.error(r.json())
+            logging.error(json.dumps(r.json(), indent=2))
         finally:
             r.raise_for_status()
     return r.json()

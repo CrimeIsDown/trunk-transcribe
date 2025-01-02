@@ -13,7 +13,7 @@ class TestConversion(unittest.TestCase):
         self.format = "mp3"
         self.ffmpeg_args = ["-codec:a", "libmp3lame"]
         self.metadata = Metadata(
-            {  # type: ignore
+            {
                 "freq": 477787500,
                 "start_time": 1673118015,
                 "stop_time": 1673118023,

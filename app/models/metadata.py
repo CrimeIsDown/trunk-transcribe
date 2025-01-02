@@ -1,4 +1,4 @@
-from typing import Literal, TypedDict
+from typing import Literal, NotRequired, TypedDict
 
 
 class FreqListItem(TypedDict):
@@ -15,7 +15,7 @@ class SrcListItem(TypedDict):
     emergency: Literal[0, 1]
     signal_system: str
     tag: str
-    transcript_prompt: str
+    transcript_prompt: NotRequired[str]
 
 
 class SearchableMetadata(TypedDict):

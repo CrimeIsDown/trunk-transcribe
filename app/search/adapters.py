@@ -15,7 +15,7 @@ from meilisearch.models.document import Document as MeiliDocument
 from meilisearch.index import Index
 from typesense.exceptions import ObjectNotFound, TypesenseClientError
 
-from app.geocoding.geocoding import GeoResponse
+from app.geocoding.types import GeoResponse
 from app.models.metadata import Metadata
 from app.models.transcript import Transcript
 from app.search.helpers import (
@@ -240,7 +240,7 @@ class MeilisearchAdapter(SearchAdapter):
             self.created_indexes.add(index_name)
 
         try:
-            self.client.index(index_name).add_documents([doc])  # type: ignore
+            self.client.index(index_name).add_documents([doc])
         except MeilisearchApiError as err:
             # Raise a different exception because of https://github.com/celery/celery/issues/6990
             raise MeilisearchError(str(err))
@@ -429,7 +429,7 @@ class TypesenseAdapter(SearchAdapter):
         self.set_index(index_name)
 
     def set_index(self, index_name: str) -> None:
-        self.index: Collection = self.client.collections[index_name]  # type: ignore
+        self.index: Collection = self.client.collections[index_name]
 
     def build_document(
         self,
@@ -542,10 +542,10 @@ class TypesenseAdapter(SearchAdapter):
             index_name = get_default_index_name(call_time)
 
         try:
-            self.client.collections[index_name].documents.upsert(doc)  # type: ignore
+            self.client.collections[index_name].documents.upsert(doc)
         except ObjectNotFound:
             self.upsert_index(index_name)
-            self.client.collections[index_name].documents.upsert(doc)  # type: ignore
+            self.client.collections[index_name].documents.upsert(doc)
         except TypesenseClientError as err:
             raise Exception(str(err))
 
@@ -592,7 +592,7 @@ class TypesenseAdapter(SearchAdapter):
         }
 
         if enable_embeddings:
-            schema["fields"].append(  # type: ignore
+            schema["fields"].append(
                 {
                     "name": "embedding",
                     "type": "float[]",
@@ -616,10 +616,10 @@ class TypesenseAdapter(SearchAdapter):
                 }
             )
 
-        collection: Collection = self.client.collections[index_name]  # type: ignore
+        collection: Collection = self.client.collections[index_name]
 
         try:
-            collection_details = collection.retrieve()  # type: ignore
+            collection_details = collection.retrieve()
         except ObjectNotFound:
             return self.client.collections.create(schema)
 
@@ -630,9 +630,13 @@ class TypesenseAdapter(SearchAdapter):
             fields_to_update: list[TypesenseField] = []
 
             def assert_equal(expected: TypesenseField, actual: TypesenseField) -> bool:
-                return all(
-                    expected[key] == actual[key]  # type: ignore
-                    for key in expected
+                return (
+                    expected["name"] == actual["name"]
+                    and expected.get("type") == actual.get("type")
+                    and expected.get("facet") == actual.get("facet")
+                    and expected.get("optional") == actual.get("optional")
+                    and expected.get("embed") == actual.get("embed")
+                    and expected.get("drop") == actual.get("drop")
                 )
 
             # Add new or modified fields
@@ -657,12 +661,12 @@ class TypesenseAdapter(SearchAdapter):
             if fields_to_update:
                 logging.info(f"Updating schema: {str(fields_to_update)}")
                 if not dry_run:
-                    collection.update({"fields": fields_to_update})  # type: ignore
+                    collection.update({"fields": fields_to_update})
         return collection
 
     def delete_index(self) -> None:
         try:
-            self.index.delete()  # type: ignore
+            self.index.delete()
         except ObjectNotFound:
             pass
 
@@ -676,7 +680,7 @@ class TypesenseAdapter(SearchAdapter):
     def search(self, query: str, options: dict) -> dict:
         options["q"] = query
         options["query_by"] = "transcript_plaintext"
-        return self.index.documents.search(options)  # type: ignore
+        return self.index.documents.search(options)
 
     def get_documents(
         self, pagination: dict, search: dict | None = None

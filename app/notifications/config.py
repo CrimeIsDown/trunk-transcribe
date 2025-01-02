@@ -4,7 +4,7 @@ from functools import lru_cache
 from typing import Optional, TypedDict
 
 from app.utils import api_client
-from app.geocoding.geocoding import Geo
+from app.geocoding.types import Geo
 
 
 class LocationAlertConfig(TypedDict):
@@ -30,7 +30,7 @@ class NotificationConfig(TypedDict):
 @lru_cache()
 def get_notifications_config(
     ttl_hash: Optional[int] = None,
-) -> dict[str, NotificationConfig]:  # type: ignore
+) -> dict[str, NotificationConfig]:
     del ttl_hash
 
     path = "config/notifications.json"
