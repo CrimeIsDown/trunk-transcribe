@@ -29,14 +29,29 @@ RUN add-apt-repository ppa:deadsnakes/ppa && \
     && \
     rm -rf /var/lib/apt/lists/*
 
-RUN curl -sSL https://install.python-poetry.org | python3.12 -
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 
 ENV PATH="/root/.local/bin:${PATH}"
 
 WORKDIR /src
-COPY pyproject.toml poetry.lock ./
-RUN poetry env use python3.12 && \
-    poetry install --without dev --no-root --no-interaction --no-ansi
+
+# Enable bytecode compilation
+ENV UV_COMPILE_BYTECODE=1
+
+# Copy from the cache instead of linking since it's a mounted volume
+ENV UV_LINK_MODE=copy
+
+# Install the project's dependencies using the lockfile and settings
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --frozen --no-install-project --no-dev
+
+# Then, add the rest of the project source code and install it
+# Installing separately from its dependencies allows optimal layer caching
+ADD . /src
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev
 
 # Install Faster Whisper
 COPY docker/install-whisper.sh /usr/local/bin/install-whisper.sh
@@ -45,7 +60,7 @@ RUN install-whisper.sh git+https://github.com/SYSTRAN/faster-whisper.git@v1.0.3
 ARG WHISPER_MODEL=base.en
 ENV WHISPER_MODEL=${WHISPER_MODEL}
 # Pre-download the Whisper model
-RUN poetry run python3 -c "import os; from faster_whisper.utils import download_model; download_model(os.getenv('WHISPER_MODEL'))"
+RUN uv run python3 -c "import os; from faster_whisper.utils import download_model; download_model(os.getenv('WHISPER_MODEL'))"
 ENV WHISPER_IMPLEMENTATION=faster-whisper
 
 COPY app app

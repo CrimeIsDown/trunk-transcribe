@@ -12,7 +12,7 @@ on:
       - 'config/**'
       - 'Dockerfile*'
       - 'pyproject.toml'
-      - 'poetry.lock'
+      - 'uv.lock'
       - '.github/workflows/docker-publish.yml'
   # pull_request:
   #   branches:

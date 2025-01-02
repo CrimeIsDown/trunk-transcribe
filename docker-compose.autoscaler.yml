@@ -7,7 +7,7 @@ services:
       cache_from:
         - ghcr.io/crimeisdown/trunk-transcribe:main
     command:
-      - poetry
+      - uv
       - run
       - app/bin/autoscale-vast.py
       - --min-instances
