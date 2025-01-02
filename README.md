@@ -88,12 +88,7 @@ The recommended way is to use Docker for Windows which has Docker Compose suppor
 
 1. Install all the prerequsites per the Prerequsites section above.
 1. [Download and install Python 3.12](https://www.python.org/downloads/) if it is not already installed.
-1. Make a Python 3.12 virtualenv in the trunk-transcribe directory with your terminal:
-
-    ```bat
-    python3.12 -m venv .venv
-    ```
-
+1. [Install uv with their Windows standalone installer](https://docs.astral.sh/uv/getting-started/installation/).
 1. Setup the Python dependencies by running `setup.bat`
 1. Start the worker with `start.bat`
 
@@ -191,32 +186,35 @@ File is cached in memory for 60 seconds upon reading from the worker's filesyste
 If a change is made to the search index settings or document data structure, it may be needed to re-index existing calls to migrate them to the new structure. This can be done by running the following:
 
 ```bash
-docker compose run --rm api poetry run app/bin/reindex.py --update-settings
+docker compose run --rm api uv run app/bin/reindex.py --update-settings
 ```
 
 A more complex command, which updates calls in the `calls_demo` index without a `raw_transcript` attribute, and updating radio IDs for those calls from the chi_cfd system.
 
 ```bash
-docker compose run --rm api poetry run app/bin/reindex.py --unit_tags chi_cfd ../trunk-recorder/config/cfd-radio-ids.csv --filter 'not hasattr(document, "raw_transcript")' --index calls_demo
+docker compose run --rm api uv run app/bin/reindex.py --unit_tags chi_cfd ../trunk-recorder/config/cfd-radio-ids.csv --filter 'not hasattr(document, "raw_transcript")' --index calls_demo
 ```
 
 This command can also be used to re-transcribe calls if improvements are made to the transcription accuracy. Beware that this will take a lot of resources, so consider adding a `--filter` argument with some Python code to limit what documents are re-transcribed.
 
 ```bash
-docker compose run --rm api poetry run app/bin/reindex.py --retranscribe
+docker compose run --rm api uv run app/bin/reindex.py --retranscribe
 ```
 
 Get the full list of arguments with `app/bin/reindex.py -h`.
 
 ## Contributing
 
-To get a development environment going (or to just run the project without Docker):
+To get a development environment going (or to just run the project without Docker)...
+
+First, [install uv](https://docs.astral.sh/uv/getting-started/installation/). Once you have it installed:
 
 ```bash
-sudo apt install pipx
-pipx install poetry
-poetry shell
-# In the virtualenv that Poetry makes...
+# Create a virtualenv
+uv venv
+# Activate the virtualenv
+source .venv/bin/activate
+# In the virtualenv that uv makes...
 ./make.sh deps
 ```
 

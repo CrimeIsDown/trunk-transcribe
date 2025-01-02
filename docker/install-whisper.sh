@@ -18,6 +18,6 @@ else
     EXTRA_INDEX_URL="--extra-index-url https://download.pytorch.org/whl/cu$(echo $CUDA_VERSION | cut -d. -f1-2 | tr -d .)"
 fi
 
-poetry run pip3 install --use-pep517 $EXTRA_INDEX_URL --no-cache-dir torch torchaudio
+uv run pip3 install --use-pep517 $EXTRA_INDEX_URL --no-cache-dir torch torchaudio
 
-poetry run pip3 install --use-pep517 $EXTRA_INDEX_URL --no-cache-dir $1
+uv run pip3 install --use-pep517 $EXTRA_INDEX_URL --no-cache-dir $1

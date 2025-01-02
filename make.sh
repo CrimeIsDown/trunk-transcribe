@@ -26,20 +26,20 @@ stop() {
 
 deps() {
 	bin/install-whisper.sh
-	poetry install --with dev
+	uv sync
 }
 
 lint() {
-	mypy app
-	ruff check app
-	ruff format app --check
+	uv run -- mypy app
+	uv run -- ruff check app
+	uv run -- ruff format app --check
 }
 
 fmt() {
-	ruff check app --fix
-	ruff format app
-	ruff check tests --fix
-	ruff format tests
+	uv run -- ruff check app --fix
+	uv run -- ruff format app
+	uv run -- ruff check tests --fix
+	uv run -- ruff format tests
 }
 
 restart() {
@@ -48,8 +48,8 @@ restart() {
 
 test() {
 	start
-	poetry run python3 tests/wait_for_api.py
-	poetry run python3 -m pytest $@
+	uv run python3 tests/wait_for_api.py
+	uv run python3 -m pytest $@
 }
 
 retest() {

@@ -1,56 +1,59 @@
-[tool.poetry]
-name = "app"
+[project]
+authors = [
+    {name = "Eric Tendian"},
+]
+requires-python = "<4.0,>=3.12"
+dependencies = [
+    "boto3<2.0,>=1.26",
+    "boto3-stubs<2.0,>=1.26",
+    "celery<6.0,>=5.3",
+    "fastapi<1,>=0",
+    "flower<3.0,>=2.0",
+    "meilisearch<1,>=0",
+    "python-dotenv<1,>=0",
+    "python-multipart<1,>=0",
+    "pytz",
+    "requests<3.0,>=2.28",
+    "uvicorn[standard]<1,>=0",
+    "apprise<2.0,>=1.2",
+    "cachetools<6.0,>=5.3",
+    "sentry-sdk[celery,fastapi]<2.0,>=1.14",
+    "openai<2.0,>=1.24",
+    "python-datauri<2.0.0,>=1.1.0",
+    "psycopg[binary,pool]<4.0.0,>=3.1.12",
+    "sqlalchemy[mypy]<3.0.0,>=2.0.22",
+    "geopy<3.0.0,>=2.4.1",
+    "google-generativeai<1,>=0",
+    "deepgram-sdk<4.0.0,>=3.2.2",
+    "shapely<3.0.0,>=2.0.4",
+    "requests-cache<2.0.0,>=1.2.0",
+    "celery-batches<1.0.0,>=0.8.1",
+    "vastai<1.0.0,>=0.2.6",
+    "typesense<1.0.0,>=0.21.0",
+    "sqlmodel<1.0.0,>=0.0.22",
+    "alembic<2.0.0,>=1.14.0",
+]
+name = "trunk-transcribe"
 version = "0.1.0"
 description = "Transcription of calls from trunk-recorder using OpenAI Whisper"
-authors = ["Eric Tendian"]
 readme = "README.md"
 
-[tool.poetry.dependencies]
-python = "^3.12"
-boto3 = "^1.26"
-boto3-stubs = "^1.26"
-celery = "^5.3"
-fastapi = "^0"
-flower = "^2.0"
-meilisearch = "^0"
-python-dotenv = "^0"
-python-multipart = "^0"
-pytz = "*"
-requests = "^2.28"
-uvicorn = {extras = ["standard"], version = "^0"}
-apprise = "^1.2"
-cachetools = "^5.3"
-sentry-sdk = {extras = ["celery", "fastapi"], version = "^1.14"}
-openai = "^1.24"
-python-datauri = "^1.1.0"
-psycopg = {extras = ["binary", "pool"], version = "^3.1.12"}
-sqlalchemy = {extras = ["mypy"], version = "^2.0.22"}
-geopy = "^2.4.1"
-google-generativeai = "^0"
-deepgram-sdk = "^3.2.2"
-shapely = "^2.0.4"
-requests-cache = "^1.2.0"
-celery-batches = "^0.8.1"
-vastai = "^0.2.6"
-typesense = "^0.21.0"
-sqlmodel = "^0.0.22"
-alembic = "^1.14.0"
+[dependency-groups]
+dev = [
+    "coverage<8.0.0,>=7.2.5",
+    "pytest<9.0.0,>=8.3.2",
+    "mypy<2.0.0,>=1.14.0",
+    "ruff<1.0.0,>=0.6.3",
+    "types-requests<3.0.0.0,>=2.32.0.20240712",
+    "types-cachetools<6.0.0.0,>=5.5.0.20240820",
+    "types-pytz<2025.0.0.0,>=2024.1.0.20240417",
+    "pytest-dotenv<1.0.0,>=0.5.2",
+    "celery-types<1.0.0,>=0.22.0",
+]
 
+[tool.uv]
+package = false
 
-[tool.poetry.group.dev.dependencies]
-coverage = "^7.2.5"
-pytest = "^8.3.2"
-mypy = "^1.14.0"
-ruff = "^0.6.3"
-types-requests = "^2.32.0.20240712"
-types-cachetools = "^5.5.0.20240820"
-types-pytz = "^2024.1.0.20240417"
-pytest-dotenv = "^0.5.2"
-celery-types = "^0.22.0"
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
 
 [tool.mypy]
 strict = false
