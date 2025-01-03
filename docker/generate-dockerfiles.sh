@@ -17,53 +17,46 @@ cp Dockerfile.whisper Dockerfile.whispers2t
 head -n -1 Dockerfile.whisper > Dockerfile.whispercpp
 
 # Setup Dockerfile.whisper
-export WHISPER_INSTALL_INSTRUCTIONS="Install Whisper
-ARG TARGETPLATFORM
-COPY docker/install-whisper.sh /usr/local/bin/install-whisper.sh
-RUN install-whisper.sh git+https://github.com/openai/whisper.git@271445b2f24f00f8175c4fb7ae91876f7451dfc1
-
+export WHISPER_IMPLEMENTATION_GROUP="--group whisper"
+export WHISPER_INSTALL_INSTRUCTIONS="Setup Whisper
 ARG WHISPER_MODEL=base.en
 ENV WHISPER_MODEL=\${WHISPER_MODEL}
 # Pre-download the Whisper model
-RUN uv run python3 -c \"import whisper; import os; whisper.load_model(os.getenv('WHISPER_MODEL'))\"
+RUN uv run python -c \"import whisper; import os; whisper.load_model(os.getenv('WHISPER_MODEL'))\"
 ENV WHISPER_IMPLEMENTATION=whisper"
 
-envsubst '$WHISPER_INSTALL_INSTRUCTIONS' < Dockerfile >> Dockerfile.whisper
+envsubst '$WHISPER_IMPLEMENTATION_GROUP $WHISPER_INSTALL_INSTRUCTIONS' < Dockerfile >> Dockerfile.whisper
 
 sed -i 's#FROM ubuntu:22.04#FROM nvidia/cuda:${CUDA_VERSION}-base-ubuntu22.04#g' Dockerfile.whisper
 
 sed -i 's#CMD \["api"\]#CMD ["worker"]#g' Dockerfile.whisper
 
 # Setup Dockerfile.fasterwhisper
-export WHISPER_INSTALL_INSTRUCTIONS="Install Faster Whisper
-COPY docker/install-whisper.sh /usr/local/bin/install-whisper.sh
-RUN install-whisper.sh git+https://github.com/SYSTRAN/faster-whisper.git@v1.0.3
-
+export WHISPER_IMPLEMENTATION_GROUP="--group faster-whisper"
+export WHISPER_INSTALL_INSTRUCTIONS="Setup Faster Whisper
 ARG WHISPER_MODEL=base.en
 ENV WHISPER_MODEL=\${WHISPER_MODEL}
 # Pre-download the Whisper model
-RUN uv run python3 -c \"import os; from faster_whisper.utils import download_model; download_model(os.getenv('WHISPER_MODEL'))\"
+RUN uv run python -c \"import os; from faster_whisper.utils import download_model; download_model(os.getenv('WHISPER_MODEL'))\"
 ENV WHISPER_IMPLEMENTATION=faster-whisper"
 
-envsubst '$WHISPER_INSTALL_INSTRUCTIONS' < Dockerfile >> Dockerfile.fasterwhisper
+envsubst '$WHISPER_IMPLEMENTATION_GROUP $WHISPER_INSTALL_INSTRUCTIONS' < Dockerfile >> Dockerfile.fasterwhisper
 
 sed -i 's#FROM ubuntu:22.04#FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-runtime-ubuntu22.04#g' Dockerfile.fasterwhisper
 
 sed -i 's#CMD \["api"\]#CMD ["worker"]#g' Dockerfile.fasterwhisper
 
 # Setup Dockerfile.whispers2t
-export WHISPER_INSTALL_INSTRUCTIONS="Install WhisperS2T
-COPY docker/install-whisper.sh /usr/local/bin/install-whisper.sh
-RUN install-whisper.sh git+https://github.com/shashikg/WhisperS2T.git@v1.3.1
-
+export WHISPER_IMPLEMENTATION_GROUP="--group whispers2t"
+export WHISPER_INSTALL_INSTRUCTIONS="Setup WhisperS2T
 ARG WHISPER_MODEL=base.en
 ENV WHISPER_MODEL=\${WHISPER_MODEL}
 # Pre-download the Whisper model
-RUN uv run python3 -c \"import os; from whisper_s2t.backends.ctranslate2.hf_utils import download_model; download_model(os.getenv('WHISPER_MODEL'))\"
+RUN uv run python -c \"import os; from whisper_s2t.backends.ctranslate2.hf_utils import download_model; download_model(os.getenv('WHISPER_MODEL'))\"
 ENV WHISPER_IMPLEMENTATION=whispers2t
 ENV TQDM_DISABLE=1"
 
-envsubst '$WHISPER_INSTALL_INSTRUCTIONS' < Dockerfile >> Dockerfile.whispers2t
+envsubst '$WHISPER_IMPLEMENTATION_GROUP $WHISPER_INSTALL_INSTRUCTIONS' < Dockerfile >> Dockerfile.whispers2t
 
 sed -i 's#FROM ubuntu:22.04#FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-runtime-ubuntu22.04#g' Dockerfile.whispers2t
 

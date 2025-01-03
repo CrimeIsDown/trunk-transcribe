@@ -8,6 +8,24 @@ build() {
 	$DOCKER_COMPOSE build
 }
 
+build_whisper_images() {
+	WHISPER_MODEL="${WHISPER_MODEL:-small.en}"
+	CUDA_VERSION="${CUDA_VERSION:-12.1.0}"
+	WHISPER_IMPLEMENTATIONS="${1:-whisper fasterwhisper whispers2t whispercpp}"
+
+	for WHISPER_IMPLEMENTATION in $WHISPER_IMPLEMENTATIONS; do
+		IMAGE_NAME="ghcr.io/crimeisdown/trunk-transcribe:test-${WHISPER_IMPLEMENTATION}-${WHISPER_MODEL}-cuda_${CUDA_VERSION}"
+		echo "Building ${IMAGE_NAME}"
+		docker buildx build \
+			--progress plain \
+			--platform linux/amd64 \
+			--build-arg "WHISPER_MODEL=${WHISPER_MODEL}" \
+			--build-arg "CUDA_VERSION=${CUDA_VERSION}" \
+			-t "${IMAGE_NAME}" \
+			-f "docker/Dockerfile.${WHISPER_IMPLEMENTATION}" .
+	done
+}
+
 start() {
 	if [ ! -f .env ]; then
 		echo "Missing .env file; copy from .env.example and edit"
@@ -25,8 +43,7 @@ stop() {
 }
 
 deps() {
-	bin/install-whisper.sh
-	uv sync
+	uv sync --group whisper
 }
 
 lint() {

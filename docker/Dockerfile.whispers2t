@@ -45,22 +45,19 @@ ENV UV_LINK_MODE=copy
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-install-project --no-dev
+    uv sync --frozen --no-install-project --no-dev --group whispers2t
 
 # Then, add the rest of the project source code and install it
 # Installing separately from its dependencies allows optimal layer caching
 ADD . /src
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev
+    uv sync --frozen --no-dev --group whispers2t
 
-# Install WhisperS2T
-COPY docker/install-whisper.sh /usr/local/bin/install-whisper.sh
-RUN install-whisper.sh git+https://github.com/shashikg/WhisperS2T.git@v1.3.1
-
+# Setup WhisperS2T
 ARG WHISPER_MODEL=base.en
 ENV WHISPER_MODEL=${WHISPER_MODEL}
 # Pre-download the Whisper model
-RUN uv run python3 -c "import os; from whisper_s2t.backends.ctranslate2.hf_utils import download_model; download_model(os.getenv('WHISPER_MODEL'))"
+RUN uv run python -c "import os; from whisper_s2t.backends.ctranslate2.hf_utils import download_model; download_model(os.getenv('WHISPER_MODEL'))"
 ENV WHISPER_IMPLEMENTATION=whispers2t
 ENV TQDM_DISABLE=1
 

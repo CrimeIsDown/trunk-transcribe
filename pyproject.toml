@@ -50,9 +50,23 @@ dev = [
     "pytest-dotenv<1.0.0,>=0.5.2",
     "celery-types<1.0.0,>=0.22.0",
 ]
+whisper = [
+    "openai-whisper",
+]
+faster-whisper = [
+    "faster-whisper",
+]
+whispers2t = [
+    "whisper-s2t",
+]
 
 [tool.uv]
 package = false
+
+[tool.uv.sources]
+openai-whisper = { git = "https://github.com/openai/whisper.git", rev = "90db0de1896c23cbfaf0c58bc2d30665f709f170" }
+faster-whisper = { git = "https://github.com/SYSTRAN/faster-whisper.git", rev = "v1.1.1" }
+whisper-s2t = { git = "https://github.com/shashikg/WhisperS2T.git", rev = "v1.3.1" }
 
 
 [tool.mypy]
