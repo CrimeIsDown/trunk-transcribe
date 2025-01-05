@@ -74,4 +74,5 @@ jobs:
         run: |
           docker compose --ansi never logs -f &
           sleep 10
+          uv run alembic upgrade head
           ./make.sh test -s
