@@ -11,6 +11,8 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 
+from app.models.models import CALLS_TABLE_NAME
+
 
 # revision identifiers, used by Alembic.
 revision: str = "17dc425f0a6a"
@@ -21,29 +23,29 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     op.create_index(
-        "idx_short_name", "calls", [sa.text("(raw_metadata->>'short_name')")]
+        "idx_short_name", CALLS_TABLE_NAME, [sa.text("(raw_metadata->>'short_name')")]
     )
     op.create_index(
-        "idx_talkgroup_group", "calls", [sa.text("(raw_metadata->>'talkgroup_group')")]
+        "idx_talkgroup_group", CALLS_TABLE_NAME, [sa.text("(raw_metadata->>'talkgroup_group')")]
     )
     op.create_index(
         "idx_talkgroup_group_tag",
-        "calls",
+        CALLS_TABLE_NAME,
         [sa.text("(raw_metadata->>'talkgroup_group_tag')")],
     )
     op.create_index(
-        "idx_talkgroup_id", "calls", [sa.text("(raw_metadata->>'talkgroup')")]
+        "idx_talkgroup_id", CALLS_TABLE_NAME, [sa.text("(raw_metadata->>'talkgroup')")]
     )
     op.create_index(
-        "idx_talkgroup_tag", "calls", [sa.text("(raw_metadata->>'talkgroup_tag')")]
+        "idx_talkgroup_tag", CALLS_TABLE_NAME, [sa.text("(raw_metadata->>'talkgroup_tag')")]
     )
-    op.create_index("idx_start_time", "calls", ["start_time"])
+    op.create_index("idx_start_time", CALLS_TABLE_NAME, ["start_time"])
 
 
 def downgrade() -> None:
-    op.drop_index("idx_short_name", table_name="calls")
-    op.drop_index("idx_talkgroup_group", table_name="calls")
-    op.drop_index("idx_talkgroup_group_tag", table_name="calls")
-    op.drop_index("idx_talkgroup_id", table_name="calls")
-    op.drop_index("idx_talkgroup_tag", table_name="calls")
-    op.drop_index("idx_start_time", table_name="calls")
+    op.drop_index("idx_short_name", table_name=CALLS_TABLE_NAME)
+    op.drop_index("idx_talkgroup_group", table_name=CALLS_TABLE_NAME)
+    op.drop_index("idx_talkgroup_group_tag", table_name=CALLS_TABLE_NAME)
+    op.drop_index("idx_talkgroup_id", table_name=CALLS_TABLE_NAME)
+    op.drop_index("idx_talkgroup_tag", table_name=CALLS_TABLE_NAME)
+    op.drop_index("idx_start_time", table_name=CALLS_TABLE_NAME)
