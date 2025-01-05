@@ -233,7 +233,7 @@ class Autoscaler:
         # Filter instances to those owned by this API
         instances = list(
             filter(
-                lambda i: ["API_BASE_URL", os.getenv("API_BASE_URL", "")]
+                lambda i: ["CELERY_BROKER_URL", self.envs["CELERY_BROKER_URL"]]
                 in i["extra_env"],
                 r.json()["instances"],
             )
