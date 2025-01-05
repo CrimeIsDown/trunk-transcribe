@@ -9,12 +9,14 @@ cat > Dockerfile.whisper << EOF
 #
 # PLEASE DO NOT EDIT IT DIRECTLY.
 #
-ARG CUDA_VERSION=12.1.0
 EOF
 cp Dockerfile.whisper Dockerfile.fasterwhisper
 cp Dockerfile.whisper Dockerfile.whispers2t
-# Do not copy the CUDA_VERSION arg since it isn't relevant for whisper.cpp
-head -n -1 Dockerfile.whisper > Dockerfile.whispercpp
+cp Dockerfile.whisper Dockerfile.whispercpp
+
+echo "ARG CUDA_VERSION=12.1.0" >> Dockerfile.whisper
+echo "ARG CUDA_VERSION=12.3.2" >> Dockerfile.fasterwhisper
+echo "ARG CUDA_VERSION=12.1.0" >> Dockerfile.whispers2t
 
 # Setup Dockerfile.whisper
 export WHISPER_IMPLEMENTATION_GROUP="--group whisper"
@@ -42,7 +44,7 @@ ENV WHISPER_IMPLEMENTATION=faster-whisper"
 
 envsubst '$WHISPER_IMPLEMENTATION_GROUP $WHISPER_INSTALL_INSTRUCTIONS' < Dockerfile >> Dockerfile.fasterwhisper
 
-sed -i 's#FROM ubuntu:22.04#FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-runtime-ubuntu22.04#g' Dockerfile.fasterwhisper
+sed -i 's#FROM ubuntu:22.04#FROM nvidia/cuda:${CUDA_VERSION}-cudnn9-runtime-ubuntu22.04#g' Dockerfile.fasterwhisper
 
 sed -i 's#CMD \["api"\]#CMD ["worker"]#g' Dockerfile.fasterwhisper
 

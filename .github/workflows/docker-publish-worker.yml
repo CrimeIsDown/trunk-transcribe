@@ -106,17 +106,17 @@ jobs:
         include:
           - model: medium.en
             platform: linux/amd64
-            cuda_version: "12.1.0"
+            cuda_version: "12.3.2"
             variant: faster-whisper
             dockerfile: Dockerfile.fasterwhisper
           - model: large-v2
             platform: linux/amd64
-            cuda_version: "12.1.0"
+            cuda_version: "12.3.2"
             variant: faster-whisper
             dockerfile: Dockerfile.fasterwhisper
           - model: large-v3
             platform: linux/amd64
-            cuda_version: "12.1.0"
+            cuda_version: "12.3.2"
             variant: faster-whisper
             dockerfile: Dockerfile.fasterwhisper
           - model: large-v2

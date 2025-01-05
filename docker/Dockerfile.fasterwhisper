@@ -3,8 +3,8 @@
 #
 # PLEASE DO NOT EDIT IT DIRECTLY.
 #
-ARG CUDA_VERSION=12.1.0
-FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-runtime-ubuntu22.04
+ARG CUDA_VERSION=12.3.2
+FROM nvidia/cuda:${CUDA_VERSION}-cudnn9-runtime-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
