@@ -384,9 +384,8 @@ class Autoscaler:
                 key=lambda instance: instance["dph_total"],
                 reverse=True,
             )
-            for i in range(len(instances)):
+            for instance in instances:
                 if count:
-                    instance = instances.pop(i)
                     instance["deletion_reason"] = "reduce_replicas"
                     deletable_instances.append(instance)
                     count -= 1
