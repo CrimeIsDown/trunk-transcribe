@@ -5,22 +5,16 @@ import os
 from pathlib import Path
 from typing import Optional
 
-import torch
 import whisper_s2t
 from whisper_s2t.backends.ctranslate2.model import BEST_ASR_CONFIG
 
 
 def initialize_model(model_name: str = "large-v2", backend: str = "CTranslate2"):
     torch_device = os.getenv(
-        "TORCH_DEVICE", "cuda:0" if torch.cuda.is_available() else "cpu"
+        "TORCH_DEVICE", "cpu" if os.getenv("CUDA_VERSION") == "cpu" else "cuda:0"
     )
     device = torch_device.split(":")[0]
     device_index = torch_device.split(":")[1] if ":" in torch_device else "0"
-    device_index = (
-        [int(i) for i in device_index.split(",")]
-        if "," in device_index
-        else int(device_index)
-    )
     compute_type = os.getenv(
         "TORCH_DTYPE",
         "int8" if "cpu" in os.getenv("TORCH_DEVICE", "") else "float16",
@@ -28,7 +22,11 @@ def initialize_model(model_name: str = "large-v2", backend: str = "CTranslate2")
     model_kwargs = {
         "asr_options": BEST_ASR_CONFIG,
         "device": device,
-        "device_index": device_index,
+        "device_index": (
+            [int(i) for i in device_index.split(",")]
+            if "," in device_index
+            else int(device_index)
+        ),
         "compute_type": compute_type,
     }
     model_kwargs["asr_options"]["without_timestamps"] = False

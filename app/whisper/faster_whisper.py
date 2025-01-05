@@ -1,5 +1,4 @@
 import os
-import torch
 from .base import BaseWhisper, TranscribeOptions, WhisperResult
 from faster_whisper import WhisperModel
 
@@ -7,7 +6,7 @@ from faster_whisper import WhisperModel
 class FasterWhisper(BaseWhisper):
     def __init__(self, model_name: str):
         torch_device = os.getenv(
-            "TORCH_DEVICE", "cuda:0" if torch.cuda.is_available() else "cpu"
+            "TORCH_DEVICE", "cpu" if os.getenv("CUDA_VERSION") == "cpu" else "cuda:0"
         )
         device = torch_device.split(":")[0]
         device_index = torch_device.split(":")[1] if ":" in torch_device else "0"

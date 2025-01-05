@@ -1,6 +1,5 @@
 import os
 
-import torch
 import whisper_s2t
 from whisper_s2t.backends.ctranslate2.model import BEST_ASR_CONFIG
 
@@ -10,7 +9,7 @@ from .base import BaseWhisper, TranscribeOptions, WhisperResult
 class WhisperS2T(BaseWhisper):
     def __init__(self, model_name: str):
         torch_device = os.getenv(
-            "TORCH_DEVICE", "cuda:0" if torch.cuda.is_available() else "cpu"
+            "TORCH_DEVICE", "cpu" if os.getenv("CUDA_VERSION") == "cpu" else "cuda:0"
         )
         device = torch_device.split(":")[0]
         device_index = torch_device.split(":")[1] if ":" in torch_device else "0"
