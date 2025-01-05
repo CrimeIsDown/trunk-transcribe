@@ -133,7 +133,7 @@ class Autoscaler:
             self._make_instance_hostname(instance)
             for instance in list(
                 filter(
-                    lambda i: i["next_state"] == "running"
+                    lambda i: i["actual_status"] == "running"
                     and "deletion_reason" not in i,
                     instances,
                 )
@@ -144,7 +144,7 @@ class Autoscaler:
         pending_instances = {}
         for instance in list(
             filter(
-                lambda i: i["next_state"] != "running" and "deletion_reason" not in i,
+                lambda i: i["actual_status"] != "running" and "deletion_reason" not in i,
                 instances,
             )
         ):
