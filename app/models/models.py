@@ -1,10 +1,14 @@
-from sqlalchemy import Column, text
+from datetime import datetime
+from sqlalchemy import TIMESTAMP, Column, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import SQLModel, Session, Field
 
 from app.geocoding.types import GeoResponse
 from .metadata import Metadata
 from .transcript import RawTranscript
+
+
+CALLS_TABLE_NAME = "calls"
 
 
 class Base(SQLModel):
@@ -20,10 +24,16 @@ class CallBase(Base):
     geo: GeoResponse | None = Field(
         default=None, sa_column=Column(JSONB, nullable=True)
     )
+    start_time: datetime = Field(
+        sa_column=Column(
+            TIMESTAMP(timezone=True), nullable=False, server_default=text("now()")
+        )
+    )
+    transcript_plaintext: str | None
 
 
 class Call(CallBase, table=True):
-    __tablename__ = "calls"
+    __tablename__ = CALLS_TABLE_NAME
     id: int | None = Field(default=None, primary_key=True)
 
 
@@ -36,6 +46,8 @@ class CallUpdate(Base):
     raw_audio_url: str | None = None
     raw_transcript: RawTranscript | None = None
     geo: GeoResponse | None = None
+    start_time: datetime | None = None
+    transcript_plaintext: str | None = None
 
 
 class CallPublic(CallBase):
@@ -64,7 +76,7 @@ def update_call(db: Session, call: CallUpdate, db_call: Call) -> Call:
     return db_call
 
 
-def get_talkgroups(db: Session, table_name: str) -> list[dict]:
+def get_talkgroups(db: Session, table_name: str = CALLS_TABLE_NAME) -> list[dict]:
     query = f"""
         SELECT
             raw_metadata::jsonb ->> 'short_name' AS short_name,
