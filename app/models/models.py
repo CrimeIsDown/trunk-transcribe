@@ -29,7 +29,7 @@ class CallBase(Base):
             TIMESTAMP(timezone=True), nullable=False, server_default=text("now()")
         )
     )
-    transcript_plaintext: str | None
+    transcript_plaintext: str | None = Field(default=None)
 
 
 class Call(CallBase, table=True):
