@@ -37,9 +37,7 @@ def get_url():
         scheme="postgresql+psycopg",
         username=os.getenv("POSTGRES_USER"),
         password=os.getenv("POSTGRES_PASSWORD"),
-        host="127.0.0.1"
-        if os.getenv("POSTGRES_HOST") == "postgres"
-        else os.getenv("POSTGRES_HOST"),
+        host=os.getenv("POSTGRES_HOST"),
         port=int(os.getenv("POSTGRES_PORT", "5432")),
         path=os.getenv("POSTGRES_DB"),
     ).unicode_string()
