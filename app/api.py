@@ -369,7 +369,7 @@ def update_call(
 
 @app.get("/talkgroups")
 def talkgroups(db: Session = Depends(get_db)) -> JSONResponse:
-    tgs = models.get_talkgroups(db, get_default_index_name())
+    tgs = models.get_talkgroups(db)
     return JSONResponse({"talkgroups": tgs})
 
 

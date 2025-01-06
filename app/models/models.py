@@ -76,7 +76,7 @@ def update_call(db: Session, call: CallUpdate, db_call: Call) -> Call:
     return db_call
 
 
-def get_talkgroups(db: Session, table_name: str = CALLS_TABLE_NAME) -> list[dict]:
+def get_talkgroups(db: Session) -> list[dict]:
     query = f"""
         SELECT
             raw_metadata::jsonb ->> 'short_name' AS short_name,
@@ -84,7 +84,7 @@ def get_talkgroups(db: Session, table_name: str = CALLS_TABLE_NAME) -> list[dict
             raw_metadata::jsonb ->> 'talkgroup_tag' AS talkgroup_tag,
             raw_metadata::jsonb ->> 'talkgroup' AS talkgroup
         FROM
-            {table_name}
+            {CALLS_TABLE_NAME}
         WHERE
             raw_metadata::jsonb ->> 'talkgroup_tag' != ''
         GROUP BY
