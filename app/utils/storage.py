@@ -66,7 +66,7 @@ def fetch_audio(audio_url: str) -> str:
             audio_url = audio_url.replace(
                 localhost_url, os.getenv("S3_ENDPOINT", "http://minio:9000")
             )
-        with requests.get(audio_url, stream=True) as r:
+        with requests.get(audio_url, stream=True, timeout=10) as r:
             r.raise_for_status()
             for chunk in r.iter_content(chunk_size=1024 * 1024):
                 mp3_file.write(chunk)

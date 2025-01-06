@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import functools
 import sys
 import argparse
 import json
@@ -54,8 +55,12 @@ TAGS = {
 GET_NEW_CALLS_INTERVAL = 5
 
 
+http = requests.Session()
+http.request = functools.partial(http.request, timeout=10)  # type: ignore
+
+
 def bcfy_login(redirect_path: str):
-    r = requests.post(
+    r = http.post(
         "https://www.broadcastify.com/login/",
         headers={
             "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
@@ -71,7 +76,6 @@ def bcfy_login(redirect_path: str):
             "redirect": redirect_path,
         },
         allow_redirects=False,
-        timeout=10,
     )
     r.raise_for_status()
     if "bcfyuser1" not in r.cookies:
@@ -98,7 +102,7 @@ def process_calls(
 
     while True:
         logging.debug("Making request to Broadcastify")
-        r = requests.post(
+        r = http.post(
             "https://www.broadcastify.com/calls/apis/live-calls",
             data={
                 "pos": round(pos),
@@ -114,7 +118,6 @@ def process_calls(
                 "x-requested-with": "XMLHttpRequest",
             },
             cookies=jar,
-            timeout=10,
         )
         if r.status_code == 403:
             jar = bcfy_login(path)
@@ -205,7 +208,7 @@ def process_call(
     extension = call["enc"] if call["enc"] else "m4a"
     url = f"https://calls.broadcastify.com/{call['hash']}/{call['systemId']}/{call['filename']}.{extension}"
     logging.debug(f"Downloading {url}")
-    with requests.get(url, cookies=jar, stream=True, timeout=10) as r:
+    with http.get(url, cookies=jar, stream=True) as r:
         r.raise_for_status()
         with (
             tempfile.NamedTemporaryFile(suffix=".json") as metadata_file,
@@ -249,9 +252,8 @@ def process_call(
                     "emergency": metadata["emergency"],
                     "source_list": json.dumps(metadata["srcList"]),
                 }
-                r = requests.post(
+                r = http.post(
                     f"https://api.openmhz.com/{os.getenv('OPENMHZ_SYSTEM', short_name)}/upload",
-                    timeout=5,
                     data=data,
                     files={"call": (f"{call['filename']}.m4a", audio_file)},
                 )
@@ -277,9 +279,8 @@ def process_call(
                     "talkgroupTag": metadata["talkgroup_group_tag"],
                     "talkgroupName": metadata["talkgroup_description"],
                 }
-                r = requests.post(
+                r = http.post(
                     f"{os.getenv('RDIO_URL', '')}/api/call-upload",
-                    timeout=5,
                     data=data,
                     files={"audio": (f"{call['filename']}.{extension}", audio_file)},
                 )

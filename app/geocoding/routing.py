@@ -19,6 +19,7 @@ def calculate_route_duration_via_directions(origin: Point, destination: Point) -
             "access_token": os.getenv("MAPBOX_API_KEY"),
             "overview": "false",
         },
+        timeout=30,
     )
     response.raise_for_status()
     mapbox_response = response.json()

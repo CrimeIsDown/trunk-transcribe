@@ -105,6 +105,7 @@ def task_prerun(**kwargs):
                 f"https://console.vast.ai/api/v0/instances/{vast_instance_id}/",
                 headers={"Authorization": f"Bearer {vast_api_key}"},
                 json={},
+                timeout=5,
             )
         os.kill(
             os.getppid(),

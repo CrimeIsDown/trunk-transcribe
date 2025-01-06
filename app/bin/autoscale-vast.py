@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import functools
 import json
 import logging
 import os
@@ -45,6 +46,9 @@ DEFAULT_MAX_INSTANCES = 10
 DEFAULT_INTERVAL = 60
 FORBIDDEN_INSTANCE_CONFIG = "config/forbidden_instances.json"
 
+http = requests.Session()
+http.request = functools.partial(http.request, timeout=10)  # type: ignore
+
 
 class Autoscaler:
     envs: dict[str, str] = {}
@@ -75,7 +79,7 @@ class Autoscaler:
         # Figure out the public IP/host for external access
         hostname = urlparse(os.getenv("API_BASE_URL", "")).hostname
         if not hostname:
-            hostname = requests.get("https://checkip.amazonaws.com").text.strip()
+            hostname = http.get("https://checkip.amazonaws.com").text.strip()
 
         self.envs = {
             k: v.replace("rabbitmq", hostname)
@@ -108,11 +112,11 @@ class Autoscaler:
         repo, tag = image.split(":", 1)
         registry, repository = repo.split("/", 1)
 
-        r = requests.get(f"https://{registry}/token?scope=repository:{repository}:pull")
+        r = http.get(f"https://{registry}/token?scope=repository:{repository}:pull")
         r.raise_for_status()
         token = r.json()["token"]
 
-        r = requests.get(
+        r = http.get(
             f"https://{registry}/v2/{repository}/manifests/{tag}",
             headers={
                 "Authorization": f"Bearer {token}",
@@ -176,7 +180,7 @@ class Autoscaler:
     def get_queue_status(self) -> dict:
         broker_api = os.getenv("FLOWER_BROKER_API")
         url = f"{broker_api}queues/%2F/{worker.CELERY_GPU_QUEUE}"
-        r = requests.get(url, timeout=5)
+        r = http.get(url)
         r.raise_for_status()
         return r.json()
 
@@ -207,7 +211,7 @@ class Autoscaler:
             "type": "ask" if os.getenv("VAST_ONDEMAND") else "bid",
         }
 
-        r = requests.get(
+        r = http.get(
             "https://console.vast.ai/api/v0/bundles/",
             params={"q": json.dumps(query)},
             headers={"Authorization": f"Bearer {self.vast_api_key}"},
@@ -225,7 +229,7 @@ class Autoscaler:
         )
 
     def get_current_instances(self) -> list[dict]:
-        r = requests.get(
+        r = http.get(
             "https://console.vast.ai/api/v0/instances/",
             params={"owner": "me"},
             headers={"Authorization": f"Bearer {self.vast_api_key}"},
@@ -308,7 +312,7 @@ class Autoscaler:
                     round(float(instance["dph_total"]) * 1.25, 6), 0.001
                 )
 
-            r = requests.put(
+            r = http.put(
                 f"https://console.vast.ai/api/v0/asks/{instance_id}/",
                 headers={"Authorization": f"Bearer {self.vast_api_key}"},
                 json=body,
@@ -395,7 +399,7 @@ class Autoscaler:
 
         if len(deletable_instances):
             for instance in deletable_instances:
-                r = requests.delete(
+                r = http.delete(
                     f"https://console.vast.ai/api/v0/instances/{instance['id']}/",
                     headers={"Authorization": f"Bearer {self.vast_api_key}"},
                     json={},

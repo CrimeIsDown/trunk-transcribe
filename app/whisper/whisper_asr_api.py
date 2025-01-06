@@ -27,6 +27,7 @@ class WhisperAsrApi(BaseWhisper):
                 "word_timestamps": "false",
                 "output": "json",
             },
+            timeout=120,
         )
         response.raise_for_status()
         return response.json()
