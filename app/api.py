@@ -21,7 +21,6 @@ import sentry_sdk
 load_dotenv()
 
 from app.models.transcript import Transcript
-from app.search.helpers import get_default_index_name
 from app.utils.exceptions import before_send
 from app.models.database import engine
 from app.models.metadata import Metadata
