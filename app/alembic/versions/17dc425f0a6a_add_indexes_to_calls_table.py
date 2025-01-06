@@ -22,30 +22,71 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.create_index(
-        "idx_short_name", CALLS_TABLE_NAME, [sa.text("(raw_metadata->>'short_name')")]
-    )
-    op.create_index(
-        "idx_talkgroup_group", CALLS_TABLE_NAME, [sa.text("(raw_metadata->>'talkgroup_group')")]
-    )
-    op.create_index(
-        "idx_talkgroup_group_tag",
-        CALLS_TABLE_NAME,
-        [sa.text("(raw_metadata->>'talkgroup_group_tag')")],
-    )
-    op.create_index(
-        "idx_talkgroup_id", CALLS_TABLE_NAME, [sa.text("(raw_metadata->>'talkgroup')")]
-    )
-    op.create_index(
-        "idx_talkgroup_tag", CALLS_TABLE_NAME, [sa.text("(raw_metadata->>'talkgroup_tag')")]
-    )
-    op.create_index("idx_start_time", CALLS_TABLE_NAME, ["start_time"])
+    # Create indexes concurrently to avoid locking the table; this requires us to do this outside a transaction block
+    with op.get_context().autocommit_block():
+        op.create_index(
+            "idx_short_name",
+            CALLS_TABLE_NAME,
+            [sa.text("(raw_metadata->>'short_name')")],
+            postgresql_concurrently=True,
+        )
+        op.create_index(
+            "idx_talkgroup_group",
+            CALLS_TABLE_NAME,
+            [sa.text("(raw_metadata->>'talkgroup_group')")],
+            postgresql_concurrently=True,
+        )
+        op.create_index(
+            "idx_talkgroup_group_tag",
+            CALLS_TABLE_NAME,
+            [sa.text("(raw_metadata->>'talkgroup_group_tag')")],
+            postgresql_concurrently=True,
+        )
+        op.create_index(
+            "idx_talkgroup_id",
+            CALLS_TABLE_NAME,
+            [sa.text("(raw_metadata->>'talkgroup')")],
+            postgresql_concurrently=True,
+        )
+        op.create_index(
+            "idx_talkgroup_tag",
+            CALLS_TABLE_NAME,
+            [sa.text("(raw_metadata->>'talkgroup_tag')")],
+            postgresql_concurrently=True,
+        )
+        op.create_index(
+            "idx_start_time",
+            CALLS_TABLE_NAME,
+            ["start_time"],
+            postgresql_concurrently=True,
+        )
 
 
 def downgrade() -> None:
-    op.drop_index("idx_short_name", table_name=CALLS_TABLE_NAME)
-    op.drop_index("idx_talkgroup_group", table_name=CALLS_TABLE_NAME)
-    op.drop_index("idx_talkgroup_group_tag", table_name=CALLS_TABLE_NAME)
-    op.drop_index("idx_talkgroup_id", table_name=CALLS_TABLE_NAME)
-    op.drop_index("idx_talkgroup_tag", table_name=CALLS_TABLE_NAME)
-    op.drop_index("idx_start_time", table_name=CALLS_TABLE_NAME)
+    with op.get_context().autocommit_block():
+        op.drop_index(
+            "idx_short_name", table_name=CALLS_TABLE_NAME, postgresql_concurrently=True
+        )
+        op.drop_index(
+            "idx_talkgroup_group",
+            table_name=CALLS_TABLE_NAME,
+            postgresql_concurrently=True,
+        )
+        op.drop_index(
+            "idx_talkgroup_group_tag",
+            table_name=CALLS_TABLE_NAME,
+            postgresql_concurrently=True,
+        )
+        op.drop_index(
+            "idx_talkgroup_id",
+            table_name=CALLS_TABLE_NAME,
+            postgresql_concurrently=True,
+        )
+        op.drop_index(
+            "idx_talkgroup_tag",
+            table_name=CALLS_TABLE_NAME,
+            postgresql_concurrently=True,
+        )
+        op.drop_index(
+            "idx_start_time", table_name=CALLS_TABLE_NAME, postgresql_concurrently=True
+        )
