@@ -6,6 +6,14 @@ if [ "$1" = 'api' ]; then
     /bin/sh -c "while true; do find /tmp -type f -mmin +10 -delete; sleep 60; done" &
     disown
 
+    if [ -n "$POSTGRES_HOST" ]; then
+        # Check if we have run any DB migrations yet
+        CURRENT_DB_VERSION="$(uv run alembic current)"
+        if [ -z "$CURRENT_DB_VERSION" ]; then
+            uv run alembic upgrade head
+        fi
+    fi
+
     exec uv run uvicorn app.api:app --host 0.0.0.0 --log-level ${UVICORN_LOG_LEVEL:-info}
 elif [ "$1" = 'worker' ]; then
     # Clean up any old temp files
