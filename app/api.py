@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from datetime import datetime
 from typing import Annotated, Generator
 import json
 import logging
@@ -19,6 +20,7 @@ import sentry_sdk
 
 load_dotenv()
 
+from app.models.transcript import Transcript
 from app.search.helpers import get_default_index_name
 from app.utils.exceptions import before_send
 from app.models.database import engine
@@ -328,7 +330,11 @@ def create_call(
     else:
         raise HTTPException(status_code=400, detail="No audio provided")
 
-    call = models.CallCreate(raw_metadata=metadata, raw_audio_url=audio_url)
+    start_time = datetime.fromtimestamp(metadata["start_time"])
+
+    call = models.CallCreate(
+        raw_metadata=metadata, raw_audio_url=audio_url, start_time=start_time
+    )
 
     db_call = models.create_call(db=db, call=call)
 
@@ -353,6 +359,10 @@ def update_call(
     db_call = db.get(models.Call, call_id)
     if db_call is None:
         raise HTTPException(status_code=404, detail="Call not found")
+
+    if call.raw_transcript and not call.transcript_plaintext:
+        transcript = Transcript(call.raw_transcript)
+        call.transcript_plaintext = transcript.txt_nosrc
 
     return models.update_call(db=db, call=call, db_call=db_call)
 
