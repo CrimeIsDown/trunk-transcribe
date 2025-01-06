@@ -361,7 +361,7 @@ def update_call(
 
     if call.raw_transcript and not call.transcript_plaintext:
         transcript = Transcript(call.raw_transcript)
-        call.transcript_plaintext = transcript.txt_nosrc
+        call.transcript_plaintext = transcript.txt
 
     return models.update_call(db=db, call=call, db_call=db_call)
 
