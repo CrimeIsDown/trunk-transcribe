@@ -100,10 +100,10 @@ def geocode(
 
     if geocoder == "geocodio" or (os.getenv("GEOCODIO_API_KEY") and geocoder is None):
         geocoder = "geocodio"
-        config = {"api_key": os.getenv("GEOCODIO_API_KEY")}
+        config = {"api_key": os.getenv("GEOCODIO_API_KEY"), "timeout": 10}
     elif geocoder == "mapbox" or (os.getenv("MAPBOX_API_KEY") and geocoder is None):
         geocoder = "mapbox"
-        config = {"api_key": os.getenv("MAPBOX_API_KEY")}
+        config = {"api_key": os.getenv("MAPBOX_API_KEY"), "timeout": 10}
         query = {
             "query": f"{address_parts['address']}, {address_parts['city']}, {address_parts['state']}",
             "country": address_parts["country"],
@@ -113,7 +113,7 @@ def geocode(
         os.getenv("GOOGLE_MAPS_API_KEY") and geocoder is None
     ):
         geocoder = "googlev3"
-        config = {"api_key": os.getenv("GOOGLE_MAPS_API_KEY")}
+        config = {"api_key": os.getenv("GOOGLE_MAPS_API_KEY"), "timeout": 10}
         query = {
             "query": address_parts["address"],
             "components": {
