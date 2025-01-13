@@ -135,9 +135,8 @@ async def websocket_endpoint(
 
     while True:
         if last_id:
-            query = query.where(
-                models.Call.id > last_id,
-                models.Call.transcript_plaintext is not None,
+            query = query.where(models.Call.id > last_id).where(
+                models.Call.transcript_plaintext is not None
             )
             calls = db.exec(query).all()
 
