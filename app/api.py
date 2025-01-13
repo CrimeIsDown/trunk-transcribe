@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import asyncio
 from datetime import datetime
 from typing import Annotated, Generator
 import json
@@ -11,7 +12,19 @@ import tempfile
 
 from celery.result import AsyncResult
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, Form, HTTPException, Request, Response, UploadFile
+from fastapi import (
+    Depends,
+    FastAPI,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+    WebSocket,
+    WebSocketException,
+    status,
+)
 from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -67,7 +80,7 @@ async def authenticate(request: Request, call_next) -> Response:
     api_key = os.getenv("API_KEY", "")
 
     if (
-        request.url.path not in ["/api/call-upload", "/healthz"]
+        request.url.path not in ["/api/call-upload", "/healthz", "/ws"]
         and api_key
         and request.headers.get("Authorization", "") != f"Bearer {api_key}"
     ):
@@ -86,6 +99,54 @@ async def validation_exception_handler(
         except Exception:
             pass
     return await request_validation_exception_handler(request, exc)
+
+
+async def get_api_key(
+    websocket: WebSocket,
+    api_key: Annotated[str | None, Query()] = None,
+):
+    if api_key != os.getenv("API_KEY", None):
+        raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION)
+    return api_key
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(
+    websocket: WebSocket,
+    db: Session = Depends(get_db),
+    api_key: str = Depends(get_api_key),
+):
+    await websocket.accept()
+
+    query = select(models.Call)
+    last_id = None
+    while not last_id:
+        most_recent_calls = db.exec(
+            select(models.Call.id, models.Call.transcript_plaintext)
+            .order_by(models.Call.start_time.desc())
+            .limit(100)
+        ).all()
+        for call in most_recent_calls:
+            if call.transcript_plaintext:
+                last_id = call.id
+                break
+        if not last_id:
+            await asyncio.sleep(1)
+
+    while True:
+        if last_id:
+            query = query.where(
+                models.Call.id > last_id,
+                models.Call.transcript_plaintext is not None,
+            )
+            calls = db.exec(query).all()
+
+            if calls:
+                for call in calls:
+                    await websocket.send_text(call.model_dump_json())
+                last_id = calls[-1].id
+
+        await asyncio.sleep(1)
 
 
 @app.get("/healthz")

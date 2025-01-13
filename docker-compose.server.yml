@@ -115,6 +115,8 @@ services:
       - MEILI_URL
       - MEILI_MASTER_KEY
       - MEILI_INDEX
+      - API_KEY
+      - WEBSOCKET_URL=ws://localhost:${API_PORT:-8000}/ws
 
 volumes:
   flower-data:

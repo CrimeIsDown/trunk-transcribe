@@ -2544,6 +2544,7 @@ dependencies = [
     { name = "typesense" },
     { name = "uvicorn", extra = ["standard"] },
     { name = "vastai" },
+    { name = "websockets" },
 ]
 
 [package.dev-dependencies]
@@ -2598,6 +2599,7 @@ requires-dist = [
     { name = "typesense", specifier = ">=0.21.0,<1.0.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0,<1" },
     { name = "vastai", specifier = ">=0.2.6,<1.0.0" },
+    { name = "websockets", specifier = ">=13.1" },
 ]
 
 [package.metadata.requires-dev]
