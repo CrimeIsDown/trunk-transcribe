@@ -69,7 +69,8 @@ export function Hit({ hit }: HitProps) {
               {hit.raw_transcript.map((segment: any, index: number) => (
                 <p key={`${hit.id}-t${index}`}>
                   {segment[0] && <a href={segment[0].filter_link} title={`Radio ID ${segment[0].src}`}>{segment[0].label}</a>}
-                  : <span dangerouslySetInnerHTML={{ __html: segment[1]}} />
+                  {segment[0] && ': '}
+                  <span dangerouslySetInnerHTML={{ __html: segment[1]}} />
                 </p>
               ))}
             </blockquote>

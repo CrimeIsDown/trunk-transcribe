@@ -8,5 +8,4 @@ SQLALCHEMY_DATABASE_URL = f"postgresql+psycopg://{os.getenv('POSTGRES_USER')}:{q
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
     max_overflow=int(os.getenv("DB_CONNECTION_POOL_MAX_OVERFLOW", 100)),
-    echo=True,
 )
