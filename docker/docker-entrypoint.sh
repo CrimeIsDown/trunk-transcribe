@@ -14,7 +14,7 @@ if [ "$1" = 'api' ]; then
         fi
     fi
 
-    exec uv run uvicorn app.api:app --host 0.0.0.0 --log-level ${UVICORN_LOG_LEVEL:-info}
+    exec uv run uvicorn app.api.main:app --host 0.0.0.0 --log-level ${UVICORN_LOG_LEVEL:-info}
 elif [ "$1" = 'worker' ]; then
     # Clean up any old temp files
     /bin/sh -c "while true; do find /tmp -type f -mmin +10 -delete; sleep 60; done" &
