@@ -19,7 +19,12 @@ from app.geocoding.types import GeoResponse
 from app.models.metadata import Metadata
 from app.models.transcript import Transcript
 from app.search import helpers
-from app.search.adapters import MeilisearchAdapter, SearchAdapter, TypesenseAdapter
+from app.search.adapters import (
+    DatabaseAdapter,
+    MeilisearchAdapter,
+    SearchAdapter,
+    TypesenseAdapter,
+)
 
 
 class SrcListItemUpdate(TypedDict):
@@ -84,10 +89,10 @@ def update_document(
         and "geo_formatted_address" in document
         and document["geo_formatted_address"]
     ):
-        geo = GeoResponse(
-            geo=document["_geo"],
-            geo_formatted_address=document["geo_formatted_address"],
-        )
+        geo = {
+            "geo": document["_geo"],  # type: ignore
+            "geo_formatted_address": document["geo_formatted_address"],
+        }
     elif should_lookup_geo:
         geo = lookup_geo(metadata, transcript)
     else:
@@ -120,26 +125,26 @@ def update_document(
 
 
 def load_csvs(
-    unit_tags: list[Tuple[str, str]], talkgroups: list[Tuple[str, str]]
-) -> Tuple[dict[str, list], dict[str, dict]]:
-    UNIT_TAGS = {}
+    unit_tags: list[Tuple[str, str]] | None, talkgroups: list[Tuple[str, str]] | None
+) -> Tuple[dict[str, list[list[str]]], dict[str, dict[int, dict[str, str]]]]:
+    UNIT_TAGS: dict[str, list[list[str]]] = {}
     if unit_tags:
         for system, file in unit_tags:
-            tags = []
+            tags: list[list[str]] = []
             with open(file, newline="") as csvfile:
                 unit_reader = csv.reader(csvfile, escapechar="\\")
                 for row in unit_reader:
                     tags.append(row)
             UNIT_TAGS[system] = tags
 
-    TALKGROUPS = {}
+    TALKGROUPS: dict[str, dict[int, dict[str, str]]] = {}
     if talkgroups:
         for system, file in talkgroups:
-            tgs = {}
+            tgs: dict[int, dict[str, str]] = {}
             with open(file, newline="") as csvfile:
                 tg_reader = csv.DictReader(csvfile)
-                for row in tg_reader:
-                    tgs[int(row["Decimal"])] = row
+                for row_dict in tg_reader:
+                    tgs[int(row_dict["Decimal"])] = dict(row_dict)
             TALKGROUPS[system] = tgs
 
     return UNIT_TAGS, TALKGROUPS
@@ -150,13 +155,18 @@ def get_adapter_class(adapter: str) -> type[SearchAdapter]:
         return MeilisearchAdapter
     elif adapter == "typesense":
         return TypesenseAdapter
+    elif adapter == "database":
+        return DatabaseAdapter
     else:
         raise ValueError(f"Unsupported search engine {adapter}")
 
 
 def get_source(engine: str, index_name: str) -> SearchAdapter:
     source_class = get_adapter_class(engine)
-    if "@" in index_name:
+    if engine == "database":
+        # Database adapter doesn't use index names or URLs
+        source = source_class()
+    elif "@" in index_name:
         parts = index_name.split("@")
         source = source_class(parts[1], index_name=parts[0])
     else:
@@ -176,7 +186,12 @@ def get_destination(
 
 
 def main(args: argparse.Namespace) -> None:
-    source = get_source(args.source_engine, args.source_index or args.index)
+    source_index_name = args.source_index or args.index
+    # For database source, we don't need an index name
+    if args.source_engine == "database":
+        source_index_name = ""
+
+    source = get_source(args.source_engine, source_index_name)
     destination = get_destination(
         args.destination_engine, args.index, args.update_settings, args.dry_run
     )
@@ -219,7 +234,9 @@ def main(args: argparse.Namespace) -> None:
                 if args.no_rebuild:
                     docs_to_add.append(document)
                     continue
-                docs_to_add.append(update_document(destination, document))
+                docs_to_add.append(
+                    update_document(destination, document, args.lookup_geo)
+                )
             updated_documents += docs_to_add
             logging.info(f"Added {len(docs_to_add)} documents to be indexed")
             total_processed += len(updated_documents)
@@ -279,9 +296,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--source-engine",
-        choices=["meilisearch", "typesense"],
+        choices=["meilisearch", "typesense", "database"],
         default=helpers.get_default_engine(),
-        help=f"Search engine to use, defaults to {helpers.get_default_engine()}",
+        help=f"Search engine to use as source, defaults to {helpers.get_default_engine()}. Use 'database' to read directly from the calls table.",
     )
     parser.add_argument(
         "--destination-engine",
@@ -333,6 +350,11 @@ if __name__ == "__main__":
     #     action="store_true",
     #     help="Re-transcribe the matching calls instead of just rebuilding the metadata and reindexing",
     # )
+    parser.add_argument(
+        "--lookup-geo",
+        action="store_true",
+        help="Enable geocoding lookup for calls that don't have geo data (useful when sourcing from database)",
+    )
     parser.add_argument(
         "--update-settings",
         action="store_true",
