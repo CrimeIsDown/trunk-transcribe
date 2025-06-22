@@ -889,7 +889,7 @@ class DatabaseAdapter(SearchAdapter):
                                             end_timestamp = int(month_end.timestamp())
 
                                             query = query.where(
-                                                text("start_time >= :start_ts AND start_time < :end_ts").bindparams(
+                                                text("start_time >= to_timestamp(:start_ts) AND start_time < to_timestamp(:end_ts)").bindparams(
                                                     start_ts=start_timestamp,
                                                     end_ts=end_timestamp
                                                 )
@@ -923,23 +923,23 @@ class DatabaseAdapter(SearchAdapter):
                                         # Apply the appropriate filter based on operator
                                         if operator == ">=":
                                             query = query.where(
-                                                text("start_time >= :timestamp").bindparams(timestamp=timestamp_value)
+                                                text("start_time >= to_timestamp(:timestamp)").bindparams(timestamp=timestamp_value)
                                             )
                                         elif operator == "<=":
                                             query = query.where(
-                                                text("start_time <= :timestamp").bindparams(timestamp=timestamp_value)
+                                                text("start_time <= to_timestamp(:timestamp)").bindparams(timestamp=timestamp_value)
                                             )
                                         elif operator == ">":
                                             query = query.where(
-                                                text("start_time > :timestamp").bindparams(timestamp=timestamp_value)
+                                                text("start_time > to_timestamp(:timestamp)").bindparams(timestamp=timestamp_value)
                                             )
                                         elif operator == "<":
                                             query = query.where(
-                                                text("start_time < :timestamp").bindparams(timestamp=timestamp_value)
+                                                text("start_time < to_timestamp(:timestamp)").bindparams(timestamp=timestamp_value)
                                             )
                                         elif operator == "=":
                                             query = query.where(
-                                                text("start_time = :timestamp").bindparams(timestamp=timestamp_value)
+                                                text("start_time = to_timestamp(:timestamp)").bindparams(timestamp=timestamp_value)
                                             )
                                     except (ValueError, NameError):
                                         pass  # Skip invalid timestamp values
