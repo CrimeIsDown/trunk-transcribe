@@ -834,28 +834,115 @@ class DatabaseAdapter(SearchAdapter):
                     # This is a simplified implementation - you may need to expand based on actual filter formats
                     for filter_item in search["filter"]:
                         if isinstance(filter_item, str):
-                            # Simple string filters like "short_name = 'system'"
-                            if "=" in filter_item:
-                                field, value = filter_item.split("=", 1)
-                                field = field.strip()
-                                value = value.strip().strip("'\"")
+                            # Support various operators for filtering
+                            operators = [">=", "<=", ">", "<", "="]
+                            operator = None
+                            field = None
+                            value = None
 
+                            # Find the operator in the filter string
+                            for op in operators:
+                                if op in filter_item:
+                                    parts = filter_item.split(op, 1)
+                                    if len(parts) == 2:
+                                        field = parts[0].strip()
+                                        value = parts[1].strip().strip("'\"")
+                                        operator = op
+                                        break
+
+                            if field and operator and value:
                                 if field == "short_name":
-                                    query = query.where(
-                                        text(
-                                            "raw_metadata ->> 'short_name' = :value"
-                                        ).bindparams(value=value)
-                                    )
+                                    if operator == "=":
+                                        query = query.where(
+                                            text(
+                                                "raw_metadata ->> 'short_name' = :value"
+                                            ).bindparams(value=value)
+                                        )
                                 elif field == "talkgroup":
                                     try:
                                         talkgroup_value = int(value)
-                                        query = query.where(
-                                            text(
-                                                "(raw_metadata ->> 'talkgroup')::int = :value"
-                                            ).bindparams(value=talkgroup_value)
-                                        )
+                                        if operator == "=":
+                                            query = query.where(
+                                                text(
+                                                    "(raw_metadata ->> 'talkgroup')::int = :value"
+                                                ).bindparams(value=talkgroup_value)
+                                            )
                                     except ValueError:
                                         pass  # Skip invalid talkgroup values
+                                elif field == "start_time_month":
+                                    # Special filter for filtering by month (format: YYYY-MM)
+                                    if operator == "=":
+                                        try:
+                                            # Parse YYYY-MM format
+                                            year_str, month_str = value.split('-')
+                                            year = int(year_str)
+                                            month = int(month_str)
+
+                                            # Calculate start and end of the month
+                                            month_start = datetime.datetime(year, month, 1)
+                                            if month == 12:
+                                                month_end = datetime.datetime(year + 1, 1, 1)
+                                            else:
+                                                month_end = datetime.datetime(year, month + 1, 1)
+
+                                            start_timestamp = int(month_start.timestamp())
+                                            end_timestamp = int(month_end.timestamp())
+
+                                            query = query.where(
+                                                text("start_time >= :start_ts AND start_time < :end_ts").bindparams(
+                                                    start_ts=start_timestamp,
+                                                    end_ts=end_timestamp
+                                                )
+                                            )
+                                        except (ValueError, IndexError):
+                                            pass  # Skip invalid month format
+                                elif field == "start_time":
+                                    try:
+                                        # Handle different time formats
+                                        if value.isdigit():
+                                            # Unix timestamp
+                                            timestamp_value = int(value)
+                                        else:
+                                            # Try to parse ISO format or other date formats
+                                            try:
+                                                # Try ISO format first
+                                                dt = datetime.datetime.fromisoformat(value.replace('Z', '+00:00'))
+                                                timestamp_value = int(dt.timestamp())
+                                            except ValueError:
+                                                # Try other common formats
+                                                for fmt in ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d", "%Y-%m-%dT%H:%M:%S"]:
+                                                    try:
+                                                        dt = datetime.datetime.strptime(value, fmt)
+                                                        timestamp_value = int(dt.timestamp())
+                                                        break
+                                                    except ValueError:
+                                                        continue
+                                                else:
+                                                    continue  # Skip if we can't parse the date
+
+                                        # Apply the appropriate filter based on operator
+                                        if operator == ">=":
+                                            query = query.where(
+                                                text("start_time >= :timestamp").bindparams(timestamp=timestamp_value)
+                                            )
+                                        elif operator == "<=":
+                                            query = query.where(
+                                                text("start_time <= :timestamp").bindparams(timestamp=timestamp_value)
+                                            )
+                                        elif operator == ">":
+                                            query = query.where(
+                                                text("start_time > :timestamp").bindparams(timestamp=timestamp_value)
+                                            )
+                                        elif operator == "<":
+                                            query = query.where(
+                                                text("start_time < :timestamp").bindparams(timestamp=timestamp_value)
+                                            )
+                                        elif operator == "=":
+                                            query = query.where(
+                                                text("start_time = :timestamp").bindparams(timestamp=timestamp_value)
+                                            )
+                                    except (ValueError, NameError):
+                                        pass  # Skip invalid timestamp values
                                 # Add more filter conditions as needed
 
                 if "q" in search:
