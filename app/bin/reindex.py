@@ -180,7 +180,7 @@ def get_destination(
     destination = get_source(engine, index_name)
 
     if update_settings:
-        destination.upsert_index(index_name, dry_run=dry_run)
+        destination.upsert_index(dry_run=dry_run)
 
     return destination
 
@@ -231,7 +231,7 @@ def main(args: argparse.Namespace) -> None:
             for document in documents:
                 if not document:
                     continue
-                if args.no_rebuild:
+                if args.no_rebuild and args.source_engine == args.destination_engine:
                     docs_to_add.append(document)
                     continue
                 docs_to_add.append(
