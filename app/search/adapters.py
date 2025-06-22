@@ -956,6 +956,7 @@ class DatabaseAdapter(SearchAdapter):
 
             # Get total count
             count_query = select(text("count(*)")).select_from(query.subquery())
+            logging.info(f"Count query: {count_query}")
             total = session.exec(count_query).one()
 
             # Apply pagination
@@ -964,6 +965,7 @@ class DatabaseAdapter(SearchAdapter):
             query = query.offset(offset).limit(limit)
 
             # Execute query and convert to documents
+            logging.info(f"Executing query: {query}")
             results = session.exec(query).all()
             documents = []
 

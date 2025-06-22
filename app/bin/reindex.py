@@ -198,7 +198,7 @@ def main(args: argparse.Namespace) -> None:
 
     total, _ = source.get_documents({"limit": 1}, args.search)
     logging.info(f"Found {total} total documents")
-    limit = args.batch_size if args.source_engine == "meilisearch" else 250
+    limit = args.batch_size if args.source_engine != "typesense" else 250
     offset = 0
     total_processed = 0
     updated_documents = []
