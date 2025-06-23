@@ -4,15 +4,15 @@ import argparse
 import json
 import logging
 import os
-from typing import Iterator
+from pathlib import Path
 
 from dotenv import load_dotenv
-from typesense.collections import Collection
+import jsonlines
 
 # Load the .env file of our choice if specified before the regular .env can load
 load_dotenv(os.getenv("ENV"))
 
-from app.geocoding.types import GeoResponse
+from app.geocoding.types import Geo, GeoResponse
 from app.models.metadata import Metadata
 from app.models.transcript import Transcript
 from app.search import helpers, adapters
@@ -24,8 +24,9 @@ def convert_document(document: dict) -> helpers.Document:
     transcript = Transcript(json.loads(document["raw_transcript"]))
 
     if "_geo" in document and "geo_formatted_address" in document:
+        coords = Geo(lat=document["_geo"][0], lng=document["_geo"][1])
         geo = GeoResponse(
-            geo=document["_geo"],
+            geo=coords,
             geo_formatted_address=document["geo_formatted_address"],
         )
     else:
@@ -34,35 +35,6 @@ def convert_document(document: dict) -> helpers.Document:
     return meili_adapter.build_document(
         document["id"], metadata, document["raw_audio_url"], transcript, geo
     )
-
-
-def export_documents(collection: Collection) -> Iterator[dict]:
-    """Export all documents from a Typesense collection using the export endpoint."""
-    try:
-        # Use Typesense export endpoint which returns JSONL format
-        response = collection.documents.export()
-
-        # Split the response by newlines and parse each JSON object
-        for line in response.split('\n'):
-            if line.strip():  # Skip empty lines
-                try:
-                    yield json.loads(line)
-                except json.JSONDecodeError as e:
-                    logging.warning(f"Failed to parse JSON line: {line[:100]}... Error: {e}")
-                    continue
-    except Exception as e:
-        logging.error(f"Failed to export documents: {e}")
-        raise
-
-
-def import_documents(documents: list[helpers.Document]):
-    """Import documents into Meilisearch."""
-    if not documents:
-        return
-
-    task = meili_adapter.index.add_documents(documents)
-    logging.debug(f"Meilisearch import task: {task}")
-    return task
 
 
 if __name__ == "__main__":
@@ -135,37 +107,45 @@ if __name__ == "__main__":
         meili_adapter.upsert_index(index)
 
         total_processed = 0
-        batch_documents = []
+        batch_documents: list[helpers.Document] = []
 
         try:
             # Export all documents from Typesense
             logging.info("Starting export from Typesense...")
+            export_filename = f"{index}.jsonl"
 
-            for i, document in enumerate(export_documents(typesense_collection)):
-                if args.dry_run and i < 5:
-                    logging.info(f"Sample document {i + 1}:\n" + json.dumps(document, sort_keys=True, indent=2))
+            if not Path(export_filename).exists():
+                with open(export_filename, "w") as export_file:
+                    export_file.write(typesense_collection.documents.export())
 
-                try:
-                    converted_doc = convert_document(document)
-                    batch_documents.append(converted_doc)
+            with jsonlines.open(export_filename) as reader:
+                i = 0
+                for document in reader.iter(type=dict):
+                    if args.dry_run and i < 5:
+                        logging.info(f"Sample document {i + 1}:\n" + json.dumps(document, sort_keys=True, indent=2))
+                    i += 1
 
-                    # Process in batches
-                    if len(batch_documents) >= args.batch_size:
-                        if args.dry_run:
-                            logging.info(f"Would import batch of {len(batch_documents)} documents")
-                        else:
-                            logging.debug(f"Importing batch of {len(batch_documents)} documents")
-                            import_documents(batch_documents)
+                    try:
+                        converted_doc = convert_document(document)
+                        batch_documents.append(converted_doc)
 
-                        total_processed += len(batch_documents)
-                        batch_documents = []
+                        # Process in batches
+                        if len(batch_documents) >= args.batch_size:
+                            if args.dry_run:
+                                logging.info(f"Would import batch of {len(batch_documents)} documents")
+                            else:
+                                logging.info(f"Importing batch of {len(batch_documents)} documents")
+                                meili_adapter.index_calls(batch_documents)
 
-                        if total_processed % 10000 == 0:
-                            logging.info(f"Processed {total_processed} documents so far...")
+                            total_processed += len(batch_documents)
+                            batch_documents = []
 
-                except Exception as e:
-                    logging.warning(f"Failed to convert document {document.get('id', 'unknown')}: {e}")
-                    continue
+                            if total_processed % 10000 == 0:
+                                logging.info(f"Processed {total_processed} documents so far...")
+
+                    except Exception as e:
+                        logging.warning(f"Failed to convert document {document.get('id', 'unknown')}: {e}")
+                        continue
 
             # Process remaining documents in the final batch
             if batch_documents:
@@ -173,7 +153,7 @@ if __name__ == "__main__":
                     logging.info(f"Would import final batch of {len(batch_documents)} documents")
                 else:
                     logging.debug(f"Importing final batch of {len(batch_documents)} documents")
-                    import_documents(batch_documents)
+                    meili_adapter.index_calls(batch_documents)
 
                 total_processed += len(batch_documents)
 
