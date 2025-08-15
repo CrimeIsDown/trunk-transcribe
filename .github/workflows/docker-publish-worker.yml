@@ -49,6 +49,11 @@ jobs:
             cuda_version: "12.1.0"
             variant: whisper
             dockerfile: Dockerfile.whisper
+          - model: large-v3-turbo
+            platform: linux/amd64
+            cuda_version: "12.1.0"
+            variant: whisper
+            dockerfile: Dockerfile.whisper
           - model: medium.en
             platform: linux/amd64
             cuda_version: cpu
@@ -60,6 +65,11 @@ jobs:
             variant: whisper.cpp
             dockerfile: Dockerfile.whispercpp
           - model: large-v3
+            platform: linux/amd64
+            cuda_version: cpu
+            variant: whisper.cpp
+            dockerfile: Dockerfile.whispercpp
+          - model: large-v3-turbo
             platform: linux/amd64
             cuda_version: cpu
             variant: whisper.cpp
@@ -119,12 +129,22 @@ jobs:
             cuda_version: "12.3.2"
             variant: faster-whisper
             dockerfile: Dockerfile.fasterwhisper
+          - model: large-v3-turbo
+            platform: linux/amd64
+            cuda_version: "12.3.2"
+            variant: faster-whisper
+            dockerfile: Dockerfile.fasterwhisper
           - model: large-v2
             platform: linux/amd64
             cuda_version: "12.1.0"
             variant: whispers2t
             dockerfile: Dockerfile.whispers2t
           - model: large-v3
+            platform: linux/amd64
+            cuda_version: "12.1.0"
+            variant: whispers2t
+            dockerfile: Dockerfile.whispers2t
+          - model: large-v3-turbo
             platform: linux/amd64
             cuda_version: "12.1.0"
             variant: whispers2t

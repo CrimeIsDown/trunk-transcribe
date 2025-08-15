@@ -265,6 +265,7 @@ class Autoscaler:
             "large": 12 * 1024 * mem_util_factor,
             "large-v2": 12 * 1024 * mem_util_factor,
             "large-v3": 12 * 1024 * mem_util_factor,
+            "large-v3-turbo": 10 * 1024 * mem_util_factor,
         }
 
         vram_required = vram_requirements[self.model]
