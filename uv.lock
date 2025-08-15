@@ -616,8 +616,8 @@ wheels = [
 
 [[package]]
 name = "faster-whisper"
-version = "1.1.1"
-source = { git = "https://github.com/SYSTRAN/faster-whisper.git?rev=v1.1.1#9e657b47cb71ed7aa32ce115ef0dca953ca39ae5" }
+version = "1.2.0"
+source = { git = "https://github.com/SYSTRAN/faster-whisper.git?rev=v1.2.0#93001a9438bb621285580c1074964672d891f551" }
 dependencies = [
     { name = "av" },
     { name = "ctranslate2" },
@@ -1572,8 +1572,8 @@ wheels = [
 
 [[package]]
 name = "openai-whisper"
-version = "20240930"
-source = { git = "https://github.com/openai/whisper.git?rev=90db0de1896c23cbfaf0c58bc2d30665f709f170#90db0de1896c23cbfaf0c58bc2d30665f709f170" }
+version = "20250625"
+source = { git = "https://github.com/openai/whisper.git?rev=v20250625#31243bad24cc746f07d4c8bfdd2d974872cb1803" }
 dependencies = [
     { name = "more-itertools" },
     { name = "numba" },
@@ -2619,8 +2619,8 @@ dev = [
     { name = "types-pytz", specifier = ">=2024.1.0.20240417,<2025.0.0.0" },
     { name = "types-requests", specifier = ">=2.32.0.20240712,<3.0.0.0" },
 ]
-faster-whisper = [{ name = "faster-whisper", git = "https://github.com/SYSTRAN/faster-whisper.git?rev=v1.1.1" }]
-whisper = [{ name = "openai-whisper", git = "https://github.com/openai/whisper.git?rev=90db0de1896c23cbfaf0c58bc2d30665f709f170" }]
+faster-whisper = [{ name = "faster-whisper", git = "https://github.com/SYSTRAN/faster-whisper.git?rev=v1.2.0" }]
+whisper = [{ name = "openai-whisper", git = "https://github.com/openai/whisper.git?rev=v20250625" }]
 whispers2t = [{ name = "whisper-s2t", git = "https://github.com/shashikg/WhisperS2T.git?rev=v1.3.1" }]
 
 [[package]]

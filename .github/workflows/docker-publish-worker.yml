@@ -144,11 +144,6 @@ jobs:
             cuda_version: "12.1.0"
             variant: whispers2t
             dockerfile: Dockerfile.whispers2t
-          - model: large-v3-turbo
-            platform: linux/amd64
-            cuda_version: "12.1.0"
-            variant: whispers2t
-            dockerfile: Dockerfile.whispers2t
     steps:
     # https://github.com/orgs/community/discussions/25678#discussioncomment-5242449
     - name: Delete huge unnecessary tools folder

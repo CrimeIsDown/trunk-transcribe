@@ -66,8 +66,8 @@ whispers2t = [
 package = false
 
 [tool.uv.sources]
-openai-whisper = { git = "https://github.com/openai/whisper.git", rev = "90db0de1896c23cbfaf0c58bc2d30665f709f170" }
-faster-whisper = { git = "https://github.com/SYSTRAN/faster-whisper.git", rev = "v1.1.1" }
+openai-whisper = { git = "https://github.com/openai/whisper.git", rev = "v20250625" }
+faster-whisper = { git = "https://github.com/SYSTRAN/faster-whisper.git", rev = "v1.2.0" }
 whisper-s2t = { git = "https://github.com/shashikg/WhisperS2T.git", rev = "v1.3.1" }
 
 
