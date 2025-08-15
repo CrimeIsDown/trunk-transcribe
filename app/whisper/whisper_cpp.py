@@ -20,7 +20,7 @@ class WhisperCpp(BaseWhisper):
         language: str = "en",
     ) -> WhisperResult:
         args = [
-            "whisper-cpp",
+            "whisper-cli",
             "--model",
             self.model_path,
             "--language",

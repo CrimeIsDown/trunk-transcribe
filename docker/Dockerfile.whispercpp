@@ -71,7 +71,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-install-project --no-dev $WHISPER_IMPLEMENTATION_GROUP
 
 # Install Whisper.cpp
-COPY --from=whispercpp /whisper.cpp/main /usr/local/bin/whisper-cpp
+COPY --from=whispercpp /whisper.cpp/build/bin/whisper-cli /usr/local/bin/whisper-cli
 COPY --from=whispercpp /whisper.cpp/models/ggml-*.bin /usr/local/lib/whisper-models/
 ENV WHISPER_IMPLEMENTATION=whisper.cpp
 ARG WHISPER_MODEL=base.en
