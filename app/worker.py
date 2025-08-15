@@ -213,6 +213,9 @@ def post_transcribe_task(
             id, metadata, raw_audio_url, transcript, geo, index_name
         )
 
-    send_notifications(raw_audio_url, metadata, transcript, geo, search_url)
+    try:
+        send_notifications(raw_audio_url, metadata, transcript, geo, search_url)
+    except Exception as e:
+        logger.exception("Failed to send notifications", exc_info=e)
 
     return transcript.txt

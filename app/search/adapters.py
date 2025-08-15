@@ -14,10 +14,14 @@ from meilisearch.errors import MeilisearchApiError, MeilisearchError
 from meilisearch.models.document import Document as MeiliDocument
 from meilisearch.index import Index
 from typesense.exceptions import ObjectNotFound, TypesenseClientError
+from sqlmodel import Session, select, text
 
 from app.geocoding.types import GeoResponse
+from app.models.database import engine
 from app.models.metadata import Metadata
+from app.models.models import Call
 from app.models.transcript import Transcript
+from app.search import helpers
 from app.search.helpers import (
     Document,
     encode_params,
@@ -700,6 +704,326 @@ class TypesenseAdapter(SearchAdapter):
         return search_results["found"], [
             self.parse_document(hit["document"]) for hit in search_results["hits"]
         ]
+
+
+class DatabaseAdapter(SearchAdapter):
+    """Database adapter for reading calls from the PostgreSQL database"""
+
+    def __init__(
+        self,
+        url: str | None = None,
+        api_key: str | None = None,
+        timeout: int = 2,
+        index_name: str | None = None,
+    ):
+        # Database connection is handled via the existing engine
+        pass
+
+    def build_document(
+        self,
+        id: str | int,
+        metadata: Metadata,
+        raw_audio_url: str,
+        transcript: Transcript,
+        geo: GeoResponse | None = None,
+    ) -> helpers.Document:
+        # For database adapter, we convert Call records to Documents
+        # This is mainly used when rebuilding documents from DB records
+        srcList = set()
+        units = set()
+        radios = set()
+        for src in metadata["srcList"]:
+            if src["src"] <= 0:
+                continue
+            if len(src["tag"]):
+                units.add(src["tag"])
+                srcList.add(src["tag"])
+            else:
+                srcList.add(str(src["src"]))
+            radios.add(str(src["src"]))
+
+        raw_metadata = json.dumps(metadata)
+
+        doc = {
+            "freq": metadata["freq"],
+            "start_time": metadata["start_time"],
+            "stop_time": metadata["stop_time"],
+            "call_length": metadata["call_length"],
+            "talkgroup": metadata["talkgroup"],
+            "talkgroup_tag": metadata["talkgroup_tag"],
+            "talkgroup_description": metadata["talkgroup_description"],
+            "talkgroup_group_tag": metadata["talkgroup_group_tag"],
+            "talkgroup_group": metadata["talkgroup_group"],
+            "audio_type": metadata["audio_type"],
+            "short_name": metadata["short_name"],
+            "srcList": list(srcList),
+            "units": list(units),
+            "radios": list(radios),
+            "transcript": transcript.html,
+            "transcript_plaintext": transcript.txt,
+            "raw_transcript": transcript.json,
+            "raw_metadata": raw_metadata,
+            "raw_audio_url": raw_audio_url,
+            "id": id,
+        }
+
+        if geo:
+            doc.update(
+                {
+                    "_geo": geo["geo"],
+                    "geo_formatted_address": geo["geo_formatted_address"],
+                }
+            )
+
+        return doc  # type: ignore
+
+    def build_search_url(self, document: helpers.Document, index_name: str) -> str:
+        # Not applicable for database adapter
+        return ""
+
+    def index_call(
+        self,
+        id: int | str,
+        metadata: Metadata,
+        raw_audio_url: str,
+        transcript: Transcript,
+        geo: GeoResponse | None = None,
+        index_name: str | None = None,
+    ) -> str:
+        # Not applicable for database adapter (read-only)
+        raise NotImplementedError("Database adapter is read-only")
+
+    def index_calls(self, documents: list[helpers.Document]) -> bool:
+        # Not applicable for database adapter (read-only)
+        raise NotImplementedError("Database adapter is read-only")
+
+    def upsert_index(
+        self,
+        index_name: str | None = None,
+        update: bool = True,
+        enable_embeddings: bool = False,
+        dry_run: bool = False,
+    ):
+        # Not applicable for database adapter
+        raise NotImplementedError("Database adapter does not use indexes")
+
+    def set_index(self, index_name: str) -> None:
+        # Not applicable for database adapter
+        pass
+
+    def delete_index(self) -> None:
+        # Not applicable for database adapter
+        raise NotImplementedError("Database adapter does not use indexes")
+
+    def search(self, query: str, options: dict) -> dict:
+        # Not applicable for database adapter (read-only source)
+        raise NotImplementedError("Database adapter does not support search")
+
+    def get_documents(
+        self, pagination: dict, search: dict | None = None
+    ) -> Tuple[int, list[helpers.Document]]:
+        """Get documents from the database calls table"""
+        with Session(engine) as session:
+            # Build base query
+            query = select(Call)
+
+            # Apply search filters if provided
+            if search:
+                if "filter" in search:
+                    # Handle filter format from search engines
+                    # This is a simplified implementation - you may need to expand based on actual filter formats
+                    for filter_item in search["filter"]:
+                        if isinstance(filter_item, str):
+                            # Support various operators for filtering
+                            operators = [">=", "<=", ">", "<", "="]
+                            operator = None
+                            field = None
+                            value = None
+
+                            # Find the operator in the filter string
+                            for op in operators:
+                                if op in filter_item:
+                                    parts = filter_item.split(op, 1)
+                                    if len(parts) == 2:
+                                        field = parts[0].strip()
+                                        value = parts[1].strip().strip("'\"")
+                                        operator = op
+                                        break
+
+                            if field and operator and value:
+                                if field == "short_name":
+                                    if operator == "=":
+                                        query = query.where(
+                                            text(
+                                                "raw_metadata ->> 'short_name' = :value"
+                                            ).bindparams(value=value)
+                                        )
+                                elif field == "talkgroup":
+                                    try:
+                                        talkgroup_value = int(value)
+                                        if operator == "=":
+                                            query = query.where(
+                                                text(
+                                                    "(raw_metadata ->> 'talkgroup')::int = :value"
+                                                ).bindparams(value=talkgroup_value)
+                                            )
+                                    except ValueError:
+                                        pass  # Skip invalid talkgroup values
+                                elif field == "start_time_month":
+                                    # Special filter for filtering by month (format: YYYY-MM)
+                                    if operator == "=":
+                                        try:
+                                            # Parse YYYY-MM format
+                                            year_str, month_str = value.split("-")
+                                            year = int(year_str)
+                                            month = int(month_str)
+
+                                            # Calculate start and end of the month
+                                            month_start = datetime.datetime(
+                                                year, month, 1
+                                            )
+                                            if month == 12:
+                                                month_end = datetime.datetime(
+                                                    year + 1, 1, 1
+                                                )
+                                            else:
+                                                month_end = datetime.datetime(
+                                                    year, month + 1, 1
+                                                )
+
+                                            start_timestamp = int(
+                                                month_start.timestamp()
+                                            )
+                                            end_timestamp = int(month_end.timestamp())
+
+                                            query = query.where(
+                                                text(
+                                                    "start_time >= to_timestamp(:start_ts) AND start_time < to_timestamp(:end_ts)"
+                                                ).bindparams(
+                                                    start_ts=start_timestamp,
+                                                    end_ts=end_timestamp,
+                                                )
+                                            )
+                                        except (ValueError, IndexError):
+                                            pass  # Skip invalid month format
+                                elif field == "start_time":
+                                    try:
+                                        # Handle different time formats
+                                        if value.isdigit():
+                                            # Unix timestamp
+                                            timestamp_value = int(value)
+                                        else:
+                                            # Try to parse ISO format or other date formats
+                                            try:
+                                                # Try ISO format first
+                                                dt = datetime.datetime.fromisoformat(
+                                                    value.replace("Z", "+00:00")
+                                                )
+                                                timestamp_value = int(dt.timestamp())
+                                            except ValueError:
+                                                # Try other common formats
+                                                for fmt in [
+                                                    "%Y-%m-%d %H:%M:%S",
+                                                    "%Y-%m-%d",
+                                                    "%Y-%m-%dT%H:%M:%S",
+                                                ]:
+                                                    try:
+                                                        dt = datetime.datetime.strptime(
+                                                            value, fmt
+                                                        )
+                                                        timestamp_value = int(
+                                                            dt.timestamp()
+                                                        )
+                                                        break
+                                                    except ValueError:
+                                                        continue
+                                                else:
+                                                    continue  # Skip if we can't parse the date
+
+                                        # Apply the appropriate filter based on operator
+                                        if operator == ">=":
+                                            query = query.where(
+                                                text(
+                                                    "start_time >= to_timestamp(:timestamp)"
+                                                ).bindparams(timestamp=timestamp_value)
+                                            )
+                                        elif operator == "<=":
+                                            query = query.where(
+                                                text(
+                                                    "start_time <= to_timestamp(:timestamp)"
+                                                ).bindparams(timestamp=timestamp_value)
+                                            )
+                                        elif operator == ">":
+                                            query = query.where(
+                                                text(
+                                                    "start_time > to_timestamp(:timestamp)"
+                                                ).bindparams(timestamp=timestamp_value)
+                                            )
+                                        elif operator == "<":
+                                            query = query.where(
+                                                text(
+                                                    "start_time < to_timestamp(:timestamp)"
+                                                ).bindparams(timestamp=timestamp_value)
+                                            )
+                                        elif operator == "=":
+                                            query = query.where(
+                                                text(
+                                                    "start_time = to_timestamp(:timestamp)"
+                                                ).bindparams(timestamp=timestamp_value)
+                                            )
+                                    except (ValueError, NameError):
+                                        pass  # Skip invalid timestamp values
+                                # Add more filter conditions as needed
+
+                if "q" in search:
+                    # Text search in transcript
+                    search_term = search["q"]
+                    query = query.where(
+                        text("transcript_plaintext ILIKE :search_term").bindparams(
+                            search_term=f"%{search_term}%"
+                        )
+                    )
+
+            # Get total count
+            count_query = select(text("count(*)")).select_from(query.subquery())
+            # Print the compiled query with parameters filled in
+            compiled_query = count_query.compile(compile_kwargs={"literal_binds": True})
+            logging.info(f"Count query: {compiled_query}")
+            total = session.exec(count_query).one()
+
+            # Apply pagination
+            offset = pagination.get("offset", 0)
+            limit = pagination.get("limit", 100)
+            query = query.offset(offset).limit(limit)
+
+            # Execute query and convert to documents
+            # Print the compiled query with parameters filled in
+            compiled_query = query.compile(compile_kwargs={"literal_binds": True})
+            logging.info(f"Executing query: {compiled_query}")
+            results = session.exec(query).all()
+            documents = []
+
+            for call in results:
+                # Convert Call record to Document format
+                metadata = call.raw_metadata
+                transcript = (
+                    Transcript(call.raw_transcript)
+                    if call.raw_transcript
+                    else Transcript()
+                )
+                geo = call.geo if call.geo else None
+
+                # Build document using the same format as search adapters
+                doc = self.build_document(
+                    call.id or 0,  # Handle potential None ID
+                    metadata,
+                    call.raw_audio_url,
+                    transcript,
+                    geo,
+                )
+                documents.append(doc)
+
+            return total, documents
 
 
 def get_default_adapter(index_name: str | None = None) -> SearchAdapter:

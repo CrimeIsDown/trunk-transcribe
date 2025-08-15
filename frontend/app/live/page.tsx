@@ -2,12 +2,12 @@ import React from 'react';
 
 import Container from 'react-bootstrap/Container';
 
-import Search from './Search';
+import LiveFeed from './LiveFeed';
 
 export default function Page() {
   return (
     <Container fluid={true}>
-      <Search />
+      <LiveFeed />
     </Container>
   );
 }
