@@ -122,7 +122,10 @@ if __name__ == "__main__":
                 i = 0
                 for document in reader.iter(type=dict):
                     if args.dry_run and i < 5:
-                        logging.info(f"Sample document {i + 1}:\n" + json.dumps(document, sort_keys=True, indent=2))
+                        logging.info(
+                            f"Sample document {i + 1}:\n"
+                            + json.dumps(document, sort_keys=True, indent=2)
+                        )
                     i += 1
 
                     try:
@@ -132,27 +135,39 @@ if __name__ == "__main__":
                         # Process in batches
                         if len(batch_documents) >= args.batch_size:
                             if args.dry_run:
-                                logging.info(f"Would import batch of {len(batch_documents)} documents")
+                                logging.info(
+                                    f"Would import batch of {len(batch_documents)} documents"
+                                )
                             else:
-                                logging.info(f"Importing batch of {len(batch_documents)} documents")
+                                logging.info(
+                                    f"Importing batch of {len(batch_documents)} documents"
+                                )
                                 meili_adapter.index_calls(batch_documents)
 
                             total_processed += len(batch_documents)
                             batch_documents = []
 
                             if total_processed % 10000 == 0:
-                                logging.info(f"Processed {total_processed} documents so far...")
+                                logging.info(
+                                    f"Processed {total_processed} documents so far..."
+                                )
 
                     except Exception as e:
-                        logging.warning(f"Failed to convert document {document.get('id', 'unknown')}: {e}")
+                        logging.warning(
+                            f"Failed to convert document {document.get('id', 'unknown')}: {e}"
+                        )
                         continue
 
             # Process remaining documents in the final batch
             if batch_documents:
                 if args.dry_run:
-                    logging.info(f"Would import final batch of {len(batch_documents)} documents")
+                    logging.info(
+                        f"Would import final batch of {len(batch_documents)} documents"
+                    )
                 else:
-                    logging.debug(f"Importing final batch of {len(batch_documents)} documents")
+                    logging.debug(
+                        f"Importing final batch of {len(batch_documents)} documents"
+                    )
                     meili_adapter.index_calls(batch_documents)
 
                 total_processed += len(batch_documents)
@@ -162,9 +177,13 @@ if __name__ == "__main__":
             continue
 
         if args.dry_run:
-            logging.info(f"Dry run complete for index '{index}'. Would have migrated {total_processed} documents.")
+            logging.info(
+                f"Dry run complete for index '{index}'. Would have migrated {total_processed} documents."
+            )
         else:
-            logging.info(f"Successfully migrated {total_processed} documents from index '{index}'")
+            logging.info(
+                f"Successfully migrated {total_processed} documents from index '{index}'"
+            )
 
     if not args.dry_run:
         logging.info("Migration completed successfully!")

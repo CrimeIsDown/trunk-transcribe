@@ -874,24 +874,34 @@ class DatabaseAdapter(SearchAdapter):
                                     if operator == "=":
                                         try:
                                             # Parse YYYY-MM format
-                                            year_str, month_str = value.split('-')
+                                            year_str, month_str = value.split("-")
                                             year = int(year_str)
                                             month = int(month_str)
 
                                             # Calculate start and end of the month
-                                            month_start = datetime.datetime(year, month, 1)
+                                            month_start = datetime.datetime(
+                                                year, month, 1
+                                            )
                                             if month == 12:
-                                                month_end = datetime.datetime(year + 1, 1, 1)
+                                                month_end = datetime.datetime(
+                                                    year + 1, 1, 1
+                                                )
                                             else:
-                                                month_end = datetime.datetime(year, month + 1, 1)
+                                                month_end = datetime.datetime(
+                                                    year, month + 1, 1
+                                                )
 
-                                            start_timestamp = int(month_start.timestamp())
+                                            start_timestamp = int(
+                                                month_start.timestamp()
+                                            )
                                             end_timestamp = int(month_end.timestamp())
 
                                             query = query.where(
-                                                text("start_time >= to_timestamp(:start_ts) AND start_time < to_timestamp(:end_ts)").bindparams(
+                                                text(
+                                                    "start_time >= to_timestamp(:start_ts) AND start_time < to_timestamp(:end_ts)"
+                                                ).bindparams(
                                                     start_ts=start_timestamp,
-                                                    end_ts=end_timestamp
+                                                    end_ts=end_timestamp,
                                                 )
                                             )
                                         except (ValueError, IndexError):
@@ -906,14 +916,24 @@ class DatabaseAdapter(SearchAdapter):
                                             # Try to parse ISO format or other date formats
                                             try:
                                                 # Try ISO format first
-                                                dt = datetime.datetime.fromisoformat(value.replace('Z', '+00:00'))
+                                                dt = datetime.datetime.fromisoformat(
+                                                    value.replace("Z", "+00:00")
+                                                )
                                                 timestamp_value = int(dt.timestamp())
                                             except ValueError:
                                                 # Try other common formats
-                                                for fmt in ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d", "%Y-%m-%dT%H:%M:%S"]:
+                                                for fmt in [
+                                                    "%Y-%m-%d %H:%M:%S",
+                                                    "%Y-%m-%d",
+                                                    "%Y-%m-%dT%H:%M:%S",
+                                                ]:
                                                     try:
-                                                        dt = datetime.datetime.strptime(value, fmt)
-                                                        timestamp_value = int(dt.timestamp())
+                                                        dt = datetime.datetime.strptime(
+                                                            value, fmt
+                                                        )
+                                                        timestamp_value = int(
+                                                            dt.timestamp()
+                                                        )
                                                         break
                                                     except ValueError:
                                                         continue
@@ -923,23 +943,33 @@ class DatabaseAdapter(SearchAdapter):
                                         # Apply the appropriate filter based on operator
                                         if operator == ">=":
                                             query = query.where(
-                                                text("start_time >= to_timestamp(:timestamp)").bindparams(timestamp=timestamp_value)
+                                                text(
+                                                    "start_time >= to_timestamp(:timestamp)"
+                                                ).bindparams(timestamp=timestamp_value)
                                             )
                                         elif operator == "<=":
                                             query = query.where(
-                                                text("start_time <= to_timestamp(:timestamp)").bindparams(timestamp=timestamp_value)
+                                                text(
+                                                    "start_time <= to_timestamp(:timestamp)"
+                                                ).bindparams(timestamp=timestamp_value)
                                             )
                                         elif operator == ">":
                                             query = query.where(
-                                                text("start_time > to_timestamp(:timestamp)").bindparams(timestamp=timestamp_value)
+                                                text(
+                                                    "start_time > to_timestamp(:timestamp)"
+                                                ).bindparams(timestamp=timestamp_value)
                                             )
                                         elif operator == "<":
                                             query = query.where(
-                                                text("start_time < to_timestamp(:timestamp)").bindparams(timestamp=timestamp_value)
+                                                text(
+                                                    "start_time < to_timestamp(:timestamp)"
+                                                ).bindparams(timestamp=timestamp_value)
                                             )
                                         elif operator == "=":
                                             query = query.where(
-                                                text("start_time = to_timestamp(:timestamp)").bindparams(timestamp=timestamp_value)
+                                                text(
+                                                    "start_time = to_timestamp(:timestamp)"
+                                                ).bindparams(timestamp=timestamp_value)
                                             )
                                     except (ValueError, NameError):
                                         pass  # Skip invalid timestamp values
