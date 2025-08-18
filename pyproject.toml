@@ -33,6 +33,7 @@ dependencies = [
     "alembic<2.0.0,>=1.14.0",
     "websockets>=13.1",
     "jsonlines>=4.0.0",
+    "tqdm>=4.0.0",
 ]
 name = "trunk-transcribe"
 version = "0.1.0"
