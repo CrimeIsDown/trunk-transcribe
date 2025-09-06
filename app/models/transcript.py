@@ -41,7 +41,7 @@ class Transcript:
         return "\n".join(
             [
                 (
-                    f'_{src["tag"] if len(src["tag"]) else src["src"]}:_ {transcript}'
+                    f"_{src['tag'] if len(src['tag']) else src['src']}:_ {transcript}"
                     if src
                     else transcript
                 )
@@ -54,7 +54,7 @@ class Transcript:
         return "\n".join(
             [
                 (
-                    f'{src["tag"] if len(src["tag"]) else src["src"]}: {transcript}'
+                    f"{src['tag'] if len(src['tag']) else src['src']}: {transcript}"
                     if src
                     else transcript
                 )

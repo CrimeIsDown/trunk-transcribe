@@ -36,11 +36,11 @@ def _build_metadata_args(metadata: Metadata) -> list[str]:
         "-metadata",
         f"year={year}",
         "-metadata",
-        f'title={metadata["talkgroup_tag"]}',
+        f"title={metadata['talkgroup_tag']}",
         "-metadata",
         f"artist={artist}",
         "-metadata",
-        f'album={metadata["talkgroup_group"]}',
+        f"album={metadata['talkgroup_group']}",
     ]
 
 

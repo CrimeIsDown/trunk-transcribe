@@ -130,7 +130,7 @@ class Autoscaler:
         raise Exception("Could not find image digest")
 
     def _make_instance_hostname(self, instance: dict) -> str:
-        return f'{instance["machine_id"]}.{instance["host_id"]}.vast.ai'
+        return f"{instance['machine_id']}.{instance['host_id']}.vast.ai"
 
     def _update_running_instances(self, instances: list[dict]):
         self.running_instances = [

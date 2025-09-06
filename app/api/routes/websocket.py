@@ -59,26 +59,26 @@ async def websocket_endpoint(
 ):
     await manager.connect(websocket)
 
-    last_id = None
+    last_id: int | None = None
     while not last_id:
         most_recent_calls = db.exec(
             select(models.Call.id, models.Call.transcript_plaintext)
             .order_by(models.Call.start_time.desc())  # type: ignore
             .limit(100)
         ).all()
-        for call in most_recent_calls:
-            if call.transcript_plaintext:  # type: ignore
-                last_id = call.id  # type: ignore
+        for call_tuple in most_recent_calls:
+            if call_tuple[1]:  # transcript_plaintext
+                last_id = call_tuple[0]  # id
                 break
         if not last_id:
             await asyncio.sleep(1)
 
     try:
         while True:
-            if last_id:
+            if last_id is not None:
                 query = (
                     select(models.Call)
-                    .where(models.Call.id > last_id)
+                    .where(models.Call.id > last_id)  # type: ignore
                     .where(
                         models.Call.transcript_plaintext != None  # noqa
                     )
