@@ -245,6 +245,25 @@ class TestGeocoding(unittest.TestCase):
                 expected_result["geo"]["lng"], result["geo"]["lng"], places=3
             )
 
+    def test_geocodes_valid_address_geoapify(self):
+        if not os.getenv("GEOAPIFY_API_KEY"):
+            self.skipTest("GEOAPIFY_API_KEY not set")
+
+        address_parts = {
+            "address": "333 north central ave",
+            "city": "Chicago",
+            "state": "IL",
+            "country": "US",
+        }
+
+        result = geocoding.geocode(address_parts, geocoder="geoapify")
+
+        self.assertIsNotNone(result)
+        if result:
+            self.assertIn("Chicago", result["geo_formatted_address"])
+            self.assertIsInstance(result["geo"]["lat"], float)
+            self.assertIsInstance(result["geo"]["lng"], float)
+
 
 if __name__ == "__main__":
     unittest.main()

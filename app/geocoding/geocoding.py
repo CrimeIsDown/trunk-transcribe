@@ -149,6 +149,9 @@ def geocode(
         }
         if os.getenv("PELIAS_API_KEY"):
             config["api_key"] = os.getenv("PELIAS_API_KEY")
+    elif geocoder == "geoapify" or (os.getenv("GEOAPIFY_API_KEY") and geocoder is None):
+        geocoder = "geoapify"
+        config = {"api_key": os.getenv("GEOAPIFY_API_KEY"), "timeout": 10}
     else:
         raise GeocodingException("Unsupported geocoder or no geocoding envs defined")
 
@@ -167,7 +170,7 @@ def geocode(
 
     def is_location_valid(location: Location) -> bool:
         # import json
-        # logging.debug(json.dumps(location.raw, indent=2))
+        # print(json.dumps(location.raw, indent=2))
         is_accurate = True
         if geocoder == "geocodio" and (
             location.raw.get("accuracy_type", [])
@@ -194,6 +197,11 @@ def geocode(
             or location.raw["properties"]["layer"] == "venue"
         ):
             is_accurate = False
+        elif geocoder == "geoapify" and (
+            location.raw["rank"]["confidence"] < 0.7
+            or location.raw["result_type"] not in ["amenity", "building"]
+        ):
+            is_accurate = False
 
         if not is_accurate:
             logging.debug(f"Geocoding result {location} not accurate enough")
@@ -201,6 +209,8 @@ def geocode(
 
         if geocoder == "pelias":
             location._address = location.raw["properties"]["label"]
+        elif geocoder == "geoapify":
+            location._address = location.raw["formatted"]
 
         if address_parts["city"] not in location.address:
             logging.debug(f"Geocoding result {location} does not match city")
