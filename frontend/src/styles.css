@@ -1,3 +1,21 @@
+@import "bootstrap/dist/css/bootstrap.min.css";
+@import "instantsearch.css/themes/satellite-min.css";
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+    "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
+    monospace;
+}
+
+/* Additional styles from the Next.js app */
 .pac-container {
   z-index: 10000;
 }
@@ -14,13 +32,14 @@
 .ais-SearchBox-input.form-control {
   padding-left: 2.5rem;
   box-shadow: none;
-  &:focus {
-    color: #212529;
-    background-color: #fff;
-    border-color: #86b7fe;
-    outline: 0;
-    box-shadow: 0 0 0 0.25rem rgb(13 110 253 / 25%);
-  }
+}
+
+.ais-SearchBox-input.form-control:focus {
+  color: #212529;
+  background-color: #fff;
+  border-color: #86b7fe;
+  outline: 0;
+  box-shadow: 0 0 0 0.25rem rgb(13 110 253 / 25%);
 }
 
 .ais-SortBy-select.form-select,
@@ -31,27 +50,29 @@
 #option-buttons {
   height: 2.5rem;
   margin-top: 0.5rem;
-  > * {
-    margin-right: 0.5rem;
-  }
-  #refresh-buttons {
-    svg.spin {
-      animation: 2s linear infinite spinner-border;
-    }
-    button.spin svg {
-      animation: 0.75s linear 1 spinner-border;
-    }
-  }
+}
+
+#option-buttons > * {
+  margin-right: 0.5rem;
+}
+
+#option-buttons #refresh-buttons svg.spin {
+  animation: 2s linear infinite spinner-border;
+}
+
+#option-buttons #refresh-buttons button.spin svg {
+  animation: 0.75s linear 1 spinner-border;
 }
 
 #saved-h-menu .btn.list-group-item {
   background-color: var(--bs-btn-bg);
   color: var(--bs-btn-color);
   border-radius: 0;
-  &:last-child {
-    border-top-right-radius: var(--bs-list-group-border-radius);
-    border-bottom-right-radius: var(--bs-list-group-border-radius);
-  }
+}
+
+#saved-h-menu .btn.list-group-item:last-child {
+  border-top-right-radius: var(--bs-list-group-border-radius);
+  border-bottom-right-radius: var(--bs-list-group-border-radius);
 }
 
 .ais-Hits-item, .ais-InfiniteHits-item {
@@ -61,33 +82,35 @@
   background: var(--bs-body-bg-rgb);
   box-shadow: none;
   line-height: 1rem !important;
-  &.selected {
-    background: var(--bs-tertiary-bg);
-  }
-  blockquote {
-    border-left: 0.1rem solid var(--bs-primary-border-subtle);
-    padding-left: 0.3rem;
-    font-size: 1rem;
-    margin-bottom: 0;
-    overflow-wrap: anywhere;
-  }
-  p {
-    line-height: 1.3rem;
-    margin-bottom: 0.1rem;
-  }
-  .media-player-container {
-    margin: 0.25rem;
-  }
+}
+
+.ais-Hits-item.selected, .ais-InfiniteHits-item.selected {
+  background: var(--bs-tertiary-bg);
+}
+
+.ais-Hits-item blockquote, .ais-InfiniteHits-item blockquote {
+  border-left: 0.1rem solid var(--bs-primary-border-subtle);
+  padding-left: 0.3rem;
+  font-size: 1rem;
+  margin-bottom: 0;
+  overflow-wrap: anywhere;
+}
+
+.ais-Hits-item p, .ais-InfiniteHits-item p {
+  line-height: 1.3rem;
+  margin-bottom: 0.1rem;
+}
+
+.ais-Hits-item .media-player-container, .ais-InfiniteHits-item .media-player-container {
+  margin: 0.25rem;
 }
 
 .ais-Highlight-highlighted, .ais-Snippet-highlighted {
   font-style: inherit;
 }
 
-#filters {
-  .ais-ClearRefinements-button {
-      min-height: 3rem;
-  }
+#filters .ais-ClearRefinements-button {
+  min-height: 3rem;
 }
 
 .ais-CurrentRefinements--noRefinement > .ais-CurrentRefinements-list {
@@ -101,10 +124,11 @@
 .ais-CurrentRefinements-item {
   background-color: var(--bs-white);
   color: var(--bs-black);
-  .ais-CurrentRefinements-delete {
-    color: var(--bs-gray-500);
-    margin-top: 0.125rem;
-  }
+}
+
+.ais-CurrentRefinements-item .ais-CurrentRefinements-delete {
+  color: var(--bs-gray-500);
+  margin-top: 0.125rem;
 }
 
 .ais-HierarchicalMenu-link--selected {
@@ -134,17 +158,11 @@
 
 .ais-GeoSearch-map {
   height: 75vh;
-  // Google Maps infobox
-  .gm-style-iw.gm-style-iw-c {
-    color: var(--bs-gray-900);
-  }
 }
 
-// audio.call-audio {
-//   height: 100px;
-//   width: 100%;
-//   max-width: 400px;
-// }
+.ais-GeoSearch-map .gm-style-iw.gm-style-iw-c {
+  color: var(--bs-gray-900);
+}
 
 .metadata-modal pre {
   height: 80vh;

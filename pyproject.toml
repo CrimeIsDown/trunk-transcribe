@@ -23,7 +23,6 @@ dependencies = [
     "psycopg[binary,pool]<4.0.0,>=3.1.12",
     "sqlalchemy[mypy]<3.0.0,>=2.0.22",
     "geopy<3.0.0,>=2.4.1",
-    "google-generativeai<1,>=0",
     "deepgram-sdk<4.0.0,>=3.2.2",
     "shapely<3.0.0,>=2.0.4",
     "requests-cache<2.0.0,>=1.2.0",

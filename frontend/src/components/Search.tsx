@@ -1,11 +1,10 @@
 'use client';
 
-import { usePathname, useSearchParams } from 'next/navigation';
 import { UiState } from 'instantsearch.js';
 import { unescape } from 'instantsearch.js/es/lib/utils';
 import { history } from 'instantsearch.js/es/lib/routers';
 import { simple } from 'instantsearch.js/es/lib/stateMappings';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { FaFilter, FaCalendar } from 'react-icons/fa';
 import {
   Hits,
@@ -18,13 +17,12 @@ import {
   HitsPerPage,
   Pagination,
   HierarchicalMenu,
+  InstantSearch,
 } from 'react-instantsearch';
-import { InstantSearchNext, InstantSearchNextRouting } from 'react-instantsearch-nextjs';
 import { instantMeiliSearch } from '@meilisearch/instant-meilisearch';
 
 import moment from 'moment';
-import { Accordion, Button, Col, Collapse, Modal, Row } from 'react-bootstrap';
-import dynamic from 'next/dynamic';
+import { Accordion, Button, Col, Collapse, Row } from 'react-bootstrap';
 import { Hit as HitComponent } from './Hit';
 
 function transformItems(items: any): any {
@@ -101,22 +99,6 @@ function transformItems(items: any): any {
     hit.start_time_string = start_time.toDate().toLocaleString();
     hit.relative_time = start_time.fromNow();
 
-    // hit.permalink = this.search.createURL({
-    //   [this.indexName]: {
-    //     refinementList: {
-    //       talkgroup_tag: [hit.talkgroup_tag],
-    //     },
-    //     range: {
-    //       start_time: `${hit.start_time}:${hit.start_time}`,
-    //     },
-    //   },
-    // });
-
-    // hit.contextUrl =
-    //   this.search.createURL(this.buildContextState(hit)).split('#')[0] +
-    //   '#hit-' +
-    //   hit.id;
-
     // Apply highlights
     for (let i = 0; i < hit.raw_transcript.length; i++) {
       const segment = hit.raw_transcript[i];
@@ -138,12 +120,12 @@ function transformItems(items: any): any {
   return items;
 };
 
-const hostUrl = process.env.MEILI_URL || 'http://localhost:7700';
-const apiKey = process.env.MEILI_MASTER_KEY || 'testing';
-const indexName = process.env.MEILI_INDEX || 'calls';
+const hostUrl = import.meta.env.VITE_MEILI_URL || 'http://localhost:7700';
+const apiKey = import.meta.env.VITE_MEILI_MASTER_KEY || 'testing';
+const indexName = import.meta.env.VITE_MEILI_INDEX || 'calls';
 
 const SearchComponent = () => {
-  const { searchClient } = instantMeiliSearch(hostUrl, apiKey);
+  const searchClient = instantMeiliSearch(hostUrl, apiKey).searchClient;
 
   const [filtersOpen, setFiltersOpen] = useState(true);
 
@@ -152,9 +134,6 @@ const SearchComponent = () => {
     clearTimeout(timer);
     timer = setTimeout(() => refine(query), 500);
   };
-
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
 
   const routing = {
     router: history({
@@ -181,23 +160,14 @@ const SearchComponent = () => {
         }
         return routeState;
       },
-      getLocation: (): Location => {
-        if (typeof window === 'undefined') {
-          const url = `http://localhost:3000${pathname}?${searchParams}`;
-          return new URL(url) as unknown as Location;
-        }
-
-        return window.location;
-      },
       cleanUrlOnDispose: false,
     }),
     stateMapping: simple(),
-  } as unknown as InstantSearchNextRouting<UiState, UiState>;
+  };
 
   return (
-    <InstantSearchNext searchClient={searchClient} indexName={indexName} routing={routing} future={{preserveSharedStateOnUnmount: true}}>
+    <InstantSearch searchClient={searchClient} indexName={indexName} routing={routing} future={{preserveSharedStateOnUnmount: true}}>
       <h1>Call Transcript Search</h1>
-      <a href="/live">View firehose</a>
       <Row className="mb-2">
         <Col lg={3} className="d-none d-lg-block">
           <h2 className="fs-4">Filters</h2>
@@ -324,8 +294,8 @@ const SearchComponent = () => {
           <Pagination className="mt-3" />
         </Col>
       </Row>
-    </InstantSearchNext>
+    </InstantSearch>
   );
 }
 
-export default dynamic(() => Promise.resolve(SearchComponent), { ssr: false });
+export default SearchComponent;
