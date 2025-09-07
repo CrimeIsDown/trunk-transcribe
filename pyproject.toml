@@ -65,6 +65,7 @@ whispers2t = [
 package = false
 
 [tool.uv.sources]
+apprise = { git = "https://github.com/EricTendian/apprise.git", branch = "master" }
 geopy = { git = "https://github.com/moise-dev/geopy.git", branch = "geoapify" }
 openai-whisper = { git = "https://github.com/openai/whisper.git", rev = "v20250625" }
 faster-whisper = { git = "https://github.com/SYSTRAN/faster-whisper.git", rev = "v1.2.0" }

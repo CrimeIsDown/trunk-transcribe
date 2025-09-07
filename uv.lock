@@ -166,7 +166,7 @@ wheels = [
 [[package]]
 name = "apprise"
 version = "1.9.4"
-source = { registry = "https://pypi.org/simple" }
+source = { git = "https://github.com/EricTendian/apprise.git?branch=master#ec45bc0c93b42496d44489bd48f935a3b7cbd889" }
 dependencies = [
     { name = "certifi" },
     { name = "click" },
@@ -174,10 +174,7 @@ dependencies = [
     { name = "pyyaml" },
     { name = "requests" },
     { name = "requests-oauthlib" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/51/f9/bda66afaf393f6914f4d6c035964936cadd98ee1fef44e4e77cba3b5828c/apprise-1.9.4.tar.gz", hash = "sha256:483122aee19a89a7b075ecd48ef11ae37d79744f7aeb450bcf985a9a6c28c988", size = 1855012 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/83/fa/7875ad63088b2d7dea538ffe60fba85786c228c7349d258891c54d0416a0/apprise-1.9.4-py3-none-any.whl", hash = "sha256:17dca8ad0a5b2063f6bae707979a51ca2cb374fcc66b0dd5c05a9d286dd40069", size = 1402630 },
+    { name = "tzdata", marker = "sys_platform == 'win32'" },
 ]
 
 [[package]]
@@ -2490,7 +2487,7 @@ whispers2t = [
 [package.metadata]
 requires-dist = [
     { name = "alembic", specifier = ">=1.14.0,<2.0.0" },
-    { name = "apprise", specifier = ">=1.2,<2.0" },
+    { name = "apprise", git = "https://github.com/EricTendian/apprise.git?branch=master" },
     { name = "boto3", specifier = ">=1.26,<2.0" },
     { name = "boto3-stubs", specifier = ">=1.26,<2.0" },
     { name = "cachetools", specifier = ">=5.3,<6.0" },
