@@ -116,6 +116,10 @@ Some useful dashboards to check on the workers and queues:
 - http://localhost:15672/ - RabbitMQ management (see queue statistics and graphs), login with guest/guest unless you have configured a custom RabbitMQ password
 - http://localhost:5555/ - Flower, a Celery monitoring tool, use it to see details on current tasks and which tasks have failed, as well as current workers
 
+### Updating and Postgres 18 Upgrade
+
+Use `./update.sh` to pull the latest changes and restart services. As part of that script, if you already have a Postgres data volume created with the old layout (`/var/lib/postgresql/data`), it will automatically run `pg_upgrade` to migrate it to the Postgres 18+ layout (`/var/lib/postgresql/<major>/data`) without losing data.
+
 ## Configuration Files
 
 ### notifications.json

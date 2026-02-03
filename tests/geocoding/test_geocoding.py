@@ -200,7 +200,7 @@ class TestGeocoding(unittest.TestCase):
         }
         expected_result = {
             "geo": {"lat": 41.8867315, "lng": -87.764651},
-            "geo_formatted_address": "333 North Central Avenue, Chicago, Illinois, 60644",
+            "geo_formatted_address": "333 N Central Ave, Chicago, Illinois, 60644",
         }
 
         result = geocoding.geocode(address_parts, geocoder="arcgis")

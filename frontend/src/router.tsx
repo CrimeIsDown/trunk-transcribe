@@ -4,12 +4,20 @@ import { createRouter as createTanstackRouter } from '@tanstack/react-router'
 import { routeTree } from './routeTree.gen'
 
 // Create a new router instance
-export const createRouter = () => {
-  return createTanstackRouter({
+export const createRouter = () =>
+  createTanstackRouter({
     routeTree,
     scrollRestoration: true,
     defaultPreloadStaleTime: 0,
   })
+
+let router: ReturnType<typeof createRouter> | undefined
+
+export const getRouter = () => {
+  if (!router) {
+    router = createRouter()
+  }
+  return router
 }
 
 // Register the router instance for type safety
