@@ -12,11 +12,20 @@ env:
 
 jobs:
   test:
+    name: test (${{ matrix.whisper_implementation }})
 
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.12"]
+        include:
+          - whisper_implementation: openai
+            whisper_model: whisper-1
+          - whisper_implementation: deepgram
+            whisper_model: nova-2
+          - whisper_implementation: deepinfra
+            whisper_model: openai/whisper-large-v3-turbo
 
     steps:
       # https://github.com/orgs/community/discussions/25678#discussioncomment-5242449
@@ -56,10 +65,14 @@ jobs:
           set -x
           cp .env.testing .env
           echo "VERSION=${{ github.sha }}" >> .env
+          sed -i 's|^WHISPER_IMPLEMENTATION=.*|WHISPER_IMPLEMENTATION=${{ matrix.whisper_implementation }}|g' .env
+          sed -i 's|^WHISPER_MODEL=.*|WHISPER_MODEL=${{ matrix.whisper_model }}|g' .env
           cat .env
 
           { set +x; } 2>/dev/null
           sed -i 's/^# OPENAI_API_KEY=$/OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}/g' .env
+          sed -i 's/^# DEEPGRAM_API_KEY=$/DEEPGRAM_API_KEY=${{ secrets.DEEPGRAM_API_KEY }}/g' .env
+          sed -i 's/^# DEEPINFRA_API_KEY=$/DEEPINFRA_API_KEY=${{ secrets.DEEPINFRA_API_KEY }}/g' .env
           sed -i 's/^# GOOGLE_GEMINI_API_KEY=$/GOOGLE_GEMINI_API_KEY=${{ secrets.GOOGLE_GEMINI_API_KEY }}/g' .env
           sed -i 's/^# GOOGLE_MAPS_API_KEY=$/GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }}/g' .env
           sed -i 's/^# MAPBOX_API_KEY=$/MAPBOX_API_KEY=${{ secrets.MAPBOX_API_KEY }}/g' .env

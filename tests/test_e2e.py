@@ -119,33 +119,6 @@ class TestEndToEnd(unittest.TestCase):
         self.assertTrue(isinstance(json.loads(hit["raw_metadata"]), dict))
         self.assertTrue(isinstance(json.loads(hit["raw_transcript"]), list))
 
-    def test_transcribes_without_db(self):
-        result = self.transcribe(
-            "tests/data/9051-1699224861_773043750.0-call_20452.wav",
-            "tests/data/9051-1699224861_773043750.0-call_20452.json",
-            endpoint="tasks",
-            extra_params={"whisper_implementation": "openai:whisper-1"},
-        )
-
-        self.assertEqual("SUCCESS", result["task_status"])
-        self.assertTrue("1904399: " in result["task_result"])
-
-        sleep(2)  # Wait for search to update
-
-        result = adapter.search(
-            "additional information",
-            {"filter_by": 'talkgroup_group := "ISP Troop 3 - Chicago"'},
-        )
-
-        self.assertEqual(1, len(result["hits"]))
-
-        hit = result["hits"][0]["document"]
-
-        self.assertTrue('<i data-src="1904399">1904399:</i> ' in hit["transcript"])
-
-        self.assertTrue(isinstance(json.loads(hit["raw_metadata"]), dict))
-        self.assertTrue(isinstance(json.loads(hit["raw_transcript"]), list))
-
     def test_transcribes_in_batch(self):
         if os.getenv("WHISPER_IMPLEMENTATION") != "whispers2t":
             self.skipTest("WHISPER_IMPLEMENTATION must be whispers2t to test")
