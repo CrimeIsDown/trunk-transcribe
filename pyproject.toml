@@ -34,6 +34,8 @@ dependencies = [
     "websockets>=13.1",
     "jsonlines>=4.0.0",
     "tqdm>=4.0.0",
+    "pydantic-ai-slim[mcp]<1,>=0",
+    "meilisearch-mcp<1,>=0",
 ]
 name = "trunk-transcribe"
 version = "0.1.0"

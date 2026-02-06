@@ -82,13 +82,14 @@ def get_talkgroups(db: Session) -> list[dict]:
             raw_metadata::jsonb ->> 'short_name' AS short_name,
             raw_metadata::jsonb ->> 'talkgroup_group' AS talkgroup_group,
             raw_metadata::jsonb ->> 'talkgroup_tag' AS talkgroup_tag,
+            raw_metadata::jsonb ->> 'talkgroup_description' AS talkgroup_description,
             raw_metadata::jsonb ->> 'talkgroup' AS talkgroup
         FROM
             {CALLS_TABLE_NAME}
         WHERE
             raw_metadata::jsonb ->> 'talkgroup_tag' != ''
         GROUP BY
-            short_name, talkgroup_group, talkgroup_tag, talkgroup
+            short_name, talkgroup_group, talkgroup_tag, talkgroup_description, talkgroup
     """
 
     result = db.execute(text(query)).fetchall()

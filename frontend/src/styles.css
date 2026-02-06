@@ -172,3 +172,56 @@ fieldset .talkgroup-list {
   height: 50vh;
   overflow: auto;
 }
+
+.chat-page {
+  max-width: 1100px;
+  margin: 1rem auto 2rem;
+}
+
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.chat-message {
+  border: 1px solid var(--bs-border-color);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+}
+
+.chat-message.user {
+  background: var(--bs-primary-bg-subtle);
+}
+
+.chat-message.assistant {
+  background: var(--bs-light-bg-subtle);
+}
+
+.chat-message-role {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--bs-secondary-color);
+  margin-bottom: 0.35rem;
+}
+
+.chat-message-content > :last-child {
+  margin-bottom: 0;
+}
+
+.chat-message-meta {
+  font-size: 0.8rem;
+  color: var(--bs-secondary-color);
+  margin-top: 0.5rem;
+}
+
+.chat-citations {
+  margin: 0.5rem 0 0 1rem;
+  padding: 0;
+}
+
+.chat-citations li {
+  font-size: 0.85rem;
+  margin-top: 0.25rem;
+}

@@ -106,6 +106,36 @@ class TestApiRoutes(unittest.TestCase):
         self.assertEqual("openai:whisper-1", queue_mock.call_args.args[3])
         self.assertEqual(42, queue_mock.call_args.args[4])
 
+    def test_preflight_options_allows_localhost_3001(self):
+        with patch.dict("os.environ", {"API_KEY": "testing"}, clear=False):
+            response = self.client.options(
+                "/talkgroups",
+                headers={
+                    "Origin": "http://localhost:3001",
+                    "Access-Control-Request-Method": "GET",
+                    "Access-Control-Request-Headers": "authorization,content-type",
+                },
+            )
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(
+            "http://localhost:3001",
+            response.headers.get("access-control-allow-origin"),
+        )
+
+    def test_unauthorized_get_has_cors_header_for_localhost_3001(self):
+        with patch.dict("os.environ", {"API_KEY": "testing"}, clear=False):
+            response = self.client.get(
+                "/talkgroups",
+                headers={"Origin": "http://localhost:3001"},
+            )
+
+        self.assertEqual(401, response.status_code)
+        self.assertEqual(
+            "http://localhost:3001",
+            response.headers.get("access-control-allow-origin"),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

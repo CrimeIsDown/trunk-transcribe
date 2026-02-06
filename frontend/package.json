@@ -7,7 +7,7 @@
     "start": "node .output/server/index.mjs",
     "build": "vite build",
     "serve": "vite preview",
-    "test": "vitest run",
+    "test": "vitest run --config vitest.config.ts",
     "format": "biome format",
     "lint": "biome lint",
     "check": "biome check"
@@ -30,6 +30,7 @@
     "react-dom": "^19.0.0",
     "react-icons": "^5.5.0",
     "react-instantsearch": "^7.22.1",
+    "react-markdown": "^10.1.0",
     "tailwindcss": "^4.0.6",
     "vite-tsconfig-paths": "^5.1.4"
   },
