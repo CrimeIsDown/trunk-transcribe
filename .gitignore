@@ -15,6 +15,9 @@ downloads/
 eggs/
 .eggs/
 lib/
+# Keep frontend source utilities tracked.
+!frontend/src/lib/
+!frontend/src/lib/**
 lib64/
 parts/
 sdist/
