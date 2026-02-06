@@ -65,6 +65,21 @@ OPENAI_API_KEY=my-api-key
 
 You may also want to set `CELERY_CONCURRENCY` to a higher number since the GPU is not a limitation on concurrency anymore.
 
+### Running workers using DeepInfra's Whisper API
+
+To use DeepInfra's OpenAI-compatible Whisper API instead of running the model locally, set the following in your `.env` file:
+
+```
+# Switch to DeepInfra implementation
+WHISPER_IMPLEMENTATION=deepinfra
+
+# DeepInfra API key
+DEEPINFRA_API_KEY=my-api-key
+
+# Optional model override (defaults to openai/whisper-large-v3-turbo)
+# WHISPER_MODEL=openai/whisper-large-v3-turbo
+```
+
 ### Running workers on Windows
 
 The worker can be run on Windows if needed.

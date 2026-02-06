@@ -7,7 +7,7 @@ from celery_batches import Batches
 from app.task import Task
 from .base import BaseWhisper
 
-API_IMPLEMENTATIONS = ["openai", "deepgram"]
+API_IMPLEMENTATIONS = ["openai", "deepgram", "deepinfra"]
 
 
 class WhisperTask(Task):
@@ -34,6 +34,9 @@ class WhisperTask(Task):
 
         if whisper_implementation == "deepgram" and not model_name:
             model_name = "nova-2"
+
+        if whisper_implementation == "deepinfra" and not model_name:
+            model_name = "openai/whisper-large-v3-turbo"
 
         return f"{whisper_implementation}:{model_name}"
 
@@ -74,6 +77,13 @@ class WhisperTask(Task):
                 from .deepgram import DeepgramApi
 
                 return DeepgramApi(api_key, model)
+            if implementation == "deepinfra":
+                api_key = os.getenv("DEEPINFRA_API_KEY")
+                if not api_key:
+                    raise RuntimeError("DEEPINFRA_API_KEY env must be set.")
+                from .deepinfra import DeepInfraApi
+
+                return DeepInfraApi(api_key, model)
             if implementation == "whisper-asr-api":
                 from .whisper_asr_api import WhisperAsrApi
 
