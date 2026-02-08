@@ -20,7 +20,6 @@ load_dotenv()
 
 from app.api.routes import (
     calls,
-    chatbot,
     config,
     health,
     sdrtrunk,
@@ -126,7 +125,6 @@ async def validation_exception_handler(
 
 
 app.include_router(calls.router)
-app.include_router(chatbot.router)
 app.include_router(config.router)
 app.include_router(health.router)
 app.include_router(sdrtrunk.router)

@@ -49,24 +49,13 @@ You can access a basic search page showing the calls at http://localhost:7700 (w
 
 **To use the same interface as on [CrimeIsDown.com](https://crimeisdown.com/transcripts/search):** Go to [crimeisdown.com/settings](https://crimeisdown.com/settings) and update the `MEILISEARCH_URL` to http://localhost:7700 or whatever your publicly accessible URL is. Next, update `MEILISEARCH_KEY` to match the key in your `.env` file. Third, if using a different index name, update `MEILISEARCH_INDEX` to that index name. After doing all those updates, you should be able to return to the transcript search page and have it talk to your local copy instead.
 
-### Scanner Summary Chat Endpoint
+### Scanner Transcript Chat UI
 
-A chatbot-friendly summary endpoint is available at `POST /chat/transcript-summary`. It requires the same bearer token auth as other protected API routes.
+A dedicated `chat-ui` container now hosts the [Pydantic AI web chat UI](https://ai.pydantic.dev/web/), rather than exposing a `/chat/transcript-summary` API route.
 
-Request body:
+By default, this service is included in `docker-compose.server.yml` and runs on `http://localhost:7932` (or `CHAT_UI_PORT` if overridden).
 
-```json
-{
-  "radio_channel": "Main Dispatch",
-  "start_datetime": "2026-02-06T08:00:00-06:00",
-  "end_datetime": "2026-02-06T10:00:00-06:00",
-  "question": "Summarize notable incidents",
-  "history": [],
-  "radio_system": "chi_cpd"
-}
-```
-
-The response includes `answer_markdown`, `citations`, `result_count`, and updated `history` for follow-up questions.
+The chat agent is configured for freeform transcript questions and can use Meilisearch MCP tools to answer questions across scanner transcripts.
 
 There are numerous `docker-compose.*.yml` files in this repo for various configurations of the different components. Add `COMPOSE_FILE=` to your `.env` with the value being a list of docker-compose configurations separated by `:`, see `.env.example` for some common ones.
 

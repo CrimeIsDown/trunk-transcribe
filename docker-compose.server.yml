@@ -25,6 +25,41 @@ services:
     labels:
       - autoheal=true
 
+  chat-ui:
+    image: ghcr.io/crimeisdown/trunk-transcribe:${VERSION:-main}
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      cache_from:
+        - ghcr.io/crimeisdown/trunk-transcribe:main
+    command: chat-ui
+    volumes:
+      - ./app:/src/app
+      - ./config:/src/config
+      - ./docker/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
+    env_file: .env
+    environment:
+      - CHAT_UI_HOST=0.0.0.0
+      - CHAT_UI_BIND_PORT=7932
+    ports:
+      - ${CHAT_UI_PORT:-7932}:7932
+    depends_on:
+      meilisearch:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "uv",
+          "run",
+          "python",
+          "-c",
+          "import socket,sys; s=socket.socket(); s.settimeout(5); rc=s.connect_ex(('127.0.0.1',7932)); s.close(); sys.exit(0 if rc == 0 else 1)",
+        ]
+      retries: 3
+      timeout: 5s
+    restart: always
+
   flower:
     image: ghcr.io/crimeisdown/trunk-transcribe:${VERSION:-main}
     command: flower

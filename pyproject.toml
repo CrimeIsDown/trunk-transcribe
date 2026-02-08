@@ -18,7 +18,7 @@ dependencies = [
     "apprise<2.0,>=1.2",
     "cachetools<6.0,>=5.3",
     "sentry-sdk[celery,fastapi]<2.0,>=1.14",
-    "openai<2.0,>=1.24",
+    "openai<3,>=2",
     "python-datauri<2.0.0,>=1.1.0",
     "psycopg[binary,pool]<4.0.0,>=3.1.12",
     "sqlalchemy[mypy]<3.0.0,>=2.0.22",
@@ -34,7 +34,7 @@ dependencies = [
     "websockets>=13.1",
     "jsonlines>=4.0.0",
     "tqdm>=4.0.0",
-    "pydantic-ai-slim[mcp]<1,>=0",
+    "pydantic-ai-slim[web]<2,>=1",
     "meilisearch-mcp<1,>=0",
 ]
 name = "trunk-transcribe"

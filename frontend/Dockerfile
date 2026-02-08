@@ -19,6 +19,7 @@ COPY package.json package-lock.json* ./
 COPY vite.config.ts tsconfig.json biome.json ./
 COPY public ./public
 COPY src ./src
+COPY .env ./
 RUN npm run build
 
 # Install runtime dependencies only
