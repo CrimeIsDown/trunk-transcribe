@@ -216,6 +216,12 @@ If a change is made to the search index settings or document data structure, it 
 docker compose run --rm api uv run app/bin/reindex.py --update-settings
 ```
 
+If the talkgroup search materialized view needs to be rebuilt after a schema change or large backfill, refresh it with:
+
+```bash
+docker compose run --rm api uv run app/bin/refresh-talkgroup-search.py
+```
+
 A more complex command, which updates calls in the `calls_demo` index without a `raw_transcript` attribute, and updating radio IDs for those calls from the chi_cfd system.
 
 ```bash
