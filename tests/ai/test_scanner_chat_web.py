@@ -43,12 +43,12 @@ class TestScannerChatWebHelpers(TestCase):
             prompt,
         )
 
-    def test_build_filter_uses_talkgroup_or_group_and_time_constraints(self):
+    def test_build_filter_uses_talkgroup_tag_or_group_and_time_constraints(self):
         start_datetime = dt.datetime(2026, 3, 8, 10, 0, tzinfo=dt.timezone.utc)
         end_datetime = dt.datetime(2026, 3, 8, 11, 0, tzinfo=dt.timezone.utc)
 
         filters = _build_filter(
-            talkgroup_descriptions=["Main Dispatch", "Citywide 1"],
+            talkgroup_tags=["Chi PD Zone 10", "Citywide 1"],
             radio_system="chi_cpd",
             start_datetime=start_datetime,
             end_datetime=end_datetime,
@@ -57,8 +57,8 @@ class TestScannerChatWebHelpers(TestCase):
         self.assertEqual(
             [
                 [
-                    'talkgroup_description = "Main Dispatch"',
-                    'talkgroup_description = "Citywide 1"',
+                    'talkgroup_tag = "Chi PD Zone 10"',
+                    'talkgroup_tag = "Citywide 1"',
                 ],
                 'short_name = "chi_cpd"',
                 "start_time >= 1772964000",

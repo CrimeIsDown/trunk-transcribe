@@ -56,17 +56,17 @@ def _default_chat_workflow() -> str:
     return "\n".join(
         [
             "Transcript search workflow:",
-            "1. Before searching transcripts, determine which talkgroup descriptions to filter on.",
-            "2. If the user did not specify exact talkgroup descriptions and the chat "
+            "1. Before searching transcripts, determine which talkgroup tags to filter on.",
+            "2. If the user did not specify exact talkgroup tags and the chat "
             "has not already confirmed them, call `get_valid_talkgroups` and ask "
             "the user to choose one or more talkgroups.",
             "3. After the user chooses talkgroups, call `search_transcripts` with "
-            "those talkgroup descriptions so the Meilisearch tool call includes "
+            "those talkgroup tags so the Meilisearch tool call includes "
             "`filter` constraints.",
             "4. Never run a transcript search without a talkgroup filter unless the "
             "user explicitly asks for an all-talkgroups search.",
             "5. When the user names an imprecise or partial channel, use "
-            "`get_valid_talkgroups` to confirm the exact talkgroup descriptions "
+            "`get_valid_talkgroups` to confirm the exact talkgroup tags "
             "first.",
         ]
     )
@@ -199,23 +199,23 @@ def _get_index_names_for_range(
 
 def _build_filter(
     *,
-    talkgroup_descriptions: list[str] | None = None,
+    talkgroup_tags: list[str] | None = None,
     radio_system: str | None = None,
     start_datetime: dt.datetime | None = None,
     end_datetime: dt.datetime | None = None,
 ) -> list[str | list[str]]:
     filters: list[str | list[str]] = []
 
-    normalized_talkgroups = [
-        talkgroup.strip()
-        for talkgroup in talkgroup_descriptions or []
-        if talkgroup and talkgroup.strip()
+    normalized_talkgroup_tags = [
+        talkgroup_tag.strip()
+        for talkgroup_tag in talkgroup_tags or []
+        if talkgroup_tag and talkgroup_tag.strip()
     ]
-    if normalized_talkgroups:
+    if normalized_talkgroup_tags:
         filters.append(
             [
-                f'talkgroup_description = "{_escape_filter_value(talkgroup)}"'
-                for talkgroup in normalized_talkgroups
+                f'talkgroup_tag = "{_escape_filter_value(talkgroup_tag)}"'
+                for talkgroup_tag in normalized_talkgroup_tags
             ]
         )
 
@@ -342,7 +342,7 @@ def _build_agent() -> Any:
         """Return valid talkgroup choices from the database.
 
         Use this before asking the user to choose talkgroups when they did not specify
-        an exact talkgroup description. Apply any known radio system, time window,
+        an exact talkgroup tag. Apply any known radio system, time window,
         or partial query so the choices are relevant to the user's request.
         """
 
@@ -367,7 +367,7 @@ def _build_agent() -> Any:
     @agent.tool_plain
     def search_transcripts(
         query: str,
-        talkgroup_descriptions: list[str],
+        talkgroup_tags: list[str],
         radio_system: str | None = None,
         start_datetime: str | None = None,
         end_datetime: str | None = None,
@@ -375,23 +375,23 @@ def _build_agent() -> Any:
     ) -> dict[str, Any]:
         """Search transcripts with Meilisearch filters.
 
-        Always pass one or more exact talkgroup descriptions so the tool call applies
+        Always pass one or more exact talkgroup tags so the tool call applies
         Meilisearch `filter` constraints instead of doing a broad unfiltered search.
         """
 
-        normalized_talkgroups = [
-            talkgroup.strip()
-            for talkgroup in talkgroup_descriptions
-            if talkgroup and talkgroup.strip()
+        normalized_talkgroup_tags = [
+            talkgroup_tag.strip()
+            for talkgroup_tag in talkgroup_tags
+            if talkgroup_tag and talkgroup_tag.strip()
         ]
-        if not normalized_talkgroups:
-            raise ValueError("talkgroup_descriptions must contain at least one value")
+        if not normalized_talkgroup_tags:
+            raise ValueError("talkgroup_tags must contain at least one value")
 
         normalized_limit = max(1, min(limit, 50))
         start_value = _normalize_iso_datetime(start_datetime)
         end_value = _normalize_iso_datetime(end_datetime)
         filters = _build_filter(
-            talkgroup_descriptions=normalized_talkgroups,
+            talkgroup_tags=normalized_talkgroup_tags,
             radio_system=radio_system,
             start_datetime=start_value,
             end_datetime=end_value,
