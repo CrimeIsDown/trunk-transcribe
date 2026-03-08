@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections import Counter
 from contextlib import AbstractAsyncContextManager
 import datetime as dt
 import json
@@ -20,7 +19,7 @@ if TYPE_CHECKING:
 DEFAULT_MODEL = "openai:gpt-4o-mini"
 DEFAULT_BIND_HOST = "0.0.0.0"
 DEFAULT_BIND_PORT = 7932
-DEFAULT_FACET_LIMIT = 12
+DEFAULT_TALKGROUP_CHOICE_LIMIT = 25
 DEFAULT_SEARCH_LIMIT = 20
 
 
@@ -231,32 +230,41 @@ def _build_filter(
     return filters
 
 
-def _aggregate_talkgroup_facets(
-    facet_distributions: list[dict[str, int]],
+def _get_valid_talkgroups_from_database(
     *,
-    facet_query: str | None = None,
-    limit: int = DEFAULT_FACET_LIMIT,
-) -> list[dict[str, int | str]]:
-    counts: Counter[str] = Counter()
-    for distribution in facet_distributions:
-        for talkgroup, count in distribution.items():
-            normalized = talkgroup.strip()
-            if normalized:
-                counts[normalized] += int(count)
+    radio_system: str | None = None,
+    start_datetime: dt.datetime | None = None,
+    end_datetime: dt.datetime | None = None,
+    search_query: str | None = None,
+    limit: int = DEFAULT_TALKGROUP_CHOICE_LIMIT,
+) -> list[dict[str, str]]:
+    from sqlmodel import Session
 
-    normalized_query = (facet_query or "").strip().lower()
-    items = counts.items()
-    if normalized_query:
-        items = [
-            (talkgroup, count)
-            for talkgroup, count in items
-            if normalized_query in talkgroup.lower()
-        ]
+    from app.models import models
+    from app.models.database import engine
 
-    sorted_items = sorted(items, key=lambda item: (-item[1], item[0].lower()))
+    normalized_limit = max(1, min(limit, 200))
+    normalized_search = (search_query or "").strip() or None
+
+    with Session(engine) as db:
+        talkgroups = models.get_talkgroups(
+            db,
+            radio_system=(radio_system or "").strip() or None,
+            start_datetime=start_datetime,
+            end_datetime=end_datetime,
+            search_query=normalized_search,
+            limit=normalized_limit,
+        )
+
     return [
-        {"talkgroup_description": talkgroup, "count": count}
-        for talkgroup, count in sorted_items[:limit]
+        {
+            "short_name": str(talkgroup["short_name"]),
+            "talkgroup_group": str(talkgroup["talkgroup_group"]),
+            "talkgroup_tag": str(talkgroup["talkgroup_tag"]),
+            "talkgroup_description": str(talkgroup["talkgroup_description"]),
+            "talkgroup": str(talkgroup["talkgroup"]),
+        }
+        for talkgroup in talkgroups
     ]
 
 
@@ -328,60 +336,32 @@ def _build_agent() -> Any:
         radio_system: str | None = None,
         start_datetime: str | None = None,
         end_datetime: str | None = None,
-        facet_query: str | None = None,
-        limit: int = DEFAULT_FACET_LIMIT,
+        search_query: str | None = None,
+        limit: int = DEFAULT_TALKGROUP_CHOICE_LIMIT,
     ) -> dict[str, Any]:
-        """Return valid talkgroup descriptions using Meilisearch facets.
+        """Return valid talkgroup choices from the database.
 
         Use this before asking the user to choose talkgroups when they did not specify
-        an exact talkgroup description. Apply any known radio system or time window so
-        the choices are relevant to the user's request.
+        an exact talkgroup description. Apply any known radio system, time window,
+        or partial query so the choices are relevant to the user's request.
         """
 
-        normalized_limit = max(1, min(limit, 50))
         start_value = _normalize_iso_datetime(start_datetime)
         end_value = _normalize_iso_datetime(end_datetime)
-        base_filters = _build_filter(
+        choices = _get_valid_talkgroups_from_database(
             radio_system=radio_system,
             start_datetime=start_value,
             end_datetime=end_value,
-        )
-
-        facet_distributions: list[dict[str, int]] = []
-        index_names = _get_index_names_for_range(start_value, end_value)
-        for index_name in index_names:
-            payload: dict[str, Any] = {
-                "q": "",
-                "limit": 0,
-                "facets": ["talkgroup_description"],
-            }
-            if base_filters:
-                payload["filter"] = base_filters
-            response = _meili_request(
-                "POST",
-                f"/indexes/{urllib_parse.quote(index_name, safe='')}/search",
-                payload=payload,
-            )
-            talkgroups = response.get("facetDistribution", {}).get(
-                "talkgroup_description", {}
-            )
-            facet_distributions.append(
-                {str(key): int(value) for key, value in talkgroups.items()}
-            )
-
-        talkgroup_choices = _aggregate_talkgroup_facets(
-            facet_distributions,
-            facet_query=facet_query,
-            limit=normalized_limit,
+            search_query=search_query,
+            limit=limit,
         )
 
         return {
-            "index_names": index_names,
             "radio_system": (radio_system or "").strip() or None,
             "start_datetime": start_value.isoformat() if start_value else None,
             "end_datetime": end_value.isoformat() if end_value else None,
-            "facet_query": (facet_query or "").strip() or None,
-            "choices": talkgroup_choices,
+            "search_query": (search_query or "").strip() or None,
+            "choices": choices,
         }
 
     @agent.tool_plain

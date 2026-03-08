@@ -76,7 +76,44 @@ def update_call(db: Session, call: CallUpdate, db_call: Call) -> Call:
     return db_call
 
 
-def get_talkgroups(db: Session) -> list[dict]:
+def get_talkgroups(
+    db: Session,
+    *,
+    radio_system: str | None = None,
+    start_datetime: datetime | None = None,
+    end_datetime: datetime | None = None,
+    search_query: str | None = None,
+    limit: int | None = None,
+) -> list[dict]:
+    where_clauses = [
+        "raw_metadata::jsonb ->> 'talkgroup_tag' != ''",
+        "COALESCE(raw_metadata::jsonb ->> 'talkgroup_description', '') != ''",
+    ]
+    params: dict[str, object] = {}
+
+    if radio_system:
+        where_clauses.append("raw_metadata::jsonb ->> 'short_name' = :radio_system")
+        params["radio_system"] = radio_system
+
+    if start_datetime:
+        where_clauses.append("start_time >= :start_datetime")
+        params["start_datetime"] = start_datetime
+
+    if end_datetime:
+        where_clauses.append("start_time <= :end_datetime")
+        params["end_datetime"] = end_datetime
+
+    if search_query:
+        where_clauses.append(
+            """(
+                raw_metadata::jsonb ->> 'talkgroup_description' ILIKE :search_pattern
+                OR raw_metadata::jsonb ->> 'talkgroup_tag' ILIKE :search_pattern
+                OR raw_metadata::jsonb ->> 'talkgroup_group' ILIKE :search_pattern
+                OR raw_metadata::jsonb ->> 'talkgroup' ILIKE :search_pattern
+            )"""
+        )
+        params["search_pattern"] = f"%{search_query}%"
+
     query = f"""
         SELECT
             raw_metadata::jsonb ->> 'short_name' AS short_name,
@@ -87,10 +124,16 @@ def get_talkgroups(db: Session) -> list[dict]:
         FROM
             {CALLS_TABLE_NAME}
         WHERE
-            raw_metadata::jsonb ->> 'talkgroup_tag' != ''
+            {' AND '.join(where_clauses)}
         GROUP BY
             short_name, talkgroup_group, talkgroup_tag, talkgroup_description, talkgroup
+        ORDER BY
+            short_name, talkgroup_group, talkgroup_description, talkgroup_tag, talkgroup
     """
 
-    result = db.execute(text(query)).fetchall()
+    if limit is not None:
+        query += "\n        LIMIT :limit"
+        params["limit"] = limit
+
+    result = db.execute(text(query), params).fetchall()
     return [dict(row._mapping) for row in result]
