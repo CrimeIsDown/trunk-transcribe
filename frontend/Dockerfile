@@ -19,6 +19,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY package.json package-lock.json* ./
 COPY vite.config.ts tsconfig.json biome.json ./
 COPY public ./public
+COPY server ./server
 COPY src ./src
 COPY .env ./
 RUN npm run build
