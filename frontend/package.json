@@ -13,6 +13,10 @@
     "check": "biome check"
   },
   "dependencies": {
+    "@ag-ui/client": "^0.0.47",
+    "@copilotkit/react-core": "^1.53.0",
+    "@copilotkit/react-ui": "^1.53.0",
+    "@copilotkit/runtime": "^1.53.0",
     "@meilisearch/instant-meilisearch": "^0.29.0",
     "@tailwindcss/vite": "^4.0.6",
     "@tanstack/react-devtools": "^0.8.2",

@@ -14,6 +14,7 @@ RUN \
 
 # Build the Tanstack Start application
 FROM base AS builder
+ENV NODE_OPTIONS=--max-old-space-size=4096
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json package-lock.json* ./
 COPY vite.config.ts tsconfig.json biome.json ./

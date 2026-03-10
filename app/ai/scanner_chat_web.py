@@ -83,18 +83,12 @@ def _default_system_prompt() -> str:
             "If the request is ambiguous (time range, channel, or radio system), "
             "ask a concise clarifying question.",
             "Cite concrete call IDs, talkgroups, and timestamps when you can.",
+            "If frontend search navigation tools are available, use them to help "
+            "the user open matching search results or cited calls.",
             "Never invent calls or details that are not present in retrieved data.",
             _default_chat_workflow(),
             _index_guidance(),
         ]
-    )
-
-
-def _default_web_instructions() -> str:
-    return (
-        "Ask any question about your scanner transcripts. "
-        "If you do not specify talkgroups, the assistant will ask you to choose "
-        "them before searching."
     )
 
 
@@ -468,21 +462,15 @@ def _build_app() -> tuple[Any, Any | None]:
     except Exception as exc:
         return _build_error_app(str(exc)), None
 
-    web_instructions = os.getenv("CHAT_UI_WEB_INSTRUCTIONS", _default_web_instructions())
-    to_web = getattr(agent, "to_web", None)
-    if callable(to_web):
-        app = to_web(instructions=web_instructions)
-    else:
-        to_ag_ui = getattr(agent, "to_ag_ui", None)
-        if not callable(to_ag_ui):
-            return (
-                _build_error_app(
-                    "Installed pydantic-ai package does not support Agent.to_web() "
-                    "or Agent.to_ag_ui()."
-                ),
-                None,
-            )
-        app = to_ag_ui()
+    to_ag_ui = getattr(agent, "to_ag_ui", None)
+    if not callable(to_ag_ui):
+        return (
+            _build_error_app(
+                "Installed pydantic-ai package does not support Agent.to_ag_ui()."
+            ),
+            None,
+        )
+    app = to_ag_ui()
 
     _register_mcp_lifecycle(app, agent)
     return app, agent

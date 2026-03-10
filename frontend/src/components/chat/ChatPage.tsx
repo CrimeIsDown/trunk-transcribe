@@ -1,77 +1,212 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
 import {
-  type ChatCitation,
-  type ChatHistoryMessage,
-  requestChatSummary,
-} from '@/lib/chatApi'
+  ThreadsProvider,
+  useCopilotAdditionalInstructions,
+  useFrontendTool,
+} from '@copilotkit/react-core'
+import { CopilotChat } from '@copilotkit/react-ui'
+import { useEffect, useMemo, useState } from 'react'
+import { Badge, Card, Form, Row, Col } from 'react-bootstrap'
+import {
+  buildScannerChatInstructions,
+  buildScannerSearchUrl,
+  createScannerChatThreadId,
+  toLocalDateTimeValue,
+  type ScannerChatContext,
+} from '@/lib/searchState'
 import { fetchTalkgroups } from '@/lib/talkgroupsApi'
-import { ChatComposer } from './ChatComposer'
-import { ChatMessage } from './ChatMessage'
 
-interface UiMessage extends ChatHistoryMessage {
-  citations?: ChatCitation[]
-  resultCount?: number
+function ScannerChatTools({ context }: { context: ScannerChatContext }) {
+  const contextKey = JSON.stringify(context)
+
+  useCopilotAdditionalInstructions(
+    {
+      instructions: buildScannerChatInstructions(context),
+    },
+    [contextKey],
+  )
+
+  useFrontendTool(
+    {
+      name: 'open_search_results',
+      description:
+        'Open the main transcript search page with a query and optional talkgroup, radio system, and time filters.',
+      parameters: [
+        {
+          name: 'query',
+          type: 'string',
+          description: 'Optional search query to run in the main transcript search UI.',
+          required: false,
+        },
+        {
+          name: 'talkgroupDescription',
+          type: 'string',
+          description:
+            'Optional talkgroup description to filter on. Defaults to the current chat scope.',
+          required: false,
+        },
+        {
+          name: 'radioSystem',
+          type: 'string',
+          description:
+            'Optional radio system short name to filter on. Defaults to the current chat scope.',
+          required: false,
+        },
+        {
+          name: 'startDatetime',
+          type: 'string',
+          description:
+            'Optional ISO datetime for the start of the search window. Defaults to the current chat scope.',
+          required: false,
+        },
+        {
+          name: 'endDatetime',
+          type: 'string',
+          description:
+            'Optional ISO datetime for the end of the search window. Defaults to the current chat scope.',
+          required: false,
+        },
+      ],
+      handler: (args) => {
+        const url = buildScannerSearchUrl({
+          query: typeof args.query === 'string' ? args.query : undefined,
+          talkgroupDescription:
+            typeof args.talkgroupDescription === 'string'
+              ? args.talkgroupDescription
+              : context.talkgroupDescription,
+          radioSystem:
+            typeof args.radioSystem === 'string'
+              ? args.radioSystem
+              : context.radioSystem,
+          startDatetime:
+            typeof args.startDatetime === 'string'
+              ? args.startDatetime
+              : context.startDatetime,
+          endDatetime:
+            typeof args.endDatetime === 'string'
+              ? args.endDatetime
+              : context.endDatetime,
+        })
+
+        window.location.assign(url)
+        return { opened: url }
+      },
+    },
+    [contextKey],
+  )
+
+  useFrontendTool(
+    {
+      name: 'open_call_in_search',
+      description:
+        'Open the main transcript search page focused on a specific cited call and highlight that result.',
+      parameters: [
+        {
+          name: 'callId',
+          type: 'string',
+          description: 'The call identifier to highlight in the search results.',
+          required: true,
+        },
+        {
+          name: 'callStartTime',
+          type: 'number',
+          description: 'The cited call start time as epoch seconds.',
+          required: true,
+        },
+        {
+          name: 'talkgroupDescription',
+          type: 'string',
+          description: 'The talkgroup description that contains the cited call.',
+          required: true,
+        },
+        {
+          name: 'radioSystem',
+          type: 'string',
+          description: 'Optional radio system short name for the cited call.',
+          required: false,
+        },
+      ],
+      handler: (args) => {
+        const url = buildScannerSearchUrl({
+          callId: String(args.callId),
+          callStartTime:
+            typeof args.callStartTime === 'number'
+              ? args.callStartTime
+              : Number(args.callStartTime),
+          talkgroupDescription: String(args.talkgroupDescription),
+          radioSystem:
+            typeof args.radioSystem === 'string'
+              ? args.radioSystem
+              : context.radioSystem,
+        })
+
+        window.location.assign(url)
+        return { opened: url }
+      },
+    },
+    [contextKey],
+  )
+
+  return null
 }
 
-interface ThreadConfig {
-  radio_channel: string
-  start_datetime: string
-  end_datetime: string
-  radio_system?: string
-}
-
-function pad2(value: number): string {
-  return value.toString().padStart(2, '0')
-}
-
-function toLocalDateTimeValue(value: Date): string {
-  return `${value.getFullYear()}-${pad2(value.getMonth() + 1)}-${pad2(value.getDate())}T${pad2(
-    value.getHours(),
-  )}:${pad2(value.getMinutes())}`
-}
-
-function toThreadSignature(config: ThreadConfig): string {
-  return JSON.stringify(config)
+function buildSuggestionMessage(
+  context: ScannerChatContext,
+  prompt: string,
+): string {
+  const scope = context.talkgroupDescription.trim()
+    ? ` for ${context.talkgroupDescription.trim()}`
+    : ''
+  return `${prompt}${scope} between ${context.startDatetime} and ${context.endDatetime}.`
 }
 
 export default function ChatPage() {
   const now = useMemo(() => new Date(), [])
-  const [radioChannel, setRadioChannel] = useState('')
+  const [talkgroupDescription, setTalkgroupDescription] = useState('')
   const [radioSystem, setRadioSystem] = useState('')
   const [startDatetime, setStartDatetime] = useState(
     toLocalDateTimeValue(new Date(now.getTime() - 2 * 60 * 60 * 1000)),
   )
   const [endDatetime, setEndDatetime] = useState(toLocalDateTimeValue(now))
-  const [question, setQuestion] = useState('')
-  const [messages, setMessages] = useState<UiMessage[]>([])
-  const [history, setHistory] = useState<ChatHistoryMessage[]>([])
-  const [threadSignature, setThreadSignature] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [channelSuggestions, setChannelSuggestions] = useState<string[]>([])
+  const [talkgroupSuggestions, setTalkgroupSuggestions] = useState<string[]>([])
+  const [radioSystemSuggestions, setRadioSystemSuggestions] = useState<string[]>([])
 
   useEffect(() => {
     let isMounted = true
+
     fetchTalkgroups()
       .then((talkgroups) => {
         if (!isMounted) {
           return
         }
-        const channels = Array.from(
+
+        const nextTalkgroupSuggestions = Array.from(
           new Set(
             talkgroups
               .map((talkgroup) => talkgroup.talkgroup_description?.trim())
               .filter((value): value is string => Boolean(value)),
           ),
-        ).sort((a, b) => a.localeCompare(b))
-        setChannelSuggestions(channels)
+        ).sort((left, right) => left.localeCompare(right))
+
+        const nextRadioSystemSuggestions = Array.from(
+          new Set(
+            talkgroups
+              .map((talkgroup) => talkgroup.short_name?.trim())
+              .filter((value): value is string => Boolean(value)),
+          ),
+        ).sort((left, right) => left.localeCompare(right))
+
+        setTalkgroupSuggestions(nextTalkgroupSuggestions)
+        setRadioSystemSuggestions(nextRadioSystemSuggestions)
       })
       .catch(() => {
-        if (isMounted) {
-          setChannelSuggestions([])
+        if (!isMounted) {
+          return
         }
+
+        setTalkgroupSuggestions([])
+        setRadioSystemSuggestions([])
       })
 
     return () => {
@@ -79,177 +214,154 @@ export default function ChatPage() {
     }
   }, [])
 
-  const submitQuestion = async () => {
-    const trimmedQuestion = question.trim()
-    const trimmedChannel = radioChannel.trim()
-    if (!trimmedQuestion) {
-      setError('Question is required.')
-      return
-    }
-    if (!trimmedChannel) {
-      setError('Radio channel is required.')
-      return
-    }
+  const context = useMemo<ScannerChatContext>(
+    () => ({
+      talkgroupDescription: talkgroupDescription.trim(),
+      radioSystem: radioSystem.trim(),
+      startDatetime,
+      endDatetime,
+    }),
+    [endDatetime, radioSystem, startDatetime, talkgroupDescription],
+  )
 
-    const startDate = new Date(startDatetime)
-    const endDate = new Date(endDatetime)
-    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
-      setError('Valid start and end datetimes are required.')
-      return
-    }
-    if (startDate >= endDate) {
-      setError('Start datetime must be before end datetime.')
-      return
-    }
+  const threadId = useMemo(
+    () => createScannerChatThreadId(context),
+    [context],
+  )
 
-    const config: ThreadConfig = {
-      radio_channel: trimmedChannel,
-      start_datetime: startDate.toISOString(),
-      end_datetime: endDate.toISOString(),
-      radio_system: radioSystem.trim() || undefined,
-    }
-    const currentSignature = toThreadSignature(config)
-    const shouldReset =
-      messages.length > 0 &&
-      threadSignature !== null &&
-      currentSignature !== threadSignature
-
-    const baseMessages = shouldReset ? [] : messages
-    const requestHistory = shouldReset ? [] : history
-    const userMessage: UiMessage = { role: 'user', content: trimmedQuestion }
-
-    setError('')
-    setIsLoading(true)
-    setMessages([...baseMessages, userMessage])
-
-    try {
-      const response = await requestChatSummary({
-        radio_channel: config.radio_channel,
-        start_datetime: config.start_datetime,
-        end_datetime: config.end_datetime,
-        question: trimmedQuestion,
-        history: requestHistory,
-        radio_system: config.radio_system,
-      })
-
-      const assistantMessage: UiMessage = {
-        role: 'assistant',
-        content: response.answer_markdown,
-        citations: response.citations,
-        resultCount: response.result_count,
-      }
-
-      setMessages([...baseMessages, userMessage, assistantMessage])
-      setHistory(response.history)
-      setThreadSignature(currentSignature)
-      setQuestion('')
-    } catch (requestError) {
-      setMessages(baseMessages)
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : 'Failed to generate summary.',
-      )
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  const suggestions = useMemo(
+    () => [
+      {
+        title: 'Incident Summary',
+        message: buildSuggestionMessage(
+          context,
+          'Summarize the most significant incidents',
+        ),
+      },
+      {
+        title: 'Unit Activity',
+        message: buildSuggestionMessage(
+          context,
+          'Which units or radio IDs were most active',
+        ),
+      },
+      {
+        title: 'Timeline',
+        message: buildSuggestionMessage(
+          context,
+          'Build a concise timeline of the main events',
+        ),
+      },
+    ],
+    [context],
+  )
 
   return (
     <div className="chat-page">
-      <h1 className="mb-3">Scanner Summary Chat</h1>
+      <div className="d-flex flex-column flex-lg-row justify-content-between align-items-lg-start gap-3 mb-3">
+        <div>
+          <h1 className="mb-1">Scanner Chat</h1>
+          <p className="text-muted mb-0">
+            Investigate transcript activity here, then jump into the main search UI when
+            you need the raw results.
+          </p>
+        </div>
 
-      <div className="card mb-3">
-        <div className="card-body">
-          <div className="row g-3">
-            <div className="col-lg-4">
-              <label htmlFor="radio-channel" className="form-label">
-                Radio channel
-              </label>
-              <input
-                id="radio-channel"
-                list="channel-suggestions"
-                className="form-control"
-                value={radioChannel}
-                onChange={(event) => setRadioChannel(event.target.value)}
+        <Badge bg="light" text="dark" className="align-self-start border">
+          Thread {threadId.slice(-8)}
+        </Badge>
+      </div>
+
+      <Card className="mb-3">
+        <Card.Body>
+          <Row className="g-3">
+            <Col lg={4}>
+              <Form.Label htmlFor="chat-talkgroup-description">
+                Talkgroup / channel
+              </Form.Label>
+              <Form.Control
+                id="chat-talkgroup-description"
+                list="chat-talkgroup-suggestions"
+                value={talkgroupDescription}
+                onChange={(event) => setTalkgroupDescription(event.target.value)}
                 placeholder="e.g. Main Dispatch"
               />
-              <datalist id="channel-suggestions">
-                {channelSuggestions.map((channel) => (
-                  <option key={channel} value={channel} />
+              <datalist id="chat-talkgroup-suggestions">
+                {talkgroupSuggestions.map((suggestion) => (
+                  <option key={suggestion} value={suggestion} />
                 ))}
               </datalist>
-            </div>
-            <div className="col-lg-2">
-              <label htmlFor="radio-system" className="form-label">
-                Radio system
-              </label>
-              <input
-                id="radio-system"
-                className="form-control"
+            </Col>
+
+            <Col lg={2}>
+              <Form.Label htmlFor="chat-radio-system">Radio system</Form.Label>
+              <Form.Control
+                id="chat-radio-system"
+                list="chat-radio-system-suggestions"
                 value={radioSystem}
                 onChange={(event) => setRadioSystem(event.target.value)}
                 placeholder="optional"
               />
-            </div>
-            <div className="col-lg-3">
-              <label htmlFor="summary-start" className="form-label">
-                Start time
-              </label>
-              <input
-                id="summary-start"
+              <datalist id="chat-radio-system-suggestions">
+                {radioSystemSuggestions.map((suggestion) => (
+                  <option key={suggestion} value={suggestion} />
+                ))}
+              </datalist>
+            </Col>
+
+            <Col lg={3}>
+              <Form.Label htmlFor="chat-start-datetime">Start time</Form.Label>
+              <Form.Control
+                id="chat-start-datetime"
                 type="datetime-local"
-                className="form-control"
                 value={startDatetime}
                 onChange={(event) => setStartDatetime(event.target.value)}
               />
-            </div>
-            <div className="col-lg-3">
-              <label htmlFor="summary-end" className="form-label">
-                End time
-              </label>
-              <input
-                id="summary-end"
+            </Col>
+
+            <Col lg={3}>
+              <Form.Label htmlFor="chat-end-datetime">End time</Form.Label>
+              <Form.Control
+                id="chat-end-datetime"
                 type="datetime-local"
-                className="form-control"
                 value={endDatetime}
                 onChange={(event) => setEndDatetime(event.target.value)}
               />
-            </div>
-          </div>
-        </div>
-      </div>
+            </Col>
+          </Row>
 
-      <div className="card">
-        <div className="card-body chat-container">
-          {messages.length === 0 ? (
-            <p className="text-muted mb-3">
-              Ask for an incident digest in the selected time window.
-            </p>
-          ) : null}
+          <p className="text-muted small mb-0 mt-3">
+            Changing the scope starts a fresh chat thread so the agent does not mix
+            answers across different time windows or channels.
+          </p>
+        </Card.Body>
+      </Card>
 
-          {messages.map((message, index) => (
-            <ChatMessage
-              key={`${message.role}-${index}`}
-              role={message.role}
-              content={message.content}
-              citations={message.citations}
-              resultCount={message.resultCount}
+      <ThreadsProvider threadId={threadId}>
+        <ScannerChatTools context={context} />
+        <Card>
+          <Card.Body>
+            {!context.talkgroupDescription ? (
+              <div className="alert alert-warning mb-3">
+                No talkgroup is selected. The agent will ask for one before running a
+                narrow transcript search unless you explicitly request an all-talkgroups
+                scan.
+              </div>
+            ) : null}
+
+            <CopilotChat
+              key={threadId}
+              className="scanner-copilot-chat"
+              suggestions={suggestions}
+              labels={{
+                initial: 'Ask about incidents, units, timelines, or patterns in this scope.',
+                placeholder: 'Ask a question about the selected transcript window...',
+                title: 'Scanner Chat',
+              }}
             />
-          ))}
-
-          {error ? <div className="alert alert-danger mt-3 mb-0">{error}</div> : null}
-
-          <div className="mt-3">
-            <ChatComposer
-              question={question}
-              disabled={isLoading}
-              onQuestionChange={setQuestion}
-              onSubmit={submitQuestion}
-            />
-          </div>
-        </div>
-      </div>
+          </Card.Body>
+        </Card>
+      </ThreadsProvider>
     </div>
   )
 }

@@ -4,7 +4,7 @@ import { UiState } from 'instantsearch.js';
 import { unescape } from 'instantsearch.js/es/lib/utils';
 import { history } from 'instantsearch.js/es/lib/routers';
 import { simple } from 'instantsearch.js/es/lib/stateMappings';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { FaFilter, FaCalendar } from 'react-icons/fa';
 import {
   Hits,
@@ -18,12 +18,18 @@ import {
   Pagination,
   HierarchicalMenu,
   InstantSearch,
+  useRange,
+  useRefinementList,
 } from 'react-instantsearch';
 import { instantMeiliSearch } from '@meilisearch/instant-meilisearch';
 
 import moment from 'moment';
 import { Accordion, Button, Col, Collapse, Row } from 'react-bootstrap';
 import { Hit as HitComponent } from './Hit';
+import {
+  epochSecondsToLocalDateTimeValue,
+  toEpochSeconds,
+} from '@/lib/searchState';
 
 function transformItems(items: any): any {
   items.map((hit: any) => {
@@ -124,6 +130,77 @@ const hostUrl = import.meta.env.VITE_MEILI_URL || 'http://localhost:7700';
 const apiKey = import.meta.env.VITE_MEILI_MASTER_KEY || 'testing';
 const indexName = import.meta.env.VITE_MEILI_INDEX || 'calls';
 
+function VirtualRefinementList({ attribute }: { attribute: string }) {
+  useRefinementList({
+    attribute,
+    operator: 'or',
+  });
+
+  return null;
+}
+
+function CallTimeRangeFilter() {
+  const { start, refine } = useRange({
+    attribute: 'start_time',
+  });
+
+  const [minValue, setMinValue] = useState('');
+  const [maxValue, setMaxValue] = useState('');
+
+  useEffect(() => {
+    setMinValue(epochSecondsToLocalDateTimeValue(start[0]));
+  }, [start[0]]);
+
+  useEffect(() => {
+    setMaxValue(epochSecondsToLocalDateTimeValue(start[1]));
+  }, [start[1]]);
+
+  const updateRange = (nextMinValue: string, nextMaxValue: string) => {
+    const nextMin = toEpochSeconds(nextMinValue);
+    const nextMax = toEpochSeconds(nextMaxValue);
+    refine([nextMin, nextMax]);
+  };
+
+  return (
+    <Row>
+      <Col>
+        <label htmlFor="minStartTime">From Time</label>
+        <div className="input-group date">
+          <input
+            type="datetime-local"
+            id="minStartTime"
+            className="form-control"
+            value={minValue}
+            onChange={(event) => {
+              const nextValue = event.target.value;
+              setMinValue(nextValue);
+              updateRange(nextValue, maxValue);
+            }}
+          />
+          <span className="input-group-text"><FaCalendar /></span>
+        </div>
+      </Col>
+      <Col>
+        <label htmlFor="maxStartTime">To Time</label>
+        <div className="input-group date">
+          <input
+            type="datetime-local"
+            id="maxStartTime"
+            className="form-control"
+            value={maxValue}
+            onChange={(event) => {
+              const nextValue = event.target.value;
+              setMaxValue(nextValue);
+              updateRange(minValue, nextValue);
+            }}
+          />
+          <span className="input-group-text"><FaCalendar /></span>
+        </div>
+      </Col>
+    </Row>
+  );
+}
+
 const SearchComponent = () => {
   const searchClient = instantMeiliSearch(hostUrl, apiKey).searchClient;
 
@@ -167,6 +244,7 @@ const SearchComponent = () => {
 
   return (
     <InstantSearch searchClient={searchClient} indexName={indexName} routing={routing} future={{preserveSharedStateOnUnmount: true}}>
+      <VirtualRefinementList attribute="talkgroup_description" />
       <h1>Call Transcript Search</h1>
       <Row className="mb-2">
         <Col lg={3} className="d-none d-lg-block">
@@ -265,22 +343,7 @@ const SearchComponent = () => {
                 <Accordion.Item eventKey="7">
                   <Accordion.Header>Call Time</Accordion.Header>
                   <Accordion.Body>
-                    <Row>
-                      <Col>
-                        <label htmlFor="minStartTime">From Time</label>
-                        <div className="input-group date">
-                          <input type="datetime-local" id="minStartTime" className="form-control" />
-                          <span className="input-group-text"><FaCalendar /></span>
-                        </div>
-                      </Col>
-                      <Col>
-                        <label htmlFor="maxStartTime">To Time</label>
-                        <div className="input-group date">
-                          <input type="datetime-local" id="maxStartTime" className="form-control" />
-                          <span className="input-group-text"><FaCalendar /></span>
-                        </div>
-                      </Col>
-                    </Row>
+                    <CallTimeRangeFilter />
                   </Accordion.Body>
                 </Accordion.Item>
               </Accordion>

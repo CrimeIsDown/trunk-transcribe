@@ -147,6 +147,7 @@ services:
     ports:
       - ${FRONTEND_PORT:-3000}:3000
     environment:
+      - CHAT_AGENT_URL=http://chat-ui:7932
       - MEILI_URL
       - MEILI_MASTER_KEY
       - MEILI_INDEX
