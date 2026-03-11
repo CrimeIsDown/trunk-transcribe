@@ -7,12 +7,17 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from app.ai.scanner_chat_web import (
-    _build_filter,
+    DEFAULT_MAX_ANALYSIS_HITS,
+    SearchScope,
+    SearchScopeRange,
     _build_error_app,
+    _build_scope_filters,
     _default_system_prompt,
     _get_valid_talkgroups_from_database,
     _index_guidance,
     _normalize_model_name,
+    _normalize_search_scope,
+    _search_transcripts_for_scope,
 )
 
 
@@ -35,32 +40,60 @@ class TestScannerChatWebHelpers(TestCase):
             guidance = _index_guidance()
         self.assertIn("calls_YYYY_MM", guidance)
 
-    def test_system_prompt_requires_talkgroup_clarification(self):
+    def test_system_prompt_requires_current_search_scope(self):
         prompt = _default_system_prompt()
-        self.assertIn("get_valid_talkgroups", prompt)
-        self.assertIn(
-            "Never run a transcript search without a talkgroup filter",
-            prompt,
+        self.assertIn("get_current_search_scope", prompt)
+        self.assertIn("search_transcripts", prompt)
+        self.assertIn("paginates through matching results", prompt)
+
+    def test_normalize_search_scope_discards_unsupported_fields(self):
+        scope = _normalize_search_scope(
+            {
+                "query": "  shots fired ",
+                "refinementList": {
+                    "short_name": ["sys2", "sys1", "sys1"],
+                    "ignored": ["value"],
+                },
+                "hierarchicalMenu": {
+                    "talkgroup_hierarchy.lvl1": "sys1 > Police",
+                    "ignored": "value",
+                },
+                "range": {"start_time": "1700000000:1700003600"},
+                "maxHits": 150,
+            }
         )
 
-    def test_build_filter_uses_talkgroup_tag_or_group_and_time_constraints(self):
-        start_datetime = dt.datetime(2026, 3, 8, 10, 0, tzinfo=dt.timezone.utc)
-        end_datetime = dt.datetime(2026, 3, 8, 11, 0, tzinfo=dt.timezone.utc)
+        self.assertEqual("shots fired", scope.query)
+        self.assertEqual({"short_name": ["sys1", "sys2"]}, scope.refinementList)
+        self.assertEqual(
+            {"talkgroup_hierarchy.lvl1": "sys1 > Police"},
+            scope.hierarchicalMenu,
+        )
+        self.assertEqual("1700000000:1700003600", scope.range.start_time)
+        self.assertEqual(150, scope.maxHits)
 
-        filters = _build_filter(
-            talkgroup_tags=["Chi PD Zone 10", "Citywide 1"],
-            radio_system="chi_cpd",
-            start_datetime=start_datetime,
-            end_datetime=end_datetime,
+    def test_build_scope_filters_uses_refinements_hierarchy_and_time_constraints(self):
+        filters = _build_scope_filters(
+            SearchScope(
+                refinementList={
+                    "short_name": ["chi_cpd"],
+                    "talkgroup_tag": ["Chi PD Zone 10", "Citywide 1"],
+                },
+                hierarchicalMenu={
+                    "talkgroup_hierarchy.lvl1": "chi_cpd > Chicago Police Department"
+                },
+                range=SearchScopeRange(start_time="1772964000:1772967600"),
+            )
         )
 
         self.assertEqual(
             [
+                ['short_name = "chi_cpd"'],
                 [
                     'talkgroup_tag = "Chi PD Zone 10"',
                     'talkgroup_tag = "Citywide 1"',
                 ],
-                'short_name = "chi_cpd"',
+                'talkgroup_hierarchy.lvl1 = "chi_cpd > Chicago Police Department"',
                 "start_time >= 1772964000",
                 "start_time <= 1772967600",
             ],
@@ -126,6 +159,86 @@ class TestScannerChatWebHelpers(TestCase):
         self.assertEqual("dispatch", captured_kwargs["search_query"])
         self.assertEqual(10, captured_kwargs["limit"])
         self.assertEqual("Main Dispatch", choices[0]["talkgroup_description"])
+
+    def test_search_transcripts_for_scope_paginates_until_scope_cap(self):
+        offsets: list[int] = []
+
+        def fake_search_index_page(**kwargs):
+            offsets.append(kwargs["offset"])
+            remaining_hits = max(0, 130 - kwargs["offset"])
+            page_hits = min(kwargs["limit"], remaining_hits)
+            hits = [
+                {
+                    "id": f"call-{kwargs['offset'] + index}",
+                    "start_time": 1772967600 - kwargs["offset"] - index,
+                    "index_name": kwargs["index_name"],
+                }
+                for index in range(page_hits)
+            ]
+            return {
+                "index_name": kwargs["index_name"],
+                "estimated_total_hits": 130,
+                "filter": kwargs["filters"],
+                "hits": hits,
+                "offset": kwargs["offset"],
+                "limit": kwargs["limit"],
+            }
+
+        with patch(
+            "app.ai.scanner_chat_web._get_index_names_for_scope",
+            return_value=["calls_2026_03"],
+        ), patch(
+            "app.ai.scanner_chat_web._search_index_page",
+            side_effect=fake_search_index_page,
+        ):
+            response = _search_transcripts_for_scope(
+                SearchScope(
+                    query="shots fired",
+                    refinementList={"short_name": ["chi_cpd"]},
+                    maxHits=120,
+                )
+            )
+
+        self.assertEqual([0, 50, 100], offsets)
+        self.assertEqual(120, response["examined_hits"])
+        self.assertEqual(130, response["estimated_total_hits"])
+        self.assertTrue(response["truncated"])
+        self.assertEqual(120, len(response["hits"]))
+
+    def test_search_transcripts_for_scope_honors_default_cap(self):
+        offsets: list[int] = []
+
+        def fake_search_index_page(**kwargs):
+            offsets.append(kwargs["offset"])
+            hits = [
+                {
+                    "id": f"call-{kwargs['offset'] + index}",
+                    "start_time": 1772967600 - kwargs["offset"] - index,
+                    "index_name": kwargs["index_name"],
+                }
+                for index in range(kwargs["limit"])
+            ]
+            return {
+                "index_name": kwargs["index_name"],
+                "estimated_total_hits": DEFAULT_MAX_ANALYSIS_HITS + 60,
+                "filter": kwargs["filters"],
+                "hits": hits,
+                "offset": kwargs["offset"],
+                "limit": kwargs["limit"],
+            }
+
+        with patch.dict("os.environ", {}, clear=False), patch(
+            "app.ai.scanner_chat_web._get_index_names_for_scope",
+            return_value=["calls_2026_03"],
+        ), patch(
+            "app.ai.scanner_chat_web._search_index_page",
+            side_effect=fake_search_index_page,
+        ):
+            response = _search_transcripts_for_scope(SearchScope(query="shots fired"))
+
+        self.assertEqual([0, 50, 100, 150], offsets)
+        self.assertEqual(DEFAULT_MAX_ANALYSIS_HITS, response["examined_hits"])
+        self.assertTrue(response["truncated"])
 
     def test_error_app_reports_unhealthy(self):
         app = _build_error_app("missing config")

@@ -26,6 +26,7 @@ import { instantMeiliSearch } from '@meilisearch/instant-meilisearch';
 import moment from 'moment';
 import { Accordion, Button, Col, Collapse, Row } from 'react-bootstrap';
 import { Hit as HitComponent } from './Hit';
+import SearchAnalysisPanel from './chat/SearchAnalysisPanel';
 import {
   epochSecondsToLocalDateTimeValue,
   toEpochSeconds,
@@ -351,6 +352,7 @@ const SearchComponent = () => {
           </Collapse>
         </Col>
         <Col className="search-panel__results">
+          <SearchAnalysisPanel indexName={indexName} />
           <CurrentRefinements />
           <Stats />
           <Hits hitComponent={HitComponent} transformItems={transformItems} />

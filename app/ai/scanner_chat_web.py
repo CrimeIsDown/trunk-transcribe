@@ -11,6 +11,7 @@ from urllib import request as urllib_request
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
     from pydantic_ai import Agent
@@ -20,7 +21,34 @@ DEFAULT_MODEL = "openai:gpt-4o-mini"
 DEFAULT_BIND_HOST = "0.0.0.0"
 DEFAULT_BIND_PORT = 7932
 DEFAULT_TALKGROUP_CHOICE_LIMIT = 25
-DEFAULT_SEARCH_LIMIT = 20
+DEFAULT_MAX_ANALYSIS_HITS = 200
+DEFAULT_SEARCH_PAGE_SIZE = 50
+SUPPORTED_REFINEMENT_ATTRIBUTES = {
+    "radios",
+    "short_name",
+    "talkgroup_description",
+    "talkgroup_group",
+    "talkgroup_group_tag",
+    "talkgroup_tag",
+    "units",
+}
+SUPPORTED_HIERARCHICAL_ATTRIBUTES = {
+    "talkgroup_hierarchy.lvl0",
+    "talkgroup_hierarchy.lvl1",
+    "talkgroup_hierarchy.lvl2",
+}
+
+
+class SearchScopeRange(BaseModel):
+    start_time: str | None = None
+
+
+class SearchScope(BaseModel):
+    query: str | None = None
+    refinementList: dict[str, list[str]] = Field(default_factory=dict)
+    hierarchicalMenu: dict[str, str] = Field(default_factory=dict)
+    range: SearchScopeRange | None = None
+    maxHits: int | None = Field(default=None, ge=1)
 
 
 def _env_int(name: str, default: int, minimum: int = 0) -> int:
@@ -47,7 +75,7 @@ def _index_guidance() -> str:
     if split_by_month:
         return (
             f"Transcript indexes are split monthly with prefix `{base_index}_YYYY_MM`."
-            " If a query spans dates, search the relevant month indexes."
+            " Search the relevant month indexes based on the active time range."
         )
     return f"Use Meilisearch index `{base_index}` unless the user asks for a different index."
 
@@ -55,19 +83,12 @@ def _index_guidance() -> str:
 def _default_chat_workflow() -> str:
     return "\n".join(
         [
-            "Transcript search workflow:",
-            "1. Before searching transcripts, determine which talkgroup tags to filter on.",
-            "2. If the user did not specify exact talkgroup tags and the chat "
-            "has not already confirmed them, call `get_valid_talkgroups` and ask "
-            "the user to choose one or more talkgroups.",
-            "3. After the user chooses talkgroups, call `search_transcripts` with "
-            "those talkgroup tags so the Meilisearch tool call includes "
-            "`filter` constraints.",
-            "4. Never run a transcript search without a talkgroup filter unless the "
-            "user explicitly asks for an all-talkgroups search.",
-            "5. When the user names an imprecise or partial channel, use "
-            "`get_valid_talkgroups` to confirm the exact talkgroup tags "
-            "first.",
+            "Transcript analysis workflow:",
+            "1. If the frontend tool `get_current_search_scope` is available, call it before searching transcripts.",
+            "2. Use `search_transcripts` with that exact scope so your evidence matches the visible search results.",
+            "3. Only widen or change the scope if the user explicitly asks to change the search filters.",
+            "4. `search_transcripts` paginates through matching results up to the configured analysis cap.",
+            "5. If the user names an imprecise or partial channel and wants to refine the search, use `get_valid_talkgroups` to suggest concrete talkgroups.",
         ]
     )
 
@@ -76,15 +97,10 @@ def _default_system_prompt() -> str:
     return "\n".join(
         [
             "You are a scanner transcript analyst for public-safety radio traffic.",
-            "Handle freeform user questions about scanner transcripts, entities, "
-            "trends, timelines, and incidents.",
-            "Use the provided Meilisearch tools to retrieve transcript evidence "
-            "before answering factual questions.",
-            "If the request is ambiguous (time range, channel, or radio system), "
-            "ask a concise clarifying question.",
+            "Handle freeform user questions about scanner transcripts, entities, trends, timelines, and incidents.",
+            "Use the provided transcript search tools to retrieve evidence before answering factual questions.",
             "Cite concrete call IDs, talkgroups, and timestamps when you can.",
-            "If frontend search navigation tools are available, use them to help "
-            "the user open matching search results or cited calls.",
+            "If frontend search navigation tools are available, use them to help the user open matching search results or cited calls.",
             "Never invent calls or details that are not present in retrieved data.",
             _default_chat_workflow(),
             _index_guidance(),
@@ -108,6 +124,66 @@ def _normalize_iso_datetime(value: str | None) -> dt.datetime | None:
     if parsed.tzinfo is None or parsed.utcoffset() is None:
         return parsed.replace(tzinfo=dt.timezone.utc)
     return parsed
+
+
+def _parse_epoch_range(value: str | None) -> tuple[int | None, int | None]:
+    if not value:
+        return None, None
+    start_raw, end_raw = value.split(":", 1)
+
+    def parse_part(part: str) -> int | None:
+        stripped = part.strip()
+        if not stripped:
+            return None
+        try:
+            return int(stripped)
+        except ValueError:
+            return None
+
+    return parse_part(start_raw), parse_part(end_raw)
+
+
+def _normalize_search_scope(scope: SearchScope | dict[str, Any] | None) -> SearchScope:
+    parsed_scope = (
+        SearchScope.model_validate(scope)
+        if isinstance(scope, dict)
+        else scope
+        if isinstance(scope, SearchScope)
+        else SearchScope()
+    )
+
+    query = (parsed_scope.query or "").strip() or None
+    refinement_list = {
+        attribute: sorted(
+            {
+                value.strip()
+                for value in values
+                if isinstance(value, str) and value.strip()
+            }
+        )
+        for attribute, values in parsed_scope.refinementList.items()
+        if attribute in SUPPORTED_REFINEMENT_ATTRIBUTES
+    }
+    hierarchical_menu = {
+        attribute: value.strip()
+        for attribute, value in parsed_scope.hierarchicalMenu.items()
+        if attribute in SUPPORTED_HIERARCHICAL_ATTRIBUTES and value.strip()
+    }
+    range_value = (
+        parsed_scope.range.start_time.strip()
+        if parsed_scope.range and parsed_scope.range.start_time
+        else None
+    )
+
+    return SearchScope(
+        query=query,
+        refinementList={
+            attribute: values for attribute, values in refinement_list.items() if values
+        },
+        hierarchicalMenu=hierarchical_menu,
+        range=SearchScopeRange(start_time=range_value) if range_value else None,
+        maxHits=parsed_scope.maxHits,
+    )
 
 
 def _meili_config() -> tuple[str, str]:
@@ -153,6 +229,17 @@ def _meili_request(
         raise RuntimeError(f"Failed to reach Meilisearch: {exc.reason}") from exc
 
 
+def _scope_range_datetimes(scope: SearchScope) -> tuple[dt.datetime | None, dt.datetime | None]:
+    start_epoch, end_epoch = _parse_epoch_range(scope.range.start_time if scope.range else None)
+
+    def to_datetime(value: int | None) -> dt.datetime | None:
+        if value is None:
+            return None
+        return dt.datetime.fromtimestamp(value, tz=dt.timezone.utc)
+
+    return to_datetime(start_epoch), to_datetime(end_epoch)
+
+
 def _get_index_names_for_range(
     start_datetime: dt.datetime | None = None,
     end_datetime: dt.datetime | None = None,
@@ -191,35 +278,35 @@ def _get_index_names_for_range(
     return matching_indexes or [base_index]
 
 
-def _build_filter(
-    *,
-    talkgroup_tags: list[str] | None = None,
-    radio_system: str | None = None,
-    start_datetime: dt.datetime | None = None,
-    end_datetime: dt.datetime | None = None,
-) -> list[str | list[str]]:
+def _get_index_names_for_scope(scope: SearchScope) -> list[str]:
+    start_datetime, end_datetime = _scope_range_datetimes(scope)
+    index_names = _get_index_names_for_range(start_datetime, end_datetime)
+    return list(reversed(index_names))
+
+
+def _build_scope_filters(scope: SearchScope) -> list[str | list[str]]:
     filters: list[str | list[str]] = []
 
-    normalized_talkgroup_tags = [
-        talkgroup_tag.strip()
-        for talkgroup_tag in talkgroup_tags or []
-        if talkgroup_tag and talkgroup_tag.strip()
-    ]
-    if normalized_talkgroup_tags:
+    for attribute in sorted(scope.refinementList):
+        values = scope.refinementList[attribute]
+        if values:
+            filters.append(
+                [
+                    f'{attribute} = "{_escape_filter_value(value)}"'
+                    for value in values
+                ]
+            )
+
+    for attribute in sorted(scope.hierarchicalMenu):
         filters.append(
-            [
-                f'talkgroup_tag = "{_escape_filter_value(talkgroup_tag)}"'
-                for talkgroup_tag in normalized_talkgroup_tags
-            ]
+            f'{attribute} = "{_escape_filter_value(scope.hierarchicalMenu[attribute])}"'
         )
 
-    normalized_system = (radio_system or "").strip()
-    if normalized_system:
-        filters.append(f'short_name = "{_escape_filter_value(normalized_system)}"')
-    if start_datetime:
-        filters.append(f"start_time >= {int(start_datetime.timestamp())}")
-    if end_datetime:
-        filters.append(f"start_time <= {int(end_datetime.timestamp())}")
+    start_epoch, end_epoch = _parse_epoch_range(scope.range.start_time if scope.range else None)
+    if start_epoch is not None:
+        filters.append(f"start_time >= {start_epoch}")
+    if end_epoch is not None:
+        filters.append(f"start_time <= {end_epoch}")
 
     return filters
 
@@ -262,27 +349,33 @@ def _get_valid_talkgroups_from_database(
     ]
 
 
-def _search_index(
+def _search_index_page(
     *,
     index_name: str,
     query: str,
     filters: list[str | list[str]],
     limit: int,
+    offset: int,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "q": query,
         "limit": limit,
+        "offset": offset,
         "sort": ["start_time:desc"],
         "attributesToRetrieve": [
+            "geo_formatted_address",
             "id",
-            "start_time",
+            "radios",
+            "raw_audio_url",
             "short_name",
+            "start_time",
             "talkgroup",
-            "talkgroup_tag",
             "talkgroup_description",
             "talkgroup_group",
+            "talkgroup_group_tag",
+            "talkgroup_tag",
             "transcript_plaintext",
-            "raw_audio_url",
+            "units",
         ],
     }
     if filters:
@@ -302,6 +395,86 @@ def _search_index(
         "estimated_total_hits": int(response.get("estimatedTotalHits", len(hits))),
         "filter": payload.get("filter", []),
         "hits": hits,
+        "offset": offset,
+        "limit": limit,
+    }
+
+
+def _resolve_max_hits(scope: SearchScope, requested_max_hits: int | None = None) -> int:
+    configured_cap = _env_int(
+        "CHAT_UI_MAX_ANALYSIS_HITS", DEFAULT_MAX_ANALYSIS_HITS, minimum=1
+    )
+    desired = requested_max_hits or scope.maxHits or configured_cap
+    return max(1, min(desired, configured_cap))
+
+
+def _search_transcripts_for_scope(
+    scope: SearchScope | dict[str, Any] | None,
+    *,
+    requested_max_hits: int | None = None,
+) -> dict[str, Any]:
+    normalized_scope = _normalize_search_scope(scope)
+    max_hits = _resolve_max_hits(normalized_scope, requested_max_hits)
+    page_size = min(
+        _env_int("CHAT_UI_SEARCH_PAGE_SIZE", DEFAULT_SEARCH_PAGE_SIZE, minimum=1),
+        max_hits,
+    )
+    filters = _build_scope_filters(normalized_scope)
+    query = normalized_scope.query or ""
+    index_names = _get_index_names_for_scope(normalized_scope)
+
+    estimated_total_hits = 0
+    combined_hits: list[dict[str, Any]] = []
+    per_index_totals: list[dict[str, Any]] = []
+
+    for index_name in index_names:
+        offset = 0
+        index_total_hits = 0
+
+        while len(combined_hits) < max_hits:
+            remaining = max_hits - len(combined_hits)
+            response = _search_index_page(
+                index_name=index_name,
+                query=query,
+                filters=filters,
+                limit=min(page_size, remaining),
+                offset=offset,
+            )
+            hits = response["hits"]
+            index_total_hits = response["estimated_total_hits"]
+
+            if offset == 0:
+                estimated_total_hits += index_total_hits
+
+            if not hits:
+                break
+
+            combined_hits.extend(hits)
+            offset += len(hits)
+
+            if len(hits) < response["limit"]:
+                break
+
+        per_index_totals.append(
+            {
+                "index_name": index_name,
+                "estimated_total_hits": index_total_hits,
+            }
+        )
+
+        if len(combined_hits) >= max_hits:
+            break
+
+    return {
+        "query": query,
+        "index_names": index_names,
+        "index_totals": per_index_totals,
+        "filter": filters,
+        "applied_scope": normalized_scope.model_dump(exclude_none=True),
+        "estimated_total_hits": estimated_total_hits,
+        "examined_hits": len(combined_hits),
+        "truncated": estimated_total_hits > len(combined_hits),
+        "hits": combined_hits,
     }
 
 
@@ -317,7 +490,6 @@ def _build_agent() -> Any:
     model_name = os.getenv("CHAT_UI_MODEL") or os.getenv(
         "CHAT_SUMMARY_MODEL", DEFAULT_MODEL
     )
-
     system_prompt = os.getenv("CHAT_UI_SYSTEM_PROMPT", _default_system_prompt())
 
     agent = Agent(
@@ -333,12 +505,7 @@ def _build_agent() -> Any:
         search_query: str | None = None,
         limit: int = DEFAULT_TALKGROUP_CHOICE_LIMIT,
     ) -> dict[str, Any]:
-        """Return valid talkgroup choices from the database.
-
-        Use this before asking the user to choose talkgroups when they did not specify
-        an exact talkgroup tag. Apply any known radio system, time window,
-        or partial query so the choices are relevant to the user's request.
-        """
+        """Return talkgroup choices from the database for refining transcript searches."""
 
         start_value = _normalize_iso_datetime(start_datetime)
         end_value = _normalize_iso_datetime(end_datetime)
@@ -360,62 +527,12 @@ def _build_agent() -> Any:
 
     @agent.tool_plain
     def search_transcripts(
-        query: str,
-        talkgroup_tags: list[str],
-        radio_system: str | None = None,
-        start_datetime: str | None = None,
-        end_datetime: str | None = None,
-        limit: int = DEFAULT_SEARCH_LIMIT,
+        scope: SearchScope,
+        max_hits: int | None = None,
     ) -> dict[str, Any]:
-        """Search transcripts with Meilisearch filters.
+        """Search transcripts using the exact active search scope and paginate up to the analysis cap."""
 
-        Always pass one or more exact talkgroup tags so the tool call applies
-        Meilisearch `filter` constraints instead of doing a broad unfiltered search.
-        """
-
-        normalized_talkgroup_tags = [
-            talkgroup_tag.strip()
-            for talkgroup_tag in talkgroup_tags
-            if talkgroup_tag and talkgroup_tag.strip()
-        ]
-        if not normalized_talkgroup_tags:
-            raise ValueError("talkgroup_tags must contain at least one value")
-
-        normalized_limit = max(1, min(limit, 50))
-        start_value = _normalize_iso_datetime(start_datetime)
-        end_value = _normalize_iso_datetime(end_datetime)
-        filters = _build_filter(
-            talkgroup_tags=normalized_talkgroup_tags,
-            radio_system=radio_system,
-            start_datetime=start_value,
-            end_datetime=end_value,
-        )
-
-        index_names = _get_index_names_for_range(start_value, end_value)
-        responses = [
-            _search_index(
-                index_name=index_name,
-                query=query,
-                filters=filters,
-                limit=normalized_limit,
-            )
-            for index_name in index_names
-        ]
-        combined_hits = sorted(
-            [hit for response in responses for hit in response["hits"]],
-            key=lambda hit: int(hit.get("start_time", 0)),
-            reverse=True,
-        )[:normalized_limit]
-
-        return {
-            "query": query,
-            "index_names": index_names,
-            "filter": filters,
-            "result_count": sum(
-                int(response["estimated_total_hits"]) for response in responses
-            ),
-            "hits": combined_hits,
-        }
+        return _search_transcripts_for_scope(scope, requested_max_hits=max_hits)
 
     return agent
 

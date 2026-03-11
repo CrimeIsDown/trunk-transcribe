@@ -11,10 +11,6 @@ export default function Header() {
         <div className="px-2 fw-bold">
           <Link to="/live">Live Firehose</Link>
         </div>
-
-        <div className="px-2 fw-bold">
-          <Link to="/chat">Scanner Chat</Link>
-        </div>
       </nav>
     </header>
   )
