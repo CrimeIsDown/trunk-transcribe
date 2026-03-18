@@ -70,7 +70,11 @@ class ScannerSummaryRequest(BaseModel):
         if self.start_datetime >= self.end_datetime:
             raise ValueError("start_datetime must be before end_datetime")
 
-        max_window = dt.timedelta(hours=_env_int("CHAT_SUMMARY_MAX_WINDOW_HOURS", DEFAULT_MAX_WINDOW_HOURS, minimum=1))
+        max_window = dt.timedelta(
+            hours=_env_int(
+                "CHAT_SUMMARY_MAX_WINDOW_HOURS", DEFAULT_MAX_WINDOW_HOURS, minimum=1
+            )
+        )
         if self.end_datetime - self.start_datetime > max_window:
             raise ValueError(
                 f"Date range exceeds maximum of {int(max_window.total_seconds() // 3600)} hours"
@@ -294,7 +298,9 @@ async def _run_agent(prompt: str, *, model_name: str) -> AgentSummaryOutput:
         else:  # pragma: no cover - compatibility fallback
             result = await agent.run(prompt)
     except Exception as exc:  # pragma: no cover - exercised in integration only
-        raise ScannerSummaryServiceError(f"Failed to run scanner summary agent: {exc}") from exc
+        raise ScannerSummaryServiceError(
+            f"Failed to run scanner summary agent: {exc}"
+        ) from exc
 
     return result.output
 
@@ -310,7 +316,9 @@ async def summarize_scanner_events(
     request: ScannerSummaryRequest,
 ) -> ScannerSummaryResponse:
     model_name = os.getenv("CHAT_SUMMARY_MODEL", DEFAULT_MODEL)
-    index_names = get_index_names_for_range(request.start_datetime, request.end_datetime)
+    index_names = get_index_names_for_range(
+        request.start_datetime, request.end_datetime
+    )
     prompt = _build_user_prompt(request, index_names)
     output = await _run_agent(prompt, model_name=model_name)
 

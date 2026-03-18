@@ -66,7 +66,9 @@ class TestScannerSummaryHelpers(TestCase):
                 dt.datetime(2026, 1, 31, 23, 0, tzinfo=dt.timezone.utc),
                 dt.datetime(2026, 3, 1, 1, 0, tzinfo=dt.timezone.utc),
             )
-        self.assertEqual(["calls_2026_01", "calls_2026_02", "calls_2026_03"], index_names)
+        self.assertEqual(
+            ["calls_2026_01", "calls_2026_02", "calls_2026_03"], index_names
+        )
 
     def test_build_citation_search_url(self):
         with patch.dict("os.environ", {"SEARCH_UI_URL": "https://example.com/search"}):

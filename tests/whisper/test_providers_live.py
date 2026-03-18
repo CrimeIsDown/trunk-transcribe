@@ -21,7 +21,8 @@ def build_options() -> dict:
 
 
 @unittest.skipUnless(
-    RUN_LIVE_PROVIDER_TESTS, "Set RUN_LIVE_PROVIDER_TESTS=true to run live provider tests"
+    RUN_LIVE_PROVIDER_TESTS,
+    "Set RUN_LIVE_PROVIDER_TESTS=true to run live provider tests",
 )
 class TestLiveProviders(unittest.TestCase):
     def _assert_result_contract(self, result: dict):
@@ -42,14 +43,18 @@ class TestLiveProviders(unittest.TestCase):
 
     @unittest.skipUnless(os.getenv("DEEPGRAM_API_KEY"), "DEEPGRAM_API_KEY not set")
     def test_deepgram_live(self):
-        implementation = DeepgramApi(api_key=os.environ["DEEPGRAM_API_KEY"], model="nova-2")
+        implementation = DeepgramApi(
+            api_key=os.environ["DEEPGRAM_API_KEY"], model="nova-2"
+        )
         result = implementation.transcribe(TINY_AUDIO_FILE, build_options(), "en")
         self._assert_result_contract(result)
 
     @unittest.skipUnless(os.getenv("DEEPINFRA_API_KEY"), "DEEPINFRA_API_KEY not set")
     def test_deepinfra_live(self):
         model = os.getenv("DEEPINFRA_MODEL", "openai/whisper-large-v3-turbo")
-        implementation = DeepInfraApi(api_key=os.environ["DEEPINFRA_API_KEY"], model=model)
+        implementation = DeepInfraApi(
+            api_key=os.environ["DEEPINFRA_API_KEY"], model=model
+        )
         result = implementation.transcribe(TINY_AUDIO_FILE, build_options(), "en")
         self._assert_result_contract(result)
 

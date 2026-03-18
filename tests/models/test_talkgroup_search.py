@@ -36,7 +36,9 @@ class TestTalkgroupSearch(unittest.TestCase):
         )
 
         statement = str(db.statement)
-        self.assertIn("search_vector @@ websearch_to_tsquery('simple', :search_query)", statement)
+        self.assertIn(
+            "search_vector @@ websearch_to_tsquery('simple', :search_query)", statement
+        )
         self.assertNotIn("ILIKE", statement)
         self.assertEqual("cpd zone 1", db.params["search_query"])
         self.assertEqual("chi_cpd", db.params["radio_system"])

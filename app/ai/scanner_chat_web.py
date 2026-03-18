@@ -4,7 +4,7 @@ from contextlib import AbstractAsyncContextManager
 import datetime as dt
 import json
 import os
-from typing import TYPE_CHECKING, Any
+from typing import Any
 from urllib import error as urllib_error
 from urllib import parse as urllib_parse
 from urllib import request as urllib_request
@@ -12,10 +12,6 @@ from urllib import request as urllib_request
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
-
-if TYPE_CHECKING:
-    from pydantic_ai import Agent
-
 
 DEFAULT_MODEL = "openai:gpt-4o-mini"
 DEFAULT_BIND_HOST = "0.0.0.0"
@@ -222,15 +218,25 @@ def _meili_request(
     try:
         with urllib_request.urlopen(request, timeout=20) as response:
             return json.loads(response.read().decode("utf-8"))
-    except urllib_error.HTTPError as exc:  # pragma: no cover - network exercised in integration
+    except (
+        urllib_error.HTTPError
+    ) as exc:  # pragma: no cover - network exercised in integration
         detail = exc.read().decode("utf-8")
-        raise RuntimeError(f"Meilisearch request failed ({exc.code}): {detail}") from exc
-    except urllib_error.URLError as exc:  # pragma: no cover - network exercised in integration
+        raise RuntimeError(
+            f"Meilisearch request failed ({exc.code}): {detail}"
+        ) from exc
+    except (
+        urllib_error.URLError
+    ) as exc:  # pragma: no cover - network exercised in integration
         raise RuntimeError(f"Failed to reach Meilisearch: {exc.reason}") from exc
 
 
-def _scope_range_datetimes(scope: SearchScope) -> tuple[dt.datetime | None, dt.datetime | None]:
-    start_epoch, end_epoch = _parse_epoch_range(scope.range.start_time if scope.range else None)
+def _scope_range_datetimes(
+    scope: SearchScope,
+) -> tuple[dt.datetime | None, dt.datetime | None]:
+    start_epoch, end_epoch = _parse_epoch_range(
+        scope.range.start_time if scope.range else None
+    )
 
     def to_datetime(value: int | None) -> dt.datetime | None:
         if value is None:
@@ -291,10 +297,7 @@ def _build_scope_filters(scope: SearchScope) -> list[str | list[str]]:
         values = scope.refinementList[attribute]
         if values:
             filters.append(
-                [
-                    f'{attribute} = "{_escape_filter_value(value)}"'
-                    for value in values
-                ]
+                [f'{attribute} = "{_escape_filter_value(value)}"' for value in values]
             )
 
     for attribute in sorted(scope.hierarchicalMenu):
@@ -302,7 +305,9 @@ def _build_scope_filters(scope: SearchScope) -> list[str | list[str]]:
             f'{attribute} = "{_escape_filter_value(scope.hierarchicalMenu[attribute])}"'
         )
 
-    start_epoch, end_epoch = _parse_epoch_range(scope.range.start_time if scope.range else None)
+    start_epoch, end_epoch = _parse_epoch_range(
+        scope.range.start_time if scope.range else None
+    )
     if start_epoch is not None:
         filters.append(f"start_time >= {start_epoch}")
     if end_epoch is not None:
@@ -487,8 +492,8 @@ def _build_agent() -> Any:
         ) from exc
     _meili_config()
 
-    model_name = os.getenv("CHAT_UI_MODEL") or os.getenv(
-        "CHAT_SUMMARY_MODEL", DEFAULT_MODEL
+    model_name: str = (
+        os.getenv("CHAT_UI_MODEL") or os.getenv("CHAT_SUMMARY_MODEL") or DEFAULT_MODEL
     )
     system_prompt = os.getenv("CHAT_UI_SYSTEM_PROMPT", _default_system_prompt())
 

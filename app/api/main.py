@@ -53,9 +53,7 @@ def get_cors_allowed_origins() -> list[str]:
     configured_origins = os.getenv("CORS_ALLOWED_ORIGINS")
     if configured_origins:
         origins = [
-            origin.strip()
-            for origin in configured_origins.split(",")
-            if origin.strip()
+            origin.strip() for origin in configured_origins.split(",") if origin.strip()
         ]
         if origins:
             return origins

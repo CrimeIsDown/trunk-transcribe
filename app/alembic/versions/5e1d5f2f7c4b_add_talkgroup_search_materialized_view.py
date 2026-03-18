@@ -105,4 +105,6 @@ def downgrade() -> None:
             "DROP INDEX CONCURRENTLY IF EXISTS idx_talkgroup_search_search_vector"
         )
 
-    op.execute(f"DROP MATERIALIZED VIEW IF EXISTS {TALKGROUP_SEARCH_MATERIALIZED_VIEW_NAME}")
+    op.execute(
+        f"DROP MATERIALIZED VIEW IF EXISTS {TALKGROUP_SEARCH_MATERIALIZED_VIEW_NAME}"
+    )

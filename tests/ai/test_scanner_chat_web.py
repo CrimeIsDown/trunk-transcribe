@@ -184,12 +184,15 @@ class TestScannerChatWebHelpers(TestCase):
                 "limit": kwargs["limit"],
             }
 
-        with patch(
-            "app.ai.scanner_chat_web._get_index_names_for_scope",
-            return_value=["calls_2026_03"],
-        ), patch(
-            "app.ai.scanner_chat_web._search_index_page",
-            side_effect=fake_search_index_page,
+        with (
+            patch(
+                "app.ai.scanner_chat_web._get_index_names_for_scope",
+                return_value=["calls_2026_03"],
+            ),
+            patch(
+                "app.ai.scanner_chat_web._search_index_page",
+                side_effect=fake_search_index_page,
+            ),
         ):
             response = _search_transcripts_for_scope(
                 SearchScope(
@@ -227,12 +230,16 @@ class TestScannerChatWebHelpers(TestCase):
                 "limit": kwargs["limit"],
             }
 
-        with patch.dict("os.environ", {}, clear=False), patch(
-            "app.ai.scanner_chat_web._get_index_names_for_scope",
-            return_value=["calls_2026_03"],
-        ), patch(
-            "app.ai.scanner_chat_web._search_index_page",
-            side_effect=fake_search_index_page,
+        with (
+            patch.dict("os.environ", {}, clear=False),
+            patch(
+                "app.ai.scanner_chat_web._get_index_names_for_scope",
+                return_value=["calls_2026_03"],
+            ),
+            patch(
+                "app.ai.scanner_chat_web._search_index_page",
+                side_effect=fake_search_index_page,
+            ),
         ):
             response = _search_transcripts_for_scope(SearchScope(query="shots fired"))
 

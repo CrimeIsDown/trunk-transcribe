@@ -38,7 +38,9 @@ class TestLocalWhisperImplementations(unittest.TestCase):
             model = task.initialize_model(f"{implementation}:{model_name}")
         except ModuleNotFoundError as exc:
             self.skipTest(f"{implementation} dependency missing: {exc}")
-        result = model.transcribe(TINY_AUDIO_FILE, build_options(vad_filter=False), "en")
+        result = model.transcribe(
+            TINY_AUDIO_FILE, build_options(vad_filter=False), "en"
+        )
         self._assert_result_contract(result)
 
     def test_whisper(self):

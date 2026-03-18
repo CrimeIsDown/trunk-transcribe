@@ -117,7 +117,7 @@ def get_talkgroups(
         FROM
             {TALKGROUP_SEARCH_MATERIALIZED_VIEW_NAME}
         WHERE
-            {' AND '.join(where_clauses)}
+            {" AND ".join(where_clauses)}
         GROUP BY
             short_name, talkgroup_group, talkgroup_tag, talkgroup_description, talkgroup
         ORDER BY
