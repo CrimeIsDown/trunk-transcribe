@@ -21,7 +21,8 @@ COPY vite.config.ts tsconfig.json biome.json ./
 COPY public ./public
 COPY server ./server
 COPY src ./src
-COPY .env ./
+COPY .env* ./
+RUN if [ ! -f .env ] && [ -f .env.example ]; then cp .env.example .env; fi
 RUN npm run build
 
 # Install runtime dependencies only
