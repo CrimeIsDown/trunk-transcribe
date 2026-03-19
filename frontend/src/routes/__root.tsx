@@ -1,10 +1,13 @@
+import { CopilotKit } from '@copilotkit/react-core'
 import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
+import type { ReactNode } from 'react'
 
 import Header from '../components/Header'
 
 import appCss from '../styles.css?url'
+import copilotCss from '@copilotkit/react-ui/styles.css?url'
 
 export const Route = createRootRoute({
   head: () => ({
@@ -29,6 +32,10 @@ export const Route = createRootRoute({
         rel: 'stylesheet',
         href: appCss,
       },
+      {
+        rel: 'stylesheet',
+        href: copilotCss,
+      },
     ],
   }),
 
@@ -45,27 +52,33 @@ export const Route = createRootRoute({
   shellComponent: RootDocument,
 })
 
-function RootDocument({ children }: { children: React.ReactNode }) {
+function RootDocument({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <head>
         <HeadContent />
       </head>
       <body>
-        <Header />
-        {children}
-        <TanStackDevtools
-          config={{
-            position: 'bottom-left',
-          }}
-          plugins={[
-            {
-              name: 'Tanstack Router',
-              render: <TanStackRouterDevtoolsPanel />,
-            },
-          ]}
-        />
-        <Scripts />
+        <CopilotKit
+          runtimeUrl="/api/copilotkit"
+          agent="scanner_chat"
+          showDevConsole={import.meta.env.DEV}
+        >
+          <Header />
+          {children}
+          <TanStackDevtools
+            config={{
+              position: 'bottom-left',
+            }}
+            plugins={[
+              {
+                name: 'Tanstack Router',
+                render: <TanStackRouterDevtoolsPanel />,
+              },
+            ]}
+          />
+          <Scripts />
+        </CopilotKit>
       </body>
     </html>
   )

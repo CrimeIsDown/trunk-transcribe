@@ -40,6 +40,8 @@ elif [ "$1" = 'worker' ]; then
         -Q ${CELERY_QUEUES:-transcribe,post_transcribe}
 elif [ "$1" = 'flower' ]; then
     exec uv run celery --app=app.worker.celery flower --port=5555
+elif [ "$1" = 'chat-ui' ]; then
+    exec uv run python -m app.ai.scanner_chat_web
 fi
 
 exec "$@"

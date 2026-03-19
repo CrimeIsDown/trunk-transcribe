@@ -26,9 +26,7 @@ class TestWhisperTaskModelSelection(unittest.TestCase):
             self.assertEqual("openai:whisper-1", self.task.default_implementation)
 
     def test_default_implementation_deepgram_uses_default_model(self):
-        with patch.dict(
-            os.environ, {"WHISPER_IMPLEMENTATION": "deepgram"}, clear=True
-        ):
+        with patch.dict(os.environ, {"WHISPER_IMPLEMENTATION": "deepgram"}, clear=True):
             self.assertEqual("deepgram:nova-2", self.task.default_implementation)
 
     def test_default_implementation_deepinfra_uses_default_model(self):

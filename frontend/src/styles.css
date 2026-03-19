@@ -172,3 +172,20 @@ fieldset .talkgroup-list {
   height: 50vh;
   overflow: auto;
 }
+
+.search-analysis-panel {
+  border-color: var(--bs-border-color);
+  box-shadow: 0 0.5rem 1rem rgb(33 37 41 / 8%);
+}
+
+.search-analysis-badge {
+  font-weight: 500;
+}
+
+.scanner-copilot-chat {
+  min-height: 32rem;
+}
+
+.scanner-copilot-chat [data-copilotkit-chat] {
+  min-height: 32rem;
+}

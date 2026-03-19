@@ -9,6 +9,7 @@ from .transcript import RawTranscript
 
 
 CALLS_TABLE_NAME = "calls"
+TALKGROUP_SEARCH_MATERIALIZED_VIEW_NAME = "talkgroup_search"
 
 
 class Base(SQLModel):
@@ -76,20 +77,78 @@ def update_call(db: Session, call: CallUpdate, db_call: Call) -> Call:
     return db_call
 
 
-def get_talkgroups(db: Session) -> list[dict]:
+def get_talkgroups(
+    db: Session,
+    *,
+    radio_system: str | None = None,
+    start_datetime: datetime | None = None,
+    end_datetime: datetime | None = None,
+    search_query: str | None = None,
+    limit: int | None = None,
+) -> list[dict]:
+    where_clauses = ["1 = 1"]
+    params: dict[str, object] = {}
+
+    if radio_system:
+        where_clauses.append("short_name = :radio_system")
+        params["radio_system"] = radio_system
+
+    if start_datetime:
+        where_clauses.append("active_hour >= date_trunc('hour', :start_datetime)")
+        params["start_datetime"] = start_datetime
+
+    if end_datetime:
+        where_clauses.append("active_hour <= date_trunc('hour', :end_datetime)")
+        params["end_datetime"] = end_datetime
+
+    if search_query:
+        where_clauses.append(
+            "search_vector @@ websearch_to_tsquery('simple', :search_query)"
+        )
+        params["search_query"] = search_query
+
     query = f"""
         SELECT
-            raw_metadata::jsonb ->> 'short_name' AS short_name,
-            raw_metadata::jsonb ->> 'talkgroup_group' AS talkgroup_group,
-            raw_metadata::jsonb ->> 'talkgroup_tag' AS talkgroup_tag,
-            raw_metadata::jsonb ->> 'talkgroup' AS talkgroup
+            short_name,
+            talkgroup_group,
+            talkgroup_tag,
+            talkgroup_description,
+            talkgroup
         FROM
-            {CALLS_TABLE_NAME}
+            {TALKGROUP_SEARCH_MATERIALIZED_VIEW_NAME}
         WHERE
-            raw_metadata::jsonb ->> 'talkgroup_tag' != ''
+            {" AND ".join(where_clauses)}
         GROUP BY
-            short_name, talkgroup_group, talkgroup_tag, talkgroup
+            short_name, talkgroup_group, talkgroup_tag, talkgroup_description, talkgroup
+        ORDER BY
+            short_name,
+            talkgroup_group,
+            talkgroup_description,
+            talkgroup_tag,
+            talkgroup
     """
 
-    result = db.execute(text(query)).fetchall()
+    if limit is not None:
+        query += "\n        LIMIT :limit"
+        params["limit"] = limit
+
+    result = db.execute(text(query), params).fetchall()
     return [dict(row._mapping) for row in result]
+
+
+def refresh_talkgroup_search_materialized_view(*, concurrently: bool = True) -> None:
+    from app.models.database import engine
+
+    refresh_mode = "CONCURRENTLY " if concurrently else ""
+    statement = text(
+        f"REFRESH MATERIALIZED VIEW {refresh_mode}{TALKGROUP_SEARCH_MATERIALIZED_VIEW_NAME}"
+    )
+
+    if concurrently:
+        with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+            conn.execute(statement)
+        return
+
+    with Session(engine) as db:
+        db.execute(statement)
+        db.commit()

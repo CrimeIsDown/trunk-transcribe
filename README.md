@@ -49,6 +49,14 @@ You can access a basic search page showing the calls at http://localhost:7700 (w
 
 **To use the same interface as on [CrimeIsDown.com](https://crimeisdown.com/transcripts/search):** Go to [crimeisdown.com/settings](https://crimeisdown.com/settings) and update the `MEILISEARCH_URL` to http://localhost:7700 or whatever your publicly accessible URL is. Next, update `MEILISEARCH_KEY` to match the key in your `.env` file. Third, if using a different index name, update `MEILISEARCH_INDEX` to that index name. After doing all those updates, you should be able to return to the transcript search page and have it talk to your local copy instead.
 
+### Scanner Transcript AI Analysis
+
+A dedicated `chat-ui` container now hosts the transcript-analysis agent used by the frontend's embedded CopilotKit panel on the search page.
+
+By default, this service is included in `docker-compose.server.yml` and runs on `http://localhost:7932` (or `CHAT_UI_PORT` if overridden).
+
+The AI panel analyzes the exact active search query, refinements, hierarchy selection, and time window, then paginates through matching transcripts up to the configured analysis cap.
+
 There are numerous `docker-compose.*.yml` files in this repo for various configurations of the different components. Add `COMPOSE_FILE=` to your `.env` with the value being a list of docker-compose configurations separated by `:`, see `.env.example` for some common ones.
 
 ### Running workers using OpenAI's paid Whisper API
@@ -206,6 +214,12 @@ If a change is made to the search index settings or document data structure, it 
 
 ```bash
 docker compose run --rm api uv run app/bin/reindex.py --update-settings
+```
+
+If the talkgroup search materialized view needs to be rebuilt after a schema change or large backfill, refresh it with:
+
+```bash
+docker compose run --rm api uv run app/bin/refresh-talkgroup-search.py
 ```
 
 A more complex command, which updates calls in the `calls_demo` index without a `raw_transcript` attribute, and updating radio IDs for those calls from the chi_cfd system.

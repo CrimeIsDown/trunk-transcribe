@@ -10,7 +10,9 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 
-def build_options(initial_prompt: str = "alpha bravo", vad_filter: bool = False) -> dict:
+def build_options(
+    initial_prompt: str = "alpha bravo", vad_filter: bool = False
+) -> dict:
     return {
         "initial_prompt": initial_prompt,
         "cleanup": False,
@@ -115,7 +117,9 @@ class TestWhisperImplementations(unittest.TestCase):
                 with patch(
                     "app.whisper.deepinfra.OpenAI", return_value=client
                 ) as openai_mock:
-                    implementation = DeepInfraApi(api_key="deepinfra-key", model="model-x")
+                    implementation = DeepInfraApi(
+                        api_key="deepinfra-key", model="model-x"
+                    )
                     result = implementation.transcribe(
                         audio=audio_path, options=build_options(), language="en"
                     )
@@ -141,7 +145,11 @@ class TestWhisperImplementations(unittest.TestCase):
         response = SimpleNamespace(
             results=SimpleNamespace(
                 utterances=[utterance],
-                channels=[SimpleNamespace(alternatives=[SimpleNamespace(transcript="hello deepgram")])],
+                channels=[
+                    SimpleNamespace(
+                        alternatives=[SimpleNamespace(transcript="hello deepgram")]
+                    )
+                ],
             )
         )
         transcribe_file_mock = Mock(return_value=response)
@@ -163,9 +171,7 @@ class TestWhisperImplementations(unittest.TestCase):
                         audio=audio_path, options=build_options(), language="en"
                     )
 
-            self.assertEqual(
-                {"options": "ok"}, transcribe_file_mock.call_args.args[1]
-            )
+            self.assertEqual({"options": "ok"}, transcribe_file_mock.call_args.args[1])
             self.assertEqual(120, transcribe_file_mock.call_args.kwargs["timeout"])
             options_mock.assert_called_once()
             self.assertEqual("hello deepgram", result["text"])
@@ -189,9 +195,7 @@ class TestWhisperImplementations(unittest.TestCase):
 
         try:
             with patch("app.whisper.deepgram.DeepgramClient", return_value=client):
-                with patch(
-                    "app.whisper.deepgram.PrerecordedOptions", return_value={}
-                ):
+                with patch("app.whisper.deepgram.PrerecordedOptions", return_value={}):
                     implementation = DeepgramApi(api_key="deepgram-key", model="nova-2")
                     result = implementation.transcribe(
                         audio=audio_path, options=build_options(), language="en"
@@ -211,7 +215,9 @@ class TestWhisperImplementations(unittest.TestCase):
             "language": "en",
         }
         fake_whisper.load_model = Mock(return_value=fake_model)
-        module = import_module_with_stubs("app.whisper.whisper", {"whisper": fake_whisper})
+        module = import_module_with_stubs(
+            "app.whisper.whisper", {"whisper": fake_whisper}
+        )
 
         implementation = module.Whisper("tiny")
         result = implementation.transcribe("audio.wav", build_options(), language="en")
@@ -254,9 +260,7 @@ class TestWhisperImplementations(unittest.TestCase):
         self.assertEqual("hello faster whisper", result["text"])
         self.assertEqual("en", result["language"])
         self.assertEqual(1, len(result["segments"]))
-        self.assertEqual(
-            "audio.wav", implementation.model.transcribe_kwargs["audio"]
-        )
+        self.assertEqual("audio.wav", implementation.model.transcribe_kwargs["audio"])
         self.assertTrue(implementation.model.transcribe_kwargs["vad_filter"])
         self._assert_result_contract(result)
 
@@ -376,7 +380,9 @@ class TestWhisperImplementations(unittest.TestCase):
             audio_path = temp_audio.name
 
         try:
-            with patch("app.whisper.whisper_asr_api.requests.Session", return_value=session):
+            with patch(
+                "app.whisper.whisper_asr_api.requests.Session", return_value=session
+            ):
                 implementation = WhisperAsrApi(base_url="http://localhost:5000")
                 result = implementation.transcribe(
                     audio=audio_path,
@@ -385,7 +391,9 @@ class TestWhisperImplementations(unittest.TestCase):
                 )
 
             kwargs = session.post.call_args.kwargs
-            self.assertEqual("http://localhost:5000/asr", session.post.call_args.args[0])
+            self.assertEqual(
+                "http://localhost:5000/asr", session.post.call_args.args[0]
+            )
             self.assertEqual("false", kwargs["params"]["vad_filter"])
             self.assertEqual("alpha bravo", kwargs["params"]["initial_prompt"])
             response.raise_for_status.assert_called_once()
