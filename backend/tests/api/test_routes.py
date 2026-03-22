@@ -6,7 +6,9 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from app.api.depends import get_db
-from app.api.main import app
+from app.main import app
+
+API_PREFIX = "/api/v1"
 
 
 def build_metadata(audio_type: str = "analog") -> dict:
@@ -47,7 +49,7 @@ class TestApiRoutes(unittest.TestCase):
                     return_value=queue_result,
                 ) as queue_mock:
                     response = self.client.post(
-                        "/tasks?whisper_implementation=deepgram:nova-2",
+                        f"{API_PREFIX}/tasks?whisper_implementation=deepgram:nova-2",
                         files={
                             "call_audio": ("tiny.wav", b"RIFF", "audio/wav"),
                             "call_json": (
@@ -85,7 +87,7 @@ class TestApiRoutes(unittest.TestCase):
                             return_value=queue_result,
                         ) as queue_mock:
                             response = self.client.post(
-                                "/calls?whisper_implementation=openai:whisper-1",
+                                f"{API_PREFIX}/calls?whisper_implementation=openai:whisper-1",
                                 files={
                                     "call_audio": ("tiny.wav", b"RIFF", "audio/wav"),
                                     "call_json": (
@@ -109,7 +111,7 @@ class TestApiRoutes(unittest.TestCase):
     def test_preflight_options_allows_localhost_3001(self):
         with patch.dict("os.environ", {"API_KEY": "testing"}, clear=False):
             response = self.client.options(
-                "/talkgroups",
+                f"{API_PREFIX}/talkgroups",
                 headers={
                     "Origin": "http://localhost:3001",
                     "Access-Control-Request-Method": "GET",
@@ -126,7 +128,7 @@ class TestApiRoutes(unittest.TestCase):
     def test_unauthorized_get_has_cors_header_for_localhost_3001(self):
         with patch.dict("os.environ", {"API_KEY": "testing"}, clear=False):
             response = self.client.get(
-                "/talkgroups",
+                f"{API_PREFIX}/talkgroups",
                 headers={"Origin": "http://localhost:3001"},
             )
 

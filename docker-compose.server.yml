@@ -21,7 +21,7 @@ services:
     env_file: .env
     restart: always
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/healthz"]
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/api/v1/healthz"]
       retries: 3
       timeout: 5s
     labels:
@@ -156,7 +156,7 @@ services:
       - MEILI_MASTER_KEY
       - MEILI_INDEX
       - API_KEY
-      - WEBSOCKET_URL=ws://localhost:${API_PORT:-8000}/ws
+      - WEBSOCKET_URL=ws://localhost:${API_PORT:-8000}/api/v1/ws
 
 volumes:
   flower-data:

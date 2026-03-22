@@ -99,7 +99,7 @@ const processMessage = (message: Message) => {
   return hit;
 };
 
-const websocketUrl = (import.meta.env.VITE_WEBSOCKET_URL || 'ws://localhost:8000/ws') + '?api_key=' + (import.meta.env.VITE_API_KEY || 'testing');
+const websocketUrl = (import.meta.env.VITE_WEBSOCKET_URL || 'ws://localhost:8000/api/v1/ws') + '?api_key=' + (import.meta.env.VITE_API_KEY || 'testing');
 
 const LiveFeed = () => {
   const [hits, setHits] = useState<any[]>([]);

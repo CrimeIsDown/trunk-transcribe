@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     SENTRY_TRACE_SAMPLE_RATE: float = 0.1
     SENTRY_PROFILE_SAMPLE_RATE: float = 0.1
     UVICORN_LOG_LEVEL: str = "INFO"
+    API_V1_STR: str = "/api/v1"
 
     CORS_ALLOWED_ORIGINS: Annotated[
         list[str], NoDecode, BeforeValidator(parse_csv_list)
