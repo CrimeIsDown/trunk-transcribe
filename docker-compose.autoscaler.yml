@@ -3,7 +3,7 @@ services:
     image: ghcr.io/crimeisdown/trunk-transcribe:${VERSION:-main}
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: docker/Dockerfile
       cache_from:
         - ghcr.io/crimeisdown/trunk-transcribe:main
     command:
@@ -11,7 +11,8 @@ services:
       - run
       - --directory
       - backend
-      - app/bin/autoscale-vast.py
+      - python
+      - scripts/autoscale-vast.py
       - --min-instances
       - ${AUTOSCALE_MIN_INSTANCES:-1}
       - --max-instances
@@ -23,6 +24,7 @@ services:
     env_file: .env
     volumes:
       - ./backend/app:/src/backend/app
+      - ./backend/scripts:/src/backend/scripts
       - ./backend/alembic.ini:/src/backend/alembic.ini
       - ./backend/pyproject.toml:/src/backend/pyproject.toml
       - ./config:/src/config

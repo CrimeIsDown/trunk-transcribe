@@ -213,28 +213,28 @@ File is cached in memory for 60 seconds upon reading from the worker's filesyste
 If a change is made to the search index settings or document data structure, it may be needed to re-index existing calls to migrate them to the new structure. This can be done by running the following:
 
 ```bash
-docker compose run --rm api uv run app/bin/reindex.py --update-settings
+docker compose run --rm api uv run --directory backend python scripts/reindex.py --update-settings
 ```
 
 If the talkgroup search materialized view needs to be rebuilt after a schema change or large backfill, refresh it with:
 
 ```bash
-docker compose run --rm api uv run app/bin/refresh-talkgroup-search.py
+docker compose run --rm api uv run --directory backend python scripts/refresh-talkgroup-search.py
 ```
 
 A more complex command, which updates calls in the `calls_demo` index without a `raw_transcript` attribute, and updating radio IDs for those calls from the chi_cfd system.
 
 ```bash
-docker compose run --rm api uv run app/bin/reindex.py --unit_tags chi_cfd ../trunk-recorder/config/cfd-radio-ids.csv --filter 'not hasattr(document, "raw_transcript")' --index calls_demo
+docker compose run --rm api uv run --directory backend python scripts/reindex.py --unit_tags chi_cfd ../trunk-recorder/config/cfd-radio-ids.csv --filter 'not hasattr(document, "raw_transcript")' --index calls_demo
 ```
 
 This command can also be used to re-transcribe calls if improvements are made to the transcription accuracy. Beware that this will take a lot of resources, so consider adding a `--filter` argument with some Python code to limit what documents are re-transcribed.
 
 ```bash
-docker compose run --rm api uv run app/bin/reindex.py --retranscribe
+docker compose run --rm api uv run --directory backend python scripts/reindex.py --retranscribe
 ```
 
-Get the full list of arguments with `app/bin/reindex.py -h`.
+Get the full list of arguments with `uv run --directory backend python scripts/reindex.py -h`.
 
 ## Contributing
 
