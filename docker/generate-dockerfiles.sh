@@ -24,7 +24,7 @@ export WHISPER_INSTALL_INSTRUCTIONS="Setup Whisper
 ARG WHISPER_MODEL=base.en
 ENV WHISPER_MODEL=\${WHISPER_MODEL}
 # Pre-download the Whisper model
-RUN uv run python -c \"import whisper; import os; whisper.load_model(os.getenv('WHISPER_MODEL'))\"
+RUN uv run --directory backend python -c \"import whisper; import os; whisper.load_model(os.getenv('WHISPER_MODEL'))\"
 ENV WHISPER_IMPLEMENTATION=whisper"
 
 envsubst '$WHISPER_IMPLEMENTATION_GROUP $WHISPER_INSTALL_INSTRUCTIONS' < Dockerfile >> Dockerfile.whisper
@@ -39,7 +39,7 @@ export WHISPER_INSTALL_INSTRUCTIONS="Setup Faster Whisper
 ARG WHISPER_MODEL=base.en
 ENV WHISPER_MODEL=\${WHISPER_MODEL}
 # Pre-download the Whisper model
-RUN uv run python -c \"import os; from faster_whisper.utils import download_model; download_model(os.getenv('WHISPER_MODEL'))\"
+RUN uv run --directory backend python -c \"import os; from faster_whisper.utils import download_model; download_model(os.getenv('WHISPER_MODEL'))\"
 ENV WHISPER_IMPLEMENTATION=faster-whisper"
 
 envsubst '$WHISPER_IMPLEMENTATION_GROUP $WHISPER_INSTALL_INSTRUCTIONS' < Dockerfile >> Dockerfile.fasterwhisper
@@ -54,7 +54,7 @@ export WHISPER_INSTALL_INSTRUCTIONS="Setup WhisperS2T
 ARG WHISPER_MODEL=base.en
 ENV WHISPER_MODEL=\${WHISPER_MODEL}
 # Pre-download the Whisper model
-RUN uv run python -c \"import os; from whisper_s2t.backends.ctranslate2.hf_utils import download_model; download_model(os.getenv('WHISPER_MODEL'))\"
+RUN uv run --directory backend python -c \"import os; from whisper_s2t.backends.ctranslate2.hf_utils import download_model; download_model(os.getenv('WHISPER_MODEL'))\"
 ENV WHISPER_IMPLEMENTATION=whispers2t
 ENV TQDM_DISABLE=1"
 

@@ -1,0 +1,94 @@
+[project]
+authors = [
+    {name = "Eric Tendian"},
+]
+requires-python = "<4.0,>=3.12"
+dependencies = [
+    "boto3<2.0,>=1.26",
+    "boto3-stubs<2.0,>=1.26",
+    "celery<6.0,>=5.3",
+    "fastapi<1,>=0",
+    "flower<3.0,>=2.0",
+    "meilisearch<1,>=0",
+    "python-dotenv<1,>=0",
+    "python-multipart<1,>=0",
+    "pytz",
+    "requests<3.0,>=2.28",
+    "uvicorn[standard]<1,>=0",
+    "apprise<2.0,>=1.2",
+    "cachetools<6.0,>=5.3",
+    "sentry-sdk[celery,fastapi]<2.0,>=1.14",
+    "openai<3,>=2",
+    "python-datauri<2.0.0,>=1.1.0",
+    "psycopg[binary,pool]<4.0.0,>=3.1.12",
+    "sqlalchemy[mypy]<3.0.0,>=2.0.22",
+    "geopy<3.0.0,>=2.4.1",
+    "deepgram-sdk<4.0.0,>=3.2.2",
+    "shapely<3.0.0,>=2.0.4",
+    "requests-cache<2.0.0,>=1.2.0",
+    "celery-batches<1.0.0,>=0.8.1",
+    "vastai<1.0.0,>=0.2.6",
+    "typesense<1.0.0,>=0.21.0",
+    "sqlmodel<1.0.0,>=0.0.22",
+    "alembic<2.0.0,>=1.14.0",
+    "websockets>=13.1",
+    "jsonlines>=4.0.0",
+    "tqdm>=4.0.0",
+    "pydantic-ai-slim[ag-ui,openai]<2,>=1",
+    "meilisearch-mcp<1,>=0",
+]
+name = "trunk-transcribe"
+version = "0.1.0"
+description = "Transcription of calls from trunk-recorder using OpenAI Whisper"
+readme = "../README.md"
+
+[dependency-groups]
+dev = [
+    "coverage<8.0.0,>=7.2.5",
+    "pytest<9.0.0,>=8.3.2",
+    "mypy<2.0.0,>=1.14.0",
+    "ruff<1.0.0,>=0.6.3",
+    "types-requests<3.0.0.0,>=2.32.0.20240712",
+    "types-cachetools<6.0.0.0,>=5.5.0.20240820",
+    "types-pytz<2025.0.0.0,>=2024.1.0.20240417",
+    "pytest-dotenv<1.0.0,>=0.5.2",
+    "celery-types<1.0.0,>=0.22.0",
+]
+whisper = [
+    "openai-whisper",
+]
+faster-whisper = [
+    "faster-whisper",
+]
+whispers2t = [
+    "whisper-s2t",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+apprise = { git = "https://github.com/EricTendian/apprise.git", branch = "master" }
+geopy = { git = "https://github.com/EricTendian/geopy.git", branch = "geoapify" }
+openai-whisper = { git = "https://github.com/openai/whisper.git", rev = "v20250625" }
+faster-whisper = { git = "https://github.com/SYSTRAN/faster-whisper.git", rev = "v1.2.0" }
+whisper-s2t = { git = "https://github.com/shashikg/WhisperS2T.git", rev = "v1.3.1" }
+
+
+[tool.mypy]
+strict = false
+exclude = ["scripts", "app/whisper"]
+ignore_missing_imports = true
+enable_incomplete_feature = "NewGenericSyntax"
+plugins = "sqlalchemy.ext.mypy.plugin"
+
+[tool.ruff]
+target-version = "py312"
+
+[tool.ruff.lint]
+ignore = [
+    "E402",  # Module level import not at top of file
+]
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/scratch/*" = ["E"]
