@@ -36,6 +36,7 @@ dependencies = [
     "tqdm>=4.0.0",
     "pydantic-ai-slim[ag-ui,openai]<2,>=1",
     "meilisearch-mcp<1,>=0",
+    "pydantic-settings<3.0.0,>=2.2.1",
 ]
 name = "trunk-transcribe"
 version = "0.1.0"
