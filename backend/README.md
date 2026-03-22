@@ -23,5 +23,6 @@ uv run --directory backend ruff check app tests
 ## Layout
 
 - `backend/app/`: FastAPI app, workers, domain modules, and Alembic environment
+- `backend/scripts/`: operational and developer entrypoint scripts
 - `backend/tests/`: backend test suite and test data
 - `backend/alembic.ini`: Alembic configuration for the backend service
