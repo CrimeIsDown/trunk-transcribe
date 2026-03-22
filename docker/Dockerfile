@@ -36,20 +36,21 @@ ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
 
 COPY pyproject.toml pyproject.toml
+COPY backend/pyproject.toml backend/pyproject.toml
 COPY uv.lock uv.lock
 
 # Install the project's dependencies using the lockfile and settings
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-install-project --no-dev $WHISPER_IMPLEMENTATION_GROUP
+    uv sync --frozen --directory backend --no-install-project --no-dev $WHISPER_IMPLEMENTATION_GROUP
 
 # $WHISPER_INSTALL_INSTRUCTIONS
 
-COPY alembic.ini alembic.ini
-COPY app app
+COPY backend/alembic.ini backend/alembic.ini
+COPY backend/app backend/app
 COPY config config
 COPY docker/docker-entrypoint.sh /usr/local/bin/
 
-ENV PYTHONPATH=/src
+ENV PYTHONPATH=/src/backend
 
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["api"]

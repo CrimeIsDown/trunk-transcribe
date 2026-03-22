@@ -2,6 +2,11 @@ version = 1
 revision = 3
 requires-python = ">=3.12, <4.0"
 
+[manifest]
+members = [
+    "trunk-transcribe",
+]
+
 [[package]]
 name = "accelerate"
 version = "1.12.0"
@@ -3437,7 +3442,7 @@ wheels = [
 [[package]]
 name = "trunk-transcribe"
 version = "0.1.0"
-source = { virtual = "." }
+source = { virtual = "backend" }
 dependencies = [
     { name = "alembic" },
     { name = "apprise" },

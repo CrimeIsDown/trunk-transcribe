@@ -11,9 +11,11 @@ services:
       - ${API_PORT:-8000}:8000
     command: api
     volumes:
-      - ./app:/src/app
+      - ./backend/app:/src/backend/app
+      - ./backend/alembic.ini:/src/backend/alembic.ini
+      - ./backend/pyproject.toml:/src/backend/pyproject.toml
       - ./config:/src/config
-      - ./tests:/src/tests
+      - ./backend/tests:/src/backend/tests
       - ./docker/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
       - ./docker/healthcheck.sh:/usr/local/bin/healthcheck.sh
     env_file: .env
@@ -34,7 +36,9 @@ services:
         - ghcr.io/crimeisdown/trunk-transcribe:main
     command: chat-ui
     volumes:
-      - ./app:/src/app
+      - ./backend/app:/src/backend/app
+      - ./backend/alembic.ini:/src/backend/alembic.ini
+      - ./backend/pyproject.toml:/src/backend/pyproject.toml
       - ./config:/src/config
       - ./docker/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
     env_file: .env

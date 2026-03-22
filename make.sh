@@ -43,20 +43,20 @@ stop() {
 }
 
 deps() {
-	uv sync --group whisper
+	uv sync --directory backend --group whisper
 }
 
 lint() {
-	uv run -- mypy app
-	uv run -- ruff check app
-	uv run -- ruff format app --check
+	uv run --directory backend -- mypy app
+	uv run --directory backend -- ruff check app
+	uv run --directory backend -- ruff format app --check
 }
 
 fmt() {
-	uv run -- ruff check app --fix
-	uv run -- ruff format app
-	uv run -- ruff check tests --fix
-	uv run -- ruff format tests
+	uv run --directory backend -- ruff check app --fix
+	uv run --directory backend -- ruff format app
+	uv run --directory backend -- ruff check tests --fix
+	uv run --directory backend -- ruff format tests
 }
 
 restart() {
@@ -65,8 +65,8 @@ restart() {
 
 test() {
 	start
-	uv run python3 tests/wait_for_api.py
-	uv run python3 -m pytest $@
+	uv run --directory backend python3 tests/wait_for_api.py
+	uv run --directory backend python3 -m pytest $@
 }
 
 retest() {
