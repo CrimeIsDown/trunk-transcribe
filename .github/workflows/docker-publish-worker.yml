@@ -7,11 +7,12 @@ on:
     branches:
       - main
     paths:
-      - 'app/worker.py'
-      - 'app/whisper/**'
+      - 'backend/app/worker.py'
+      - 'backend/app/whisper/**'
       - 'docker/**'
       - 'Dockerfile*'
       - 'pyproject.toml'
+      - 'backend/pyproject.toml'
       - 'uv.lock'
       - '.github/workflows/docker-publish-worker.yml'
   # pull_request:

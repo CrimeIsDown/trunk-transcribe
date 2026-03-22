@@ -9,6 +9,8 @@ services:
     command:
       - uv
       - run
+      - --directory
+      - backend
       - app/bin/autoscale-vast.py
       - --min-instances
       - ${AUTOSCALE_MIN_INSTANCES:-1}
@@ -20,7 +22,9 @@ services:
       - ghcr.io/crimeisdown/trunk-transcribe:main-${WHISPER_IMPLEMENTATION:-whisper}-${WHISPER_MODEL:-large-v2}-cuda_${CUDA_VERSION:-12.1.0}
     env_file: .env
     volumes:
-      - ./app:/src/app
+      - ./backend/app:/src/backend/app
+      - ./backend/alembic.ini:/src/backend/alembic.ini
+      - ./backend/pyproject.toml:/src/backend/pyproject.toml
       - ./config:/src/config
       - ~/.vast_api_key:/root/.vast_api_key
     restart: always

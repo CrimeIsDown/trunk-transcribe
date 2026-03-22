@@ -7,11 +7,12 @@ on:
     branches:
       - main
     paths:
-      - 'app/**'
+      - 'backend/app/**'
       - 'docker/**'
       - 'config/**'
       - 'Dockerfile*'
       - 'pyproject.toml'
+      - 'backend/pyproject.toml'
       - 'uv.lock'
       - '.github/workflows/docker-publish.yml'
   # pull_request:

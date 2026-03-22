@@ -10,7 +10,9 @@ services:
         WHISPER_MODEL: ${WHISPER_MODEL:-small.en}
     command: worker
     volumes:
-      - ./app:/src/app
+      - ./backend/app:/src/backend/app
+      - ./backend/alembic.ini:/src/backend/alembic.ini
+      - ./backend/pyproject.toml:/src/backend/pyproject.toml
       - ./config:/src/config
       - ./docker/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
     environment:

@@ -131,6 +131,7 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+backend/.mypy_cache/
 .dmypy.json
 dmypy.json
 
@@ -142,6 +143,10 @@ docker-compose.override.yml
 config/*.json
 !config/transcript_cleanup.json
 scratch
+backend/.venv/
+backend/.pytest_cache/
+backend/.ruff_cache/
+backend/htmlcov/
 
 # Made by the Vast.ai CLI
 gpu_names_cache.json
