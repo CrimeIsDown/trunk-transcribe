@@ -11,11 +11,9 @@ import requests
 import sentry_sdk
 from celery import Celery, signals, states
 from celery.exceptions import Reject
-from dotenv import load_dotenv
 from sentry_sdk.integrations.celery import CeleryIntegration
 
-load_dotenv()
-
+from app.core.config import settings
 from app.geocoding.geocoding import lookup_geo
 from app.models.metadata import Metadata
 from app.notifications.notification import send_notifications
@@ -28,38 +26,33 @@ from app.whisper.exceptions import WhisperException
 from app.whisper.task import API_IMPLEMENTATIONS, WhisperTask
 from app.whisper.transcribe import transcribe
 
-sentry_dsn = os.getenv("SENTRY_DSN")
-if sentry_dsn:
+if settings.SENTRY_DSN:
     sentry_sdk.init(
-        dsn=sentry_dsn,
+        dsn=settings.SENTRY_DSN,
         integrations=[
             CeleryIntegration(),
         ],
-        release=os.getenv("GIT_COMMIT"),
+        release=settings.GIT_COMMIT,
         # Set traces_sample_rate to 1.0 to capture 100%
         # of transactions for performance monitoring.
         # We recommend adjusting this value in production.
-        traces_sample_rate=float(os.getenv("SENTRY_TRACE_SAMPLE_RATE", "0.1")),
+        traces_sample_rate=settings.SENTRY_TRACE_SAMPLE_RATE,
         _experiments={
-            "profiles_sample_rate": float(
-                os.getenv("SENTRY_PROFILE_SAMPLE_RATE", "0.1")
-            ),
+            "profiles_sample_rate": settings.SENTRY_PROFILE_SAMPLE_RATE,
         },
         before_send=before_send,
     )
 
-CELERY_DEFAULT_QUEUE = os.getenv("CELERY_DEFAULT_QUEUE", "transcribe")
-CELERY_GPU_QUEUE = f"{CELERY_DEFAULT_QUEUE}_gpu"
+CELERY_DEFAULT_QUEUE = settings.CELERY_DEFAULT_QUEUE
+CELERY_GPU_QUEUE = settings.celery_gpu_queue
 
-broker_url = os.getenv("CELERY_BROKER_URL")
-result_backend = os.getenv("CELERY_RESULT_BACKEND")
 celery = Celery(
     "worker",
-    broker=broker_url,
-    backend=result_backend,
+    broker=settings.CELERY_BROKER_URL,
+    backend=settings.CELERY_RESULT_BACKEND,
     task_acks_late=True,
     worker_cancel_long_running_tasks_on_connection_loss=True,
-    worker_prefetch_multiplier=int(os.getenv("CELERY_PREFETCH_MULTIPLIER", 1)),
+    worker_prefetch_multiplier=settings.CELERY_PREFETCH_MULTIPLIER,
 )
 celery.conf.task_default_queue = CELERY_DEFAULT_QUEUE
 search_adapters: list[SearchAdapter] = []
@@ -80,7 +73,7 @@ def queue_task(
     return (
         transcribe_task.s(options, audio_url, whisper_implementation).set(
             queue=CELERY_DEFAULT_QUEUE
-            if os.getenv("WHISPER_IMPLEMENTATION") in API_IMPLEMENTATIONS
+            if settings.WHISPER_IMPLEMENTATION in API_IMPLEMENTATIONS
             else CELERY_GPU_QUEUE
         )
         | post_transcribe_task.s(metadata, audio_url, id, index_name).set(
@@ -97,8 +90,8 @@ def task_prerun(**kwargs):
             "Exceeded job failure threshold, exiting...\n" + str(recent_job_results)
         )
         # If this is a vast.ai instance, delete itself since it must not be working properly
-        vast_api_key = os.getenv("CONTAINER_API_KEY")
-        vast_instance_id = os.getenv("CONTAINER_ID")
+        vast_api_key = settings.CONTAINER_API_KEY
+        vast_instance_id = settings.CONTAINER_ID
         if vast_api_key and vast_instance_id:
             logger.info("Deleting this vast.ai instance...")
             requests.delete(
@@ -203,9 +196,9 @@ def post_transcribe_task(
 
     global search_adapters
     if not search_adapters:
-        if os.getenv("MEILI_URL") and os.getenv("MEILI_MASTER_KEY"):
+        if settings.has_meilisearch:
             search_adapters.append(MeilisearchAdapter())
-        if os.getenv("TYPESENSE_URL") and os.getenv("TYPESENSE_API_KEY"):
+        if settings.has_typesense:
             search_adapters.append(TypesenseAdapter())
 
     for search in search_adapters:

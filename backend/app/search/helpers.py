@@ -1,10 +1,9 @@
 import datetime
-import os
 from typing import Any, Generator
 from itertools import chain, starmap
 from urllib.parse import urlencode
 
-
+from app.core.config import settings
 from app.models.metadata import SearchableMetadata
 
 
@@ -25,8 +24,8 @@ class Document(SearchableMetadata):
 def get_default_index_name(
     time: datetime.datetime | None = None,
 ) -> str:  # pragma: no cover
-    index_name = os.getenv("MEILI_INDEX", "calls")
-    if os.getenv("MEILI_INDEX_SPLIT_BY_MONTH") == "true":
+    index_name = settings.MEILI_INDEX
+    if settings.MEILI_INDEX_SPLIT_BY_MONTH:
         if not time:
             time = datetime.datetime.now()
         index_name += time.strftime("_%Y_%m")
@@ -66,9 +65,9 @@ def encode_params(params: dict):
 
 
 def get_default_engine() -> str:
-    if os.getenv("MEILI_URL") and os.getenv("MEILI_MASTER_KEY"):
+    if settings.has_meilisearch:
         return "meilisearch"
-    elif os.getenv("TYPESENSE_URL") and os.getenv("TYPESENSE_API_KEY"):
+    elif settings.has_typesense:
         return "typesense"
     else:
         raise ValueError("Invalid search adapter")

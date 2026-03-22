@@ -4,7 +4,6 @@ import logging
 import os
 import sys
 
-from dotenv import load_dotenv
 from fastapi import (
     FastAPI,
     Request,
@@ -16,8 +15,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import sentry_sdk
 
-load_dotenv()
-
 from app.api.routes import (
     calls,
     config,
@@ -27,21 +24,19 @@ from app.api.routes import (
     tasks,
     websocket,
 )
+from app.core.config import settings
 from app.utils.exceptions import before_send
 
-sentry_dsn = os.getenv("SENTRY_DSN")
-if sentry_dsn:
+if settings.SENTRY_DSN:
     sentry_sdk.init(
-        dsn=sentry_dsn,
-        release=os.getenv("GIT_COMMIT"),
+        dsn=settings.SENTRY_DSN,
+        release=settings.GIT_COMMIT,
         # Set traces_sample_rate to 1.0 to capture 100%
         # of transactions for performance monitoring.
         # We recommend adjusting this value in production.
-        traces_sample_rate=float(os.getenv("SENTRY_TRACE_SAMPLE_RATE", "0.1")),
+        traces_sample_rate=settings.SENTRY_TRACE_SAMPLE_RATE,
         _experiments={
-            "profiles_sample_rate": float(
-                os.getenv("SENTRY_PROFILE_SAMPLE_RATE", "0.1")
-            ),
+            "profiles_sample_rate": settings.SENTRY_PROFILE_SAMPLE_RATE,
         },
         before_send=before_send,
     )
@@ -50,17 +45,10 @@ app = FastAPI()
 
 
 def get_cors_allowed_origins() -> list[str]:
-    configured_origins = os.getenv("CORS_ALLOWED_ORIGINS")
-    if configured_origins:
-        origins = [
-            origin.strip() for origin in configured_origins.split(",") if origin.strip()
-        ]
-        if origins:
-            return origins
-    return [
-        "http://localhost:3000",
-        "http://localhost:3001",
-    ]
+    configured_origins = os.environ.get("CORS_ALLOWED_ORIGINS")
+    if configured_origins is None:
+        return settings.CORS_ALLOWED_ORIGINS
+    return [origin.strip() for origin in configured_origins.split(",") if origin.strip()]
 
 
 def is_origin_allowed(origin: str | None) -> bool:
@@ -79,7 +67,7 @@ app.add_middleware(
 )
 
 logger = logging.getLogger()
-logger.setLevel(os.getenv("UVICORN_LOG_LEVEL", "INFO").upper())
+logger.setLevel(settings.UVICORN_LOG_LEVEL.upper())
 stream_handler = logging.StreamHandler(sys.stdout)
 log_formatter = logging.Formatter(
     "%(asctime)s [%(processName)s: %(process)d] [%(threadName)s: %(thread)d] [%(levelname)s] %(name)s: %(message)s"
@@ -90,7 +78,7 @@ logger.addHandler(stream_handler)
 
 @app.middleware("http")
 async def authenticate(request: Request, call_next) -> Response:
-    api_key = os.getenv("API_KEY", "")
+    api_key = os.environ.get("API_KEY", settings.API_KEY)
 
     if request.method == "OPTIONS":
         return await call_next(request)

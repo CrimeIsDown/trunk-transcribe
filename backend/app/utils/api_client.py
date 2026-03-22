@@ -1,8 +1,9 @@
 import json
 import logging
-import os
 
 import requests
+
+from app.core.config import settings
 
 
 def call(method: str, path: str, **kwargs):
@@ -39,14 +40,13 @@ def call(method: str, path: str, **kwargs):
     :rtype: dict
     """
 
-    api_key = os.getenv("API_KEY")
-    if api_key:
-        headers = {"Authorization": f"Bearer {api_key}"}
+    if settings.API_KEY:
+        headers = {"Authorization": f"Bearer {settings.API_KEY}"}
     else:
         headers = None
 
     if "url" not in kwargs:
-        kwargs["url"] = f"{os.getenv('API_BASE_URL')}/{path}"
+        kwargs["url"] = f"{settings.API_BASE_URL}/{path}"
 
     r = requests.request(
         method=method,

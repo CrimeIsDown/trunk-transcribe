@@ -1,15 +1,8 @@
 from logging.config import fileConfig
-import os
-
-from dotenv import load_dotenv
-from pydantic_core import MultiHostUrl
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
 from alembic import context
-
-load_dotenv()
-
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -22,6 +15,7 @@ if config.config_file_name is not None:
 
 # add your model's MetaData object here
 # for 'autogenerate' support
+from app.core.config import settings
 from app.models.models import Base
 
 target_metadata = Base.metadata
@@ -33,14 +27,7 @@ target_metadata = Base.metadata
 
 
 def get_url():
-    return MultiHostUrl.build(
-        scheme="postgresql+psycopg",
-        username=os.getenv("POSTGRES_USER"),
-        password=os.getenv("POSTGRES_PASSWORD"),
-        host=os.getenv("POSTGRES_HOST"),
-        port=int(os.getenv("POSTGRES_PORT", "5432")),
-        path=os.getenv("POSTGRES_DB"),
-    ).unicode_string()
+    return settings.sqlalchemy_database_uri
 
 
 def run_migrations_offline() -> None:
