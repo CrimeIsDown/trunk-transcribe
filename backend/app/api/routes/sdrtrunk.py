@@ -25,7 +25,7 @@ from app.models import models
 router = APIRouter()
 
 
-@router.post("/api/call-upload")
+@router.post("/call-upload")
 def create_call_from_sdrtrunk(
     talkgroup: Annotated[int, Form()],
     source: Annotated[int, Form()],
