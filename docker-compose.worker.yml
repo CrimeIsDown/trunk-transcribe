@@ -13,5 +13,7 @@ services:
       - ./backend/pyproject.toml:/src/backend/pyproject.toml
       - ./config:/src/config
       - ./docker/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
+    environment:
+      - CELERY_QUEUES=post_transcribe
     env_file: .env
     restart: always

@@ -6,6 +6,14 @@ from typing import Annotated, Any
 from pydantic import BeforeValidator, PostgresDsn, computed_field
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
+SUPPORTED_TRANSCRIPTION_BACKENDS = ("whisper", "qwen", "voxtral")
+TRANSCRIPTION_QUEUE_BY_BACKEND = {
+    "whisper": "transcribe_whisper",
+    "qwen": "transcribe_qwen",
+    "voxtral": "transcribe_voxtral",
+}
+POST_TRANSCRIBE_QUEUE = "post_transcribe"
+
 
 def parse_csv_list(value: Any) -> list[str]:
     if value in (None, ""):
@@ -15,6 +23,22 @@ def parse_csv_list(value: Any) -> list[str]:
     if isinstance(value, list):
         return [str(item).strip() for item in value if str(item).strip()]
     raise ValueError(value)
+
+
+def validate_transcription_backend(value: str) -> str:
+    if value not in SUPPORTED_TRANSCRIPTION_BACKENDS:
+        supported = ", ".join(SUPPORTED_TRANSCRIPTION_BACKENDS)
+        raise ValueError(
+            f"Unsupported transcription backend {value!r}. Supported values: {supported}"
+        )
+    return value
+
+
+def resolve_transcription_backend(
+    explicit_backend: str | None, default_backend: str = "whisper"
+) -> str:
+    backend = explicit_backend or default_backend
+    return validate_transcription_backend(backend)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -52,7 +76,13 @@ class Settings(BaseSettings):
     CELERY_DEFAULT_QUEUE: str = "transcribe"
     CELERY_BROKER_URL: str | None = None
     CELERY_RESULT_BACKEND: str | None = None
+    CELERY_QUEUES: Annotated[list[str], NoDecode, BeforeValidator(parse_csv_list)] = []
     CELERY_PREFETCH_MULTIPLIER: int = 1
+    DEFAULT_TRANSCRIPTION_BACKEND: str = "whisper"
+    TRANSCRIPTION_BACKEND: str | None = None
+    ASR_API_URL: str | None = None
+    ASR_MODEL: str | None = None
+    ASR_PROVIDER: str | None = None
     WHISPER_IMPLEMENTATION: str | None = None
     CONTAINER_API_KEY: str | None = None
     CONTAINER_ID: str | None = None
@@ -87,6 +117,17 @@ class Settings(BaseSettings):
     @property
     def celery_gpu_queue(self) -> str:
         return f"{self.CELERY_DEFAULT_QUEUE}_gpu"
+
+    @property
+    def resolved_default_transcription_backend(self) -> str:
+        return resolve_transcription_backend(self.DEFAULT_TRANSCRIPTION_BACKEND)
+
+    @property
+    def resolved_transcription_backend(self) -> str:
+        return resolve_transcription_backend(
+            self.TRANSCRIPTION_BACKEND,
+            default_backend=self.resolved_default_transcription_backend,
+        )
 
     @property
     def has_meilisearch(self) -> bool:

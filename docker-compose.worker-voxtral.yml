@@ -1,0 +1,46 @@
+services:
+  worker-voxtral:
+    image: ghcr.io/crimeisdown/trunk-transcribe:${VERSION:-main}
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile
+      cache_from:
+        - ghcr.io/crimeisdown/trunk-transcribe:main
+    command: worker
+    volumes:
+      - ./backend/app:/src/backend/app
+      - ./backend/alembic.ini:/src/backend/alembic.ini
+      - ./backend/pyproject.toml:/src/backend/pyproject.toml
+      - ./config:/src/config
+      - ./docker/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
+    environment:
+      - DEFAULT_TRANSCRIPTION_BACKEND=${DEFAULT_TRANSCRIPTION_BACKEND:-whisper}
+      - TRANSCRIPTION_BACKEND=voxtral
+      - CELERY_QUEUES=transcribe_voxtral
+      - ASR_API_URL=${ASR_API_URL:-http://asr-voxtral:8000/v1}
+      - ASR_PROVIDER=${ASR_PROVIDER:-vllm}
+      - ASR_MODEL=${ASR_MODEL:-mistralai/Voxtral-Mini-4B-Realtime-2602}
+      - CELERY_LOGLEVEL
+      - CELERY_BROKER_URL
+      - CELERY_RESULT_BACKEND
+      - CELERY_CONCURRENCY
+      - CELERY_PREFETCH_MULTIPLIER
+    env_file: .env
+    depends_on:
+      - asr-voxtral
+    restart: always
+
+  asr-voxtral:
+    image: ${ASR_VOXTRAL_IMAGE:-vllm/vllm-openai:latest}
+    command:
+      - --model
+      - ${ASR_MODEL:-mistralai/Voxtral-Mini-4B-Realtime-2602}
+      - --compilation_config
+      - '{"cudagraph_mode": "PIECEWISE"}'
+    ipc: host
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+    environment:
+      - HF_TOKEN
+      - VLLM_DISABLE_COMPILE_CACHE=1
+    restart: always

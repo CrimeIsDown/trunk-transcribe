@@ -4,6 +4,7 @@ from threading import Lock
 
 from celery_batches import Batches
 
+from app.core.config import resolve_transcription_backend
 from app.task import Task
 from .base import BaseWhisper
 
@@ -23,6 +24,16 @@ class WhisperTask(Task):
 
     @property
     def default_implementation(self) -> str:
+        backend = resolve_transcription_backend(
+            os.getenv("TRANSCRIPTION_BACKEND"),
+            default_backend=os.getenv("DEFAULT_TRANSCRIPTION_BACKEND", "whisper"),
+        )
+
+        if backend != "whisper":
+            provider_name = os.getenv("ASR_PROVIDER", backend)
+            model_name = os.getenv("ASR_MODEL", backend)
+            return f"whisper-asr-api:{provider_name}:{model_name}"
+
         whisper_implementation = os.getenv("WHISPER_IMPLEMENTATION")
         if not whisper_implementation:
             raise RuntimeError("WHISPER_IMPLEMENTATION env must be set.")
@@ -38,12 +49,17 @@ class WhisperTask(Task):
         if whisper_implementation == "deepinfra" and not model_name:
             model_name = "openai/whisper-large-v3-turbo"
 
+        if whisper_implementation == "whisper-asr-api":
+            provider_name = os.getenv("ASR_PROVIDER", "whisper")
+            model_name = os.getenv("ASR_MODEL") or model_name or "whisper"
+            return f"whisper-asr-api:{provider_name}:{model_name}"
+
         return f"{whisper_implementation}:{model_name}"
 
     def initialize_model(self, implementation: str) -> BaseWhisper:
         with self.model_lock:
             logging.info(f"Initializing whisper model {implementation}")
-            implementation, model = implementation.split(":", 1)
+            implementation, _, model = implementation.partition(":")
             if implementation == "whisper.cpp":
                 from .whisper_cpp import WhisperCpp
 
@@ -87,8 +103,14 @@ class WhisperTask(Task):
             if implementation == "whisper-asr-api":
                 from .whisper_asr_api import WhisperAsrApi
 
+                provider_name = None
+                model_name = None
+                if model:
+                    provider_name, _, model_name = model.partition(":")
                 return WhisperAsrApi(
-                    base_url=os.getenv("ASR_API_URL", "http://localhost:5000")
+                    base_url=os.getenv("ASR_API_URL", "http://localhost:5000"),
+                    provider=provider_name or os.getenv("ASR_PROVIDER"),
+                    model=model_name or os.getenv("ASR_MODEL") or os.getenv("WHISPER_MODEL"),
                 )
 
             raise RuntimeError(f"Unknown implementation {implementation}")

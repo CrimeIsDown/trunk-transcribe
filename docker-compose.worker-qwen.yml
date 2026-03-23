@@ -1,0 +1,46 @@
+services:
+  worker-qwen:
+    image: ghcr.io/crimeisdown/trunk-transcribe:${VERSION:-main}
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile
+      cache_from:
+        - ghcr.io/crimeisdown/trunk-transcribe:main
+    command: worker
+    volumes:
+      - ./backend/app:/src/backend/app
+      - ./backend/alembic.ini:/src/backend/alembic.ini
+      - ./backend/pyproject.toml:/src/backend/pyproject.toml
+      - ./config:/src/config
+      - ./docker/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
+    environment:
+      - DEFAULT_TRANSCRIPTION_BACKEND=${DEFAULT_TRANSCRIPTION_BACKEND:-whisper}
+      - TRANSCRIPTION_BACKEND=qwen
+      - CELERY_QUEUES=transcribe_qwen
+      - ASR_API_URL=${ASR_API_URL:-http://asr-qwen:8765/v1}
+      - ASR_PROVIDER=${ASR_PROVIDER:-qwen3-asr-server}
+      - ASR_MODEL=${ASR_MODEL:-qwen3-asr-p25}
+      - CELERY_LOGLEVEL
+      - CELERY_BROKER_URL
+      - CELERY_RESULT_BACKEND
+      - CELERY_CONCURRENCY
+      - CELERY_PREFETCH_MULTIPLIER
+    env_file: .env
+    depends_on:
+      - asr-qwen
+    restart: always
+
+  asr-qwen:
+    image: ${ASR_QWEN_IMAGE:-ghcr.io/trunk-reporter/qwen3-asr-server:gpu}
+    volumes:
+      - qwen-asr-model:/model
+      - qwen-asr-aligner:/aligner
+    environment:
+      - PORT=8765
+      - MODEL_PATH=/model
+      - ALIGNER_PATH=/aligner
+    restart: always
+
+volumes:
+  qwen-asr-model:
+  qwen-asr-aligner:

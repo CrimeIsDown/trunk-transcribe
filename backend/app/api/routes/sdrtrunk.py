@@ -16,6 +16,7 @@ from fastapi import (
 from sqlmodel import Session
 
 from app.api.depends import get_db
+from app.core.config import settings
 from app.models.metadata import Metadata
 from app.utils import storage
 from app import worker
@@ -135,6 +136,7 @@ def create_call_from_sdrtrunk(
         build_transcribe_options(metadata),
         whisper_implementation=None,
         id=db_call.id,
+        transcription_backend=settings.resolved_default_transcription_backend,
     )
 
     return Response("Call imported successfully.", status_code=200)

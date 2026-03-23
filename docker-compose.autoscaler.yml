@@ -20,8 +20,13 @@ services:
       - --interval
       - ${AUTOSCALE_INTERVAL:-60}
       - --image
-      - ghcr.io/crimeisdown/trunk-transcribe:main-${WHISPER_IMPLEMENTATION:-whisper}-${WHISPER_MODEL:-large-v2}-cuda_${CUDA_VERSION:-12.1.0}
+      - ${AUTOSCALE_WORKER_IMAGE:-ghcr.io/crimeisdown/trunk-transcribe:${VERSION:-main}}
     env_file: .env
+    environment:
+      - AUTOSCALE_BACKEND
+      - AUTOSCALE_QUEUE
+      - AUTOSCALE_WORKER_IMAGE
+      - AUTOSCALE_GPU_RAM_MB
     volumes:
       - ./backend/app:/src/backend/app
       - ./backend/scripts:/src/backend/scripts

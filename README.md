@@ -13,10 +13,10 @@ This is experimental alpha-version software, use at your own risk. Expect breaki
 ## Architecture
 
 1. `transcribe.sh` runs from trunk-recorder which makes a POST request to the API, passing along the call WAV and JSON
-1. API creates a new task to transcribe the call and adds it to a queue (in RabbitMQ)
-1. Worker(s) (running on a machine with a GPU) picks up the task from the queue and executes it, transcribing audio
-1. As part of the task, worker makes an API call to Meilisearch to add the transcribed call to the search index
-1. If notifications are configured, as part of the task the worker will send appropriate notifications
+1. API resolves a `transcription_backend` for the request and adds the transcription job to the matching RabbitMQ queue
+1. A backend-specific worker stack consumes exactly one backend queue: `transcribe_whisper`, `transcribe_qwen`, or `transcribe_voxtral`
+1. The worker either runs the model locally or forwards audio to a sibling/local ASR HTTP service and normalizes the response
+1. The `post_transcribe` worker stores the results in search and sends notifications
 
 ## Getting Started
 
@@ -32,8 +32,9 @@ This is experimental alpha-version software, use at your own risk. Expect breaki
 1. Copy `.env.example` to `.env` and set values
     1. `TELEGRAM_BOT_TOKEN` can be found by making a new bot on Telegram with @BotFather
 1. Copy the `*.example` files in [`config`](./config/) to `.json` files and update them with your own settings. [See below](#configuration-files) for documentation on the specific settings.
-1. Run `./make.sh start` to start (by default this will use your local GPU, see below for other options of running the worker)
-    1. To use the CPU with Whisper.cpp (a CPU-optimized version of Whisper), comment out the `COMPOSE_FILE` line in your `.env`
+1. Run `./make.sh start` to start the default stack
+    1. By default this starts the API services, a `post_transcribe` worker, a Whisper worker, GPU support for the Whisper worker, and MinIO
+    1. To run a different backend worker, update `COMPOSE_FILE` in `.env` to swap `docker-compose.worker-whisper.yml` for `docker-compose.worker-qwen.yml` or `docker-compose.worker-voxtral.yml`
 1. On the machine running `trunk-recorder`, in the `trunk-recorder` config, set the following for the systems you want to transcribe:
 
     ```json
@@ -59,15 +60,54 @@ The AI panel analyzes the exact active search query, refinements, hierarchy sele
 
 There are numerous `docker-compose.*.yml` files in this repo for various configurations of the different components. Add `COMPOSE_FILE=` to your `.env` with the value being a list of docker-compose configurations separated by `:`, see `.env.example` for some common ones.
 
+### Backend-specific workers
+
+Each transcription machine should run exactly one backend-specific worker stack:
+
+- `docker-compose.worker-whisper.yml` consumes `transcribe_whisper`
+- `docker-compose.worker-qwen.yml` consumes `transcribe_qwen` and runs [`trunk-reporter/qwen3-asr-server`](https://github.com/trunk-reporter/qwen3-asr-server)
+- `docker-compose.worker-voxtral.yml` consumes `transcribe_voxtral` and runs [`vllm serve`](https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html) for [`mistralai/Voxtral-Mini-4B-Realtime-2602`](https://huggingface.co/mistralai/Voxtral-Mini-4B-Realtime-2602)
+
+The shared `docker-compose.worker.yml` service is the `post_transcribe` worker. Keep at least one of those running somewhere in the deployment.
+
+To add another Whisper machine:
+
+```bash
+COMPOSE_FILE=docker-compose.worker-whisper.yml:docker-compose.gpu.yml
+docker compose up -d
+```
+
+To add another Qwen machine:
+
+```bash
+COMPOSE_FILE=docker-compose.worker-qwen.yml:docker-compose.gpu.yml
+docker compose up -d
+```
+
+If you want the Qwen stack to run without a GPU, set `ASR_QWEN_IMAGE=ghcr.io/trunk-reporter/qwen3-asr-server:cpu` and omit `docker-compose.gpu.yml`.
+
+To add another Voxtral machine:
+
+```bash
+COMPOSE_FILE=docker-compose.worker-voxtral.yml:docker-compose.gpu.yml
+docker compose up -d
+```
+
+The default Voxtral stack uses `vllm/vllm-openai:latest` plus Mistral's recommended serve flags for `mistralai/Voxtral-Mini-4B-Realtime-2602`. If your Hugging Face access requires authentication, set `HF_TOKEN` in `.env` so vLLM can download the model weights.
+
 ### Running workers using OpenAI's paid Whisper API
 
 To use the paid Whisper API by OpenAI instead of running the worker on a machine with a GPU, set the following in your `.env` file:
 
 ```
-# To use the paid OpenAI Whisper API instead of running the model locally
-COMPOSE_FILE=docker-compose.server.yml:docker-compose.worker.yml:docker-compose.openai.yml
+# Run the regular post worker plus a Whisper worker that calls the OpenAI API
+COMPOSE_FILE=docker-compose.server.yml:docker-compose.worker.yml:docker-compose.worker-whisper.yml
 
-# OpenAI API key, if using the paid Whisper API
+# Route new jobs to the Whisper queue
+DEFAULT_TRANSCRIPTION_BACKEND=whisper
+
+# Use the OpenAI speech API instead of a local model
+WHISPER_IMPLEMENTATION=openai
 OPENAI_API_KEY=my-api-key
 ```
 
@@ -93,7 +133,7 @@ DEEPINFRA_API_KEY=my-api-key
 The worker can be run on Windows if needed.
 
 1. Clone the repo or otherwise download the zip file from GitHub and extract it.
-1. Copy `.env.example` to `.env` and update it with the appropriate settings. Your `COMPOSE_FILE` line should be set to `COMPOSE_FILE=docker-compose.whisper.yml:docker-compose.gpu.yml`.
+1. Copy `.env.example` to `.env` and update it with the appropriate settings. Your `COMPOSE_FILE` line should be set to `COMPOSE_FILE=docker-compose.worker-whisper.yml:docker-compose.gpu.yml`.
 1. Choose one of the two paths below for actually running the worker.
 
 #### Using Docker / WSL (Recommended)
@@ -125,12 +165,16 @@ To start the autoscaler, set the following in your `.env`:
 COMPOSE_FILE=docker-compose.server.yml:docker-compose.worker.yml:docker-compose.autoscaler.yml
 # your API key from vast.ai, or omit to have it read from ~/.vast_api_key
 VAST_API_KEY=
+# One autoscaler should manage one backend queue
+AUTOSCALE_BACKEND=whisper
+AUTOSCALE_QUEUE=transcribe_whisper
+AUTOSCALE_WORKER_IMAGE=ghcr.io/crimeisdown/trunk-transcribe:main-whisper-large-v3-cuda_12.1.0
 # Tune these settings as needed
 AUTOSCALE_MIN_INSTANCES=1
 AUTOSCALE_MAX_INSTANCES=10
 ```
 
-If you want to maintain a constant number of instances on Vast.ai instead of autoscaling, just set the min and max instances to the same value.
+If you want to maintain a constant number of instances on Vast.ai instead of autoscaling, just set the min and max instances to the same value. Run a separate autoscaler per backend when you want to scale more than one backend queue.
 
 ### Viewing worker health
 

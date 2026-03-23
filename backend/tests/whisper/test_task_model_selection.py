@@ -46,6 +46,28 @@ class TestWhisperTaskModelSelection(unittest.TestCase):
         ):
             self.assertEqual("whisper:tiny", self.task.default_implementation)
 
+    def test_default_implementation_qwen_uses_generic_asr_api(self):
+        with patch.dict(
+            os.environ,
+            {
+                "TRANSCRIPTION_BACKEND": "qwen",
+                "ASR_PROVIDER": "vllm",
+                "ASR_MODEL": "qwen2.5-omni",
+            },
+            clear=True,
+        ):
+            self.assertEqual(
+                "whisper-asr-api:vllm:qwen2.5-omni",
+                self.task.default_implementation,
+            )
+
+    def test_default_implementation_voxtral_defaults_provider_and_model(self):
+        with patch.dict(os.environ, {"TRANSCRIPTION_BACKEND": "voxtral"}, clear=True):
+            self.assertEqual(
+                "whisper-asr-api:voxtral:voxtral",
+                self.task.default_implementation,
+            )
+
     def test_model_uses_default_implementation_when_not_provided(self):
         expected_model = Mock()
         with patch.object(

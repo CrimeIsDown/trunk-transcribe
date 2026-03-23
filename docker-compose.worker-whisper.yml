@@ -1,5 +1,5 @@
 services:
-  whisper:
+  worker-whisper:
     image: ghcr.io/crimeisdown/trunk-transcribe:${VERSION:-main}-${WHISPER_IMPLEMENTATION:-whisper}-${WHISPER_MODEL:-small.en}-cuda_${CUDA_VERSION:-12.1.0}
     build:
       context: .
@@ -24,4 +24,8 @@ services:
       - CELERY_RESULT_BACKEND
       - CELERY_CONCURRENCY
       - CELERY_PREFETCH_MULTIPLIER
+      - WHISPER_IMPLEMENTATION
+      - WHISPER_MODEL
+      - ASR_API_URL
+    env_file: .env
     restart: always

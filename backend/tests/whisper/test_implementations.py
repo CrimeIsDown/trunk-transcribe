@@ -206,6 +206,82 @@ class TestWhisperImplementations(unittest.TestCase):
         finally:
             os.unlink(audio_path)
 
+    def test_whisper_asr_api_legacy_endpoint_structural_contract(self):
+        from app.whisper.whisper_asr_api import WhisperAsrApi
+
+        expected = {
+            "text": "legacy whisper api",
+            "segments": [{"start": 0.0, "end": 1.0, "text": "legacy whisper api"}],
+            "language": "en",
+        }
+        response = Mock()
+        response.json.return_value = expected
+        response.raise_for_status = Mock()
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
+            create_tiny_wav(temp_audio.name)
+            audio_path = temp_audio.name
+
+        try:
+            implementation = WhisperAsrApi(
+                base_url="http://localhost:9000",
+                provider="whisper",
+                model="large-v3",
+            )
+            implementation.client.post = Mock(return_value=response)
+            result = implementation.transcribe(
+                audio=audio_path, options=build_options(vad_filter=True), language="en"
+            )
+
+            implementation.client.post.assert_called_once()
+            call = implementation.client.post.call_args
+            self.assertEqual("http://localhost:9000/asr", call.args[0])
+            self.assertEqual("whisper", call.kwargs["params"]["provider"])
+            self.assertEqual("large-v3", call.kwargs["params"]["model"])
+            self.assertEqual("true", call.kwargs["params"]["vad_filter"])
+            self.assertEqual(expected, result)
+            self._assert_result_contract(result)
+        finally:
+            os.unlink(audio_path)
+
+    def test_whisper_asr_api_openai_compatible_endpoint_structural_contract(self):
+        from app.whisper.whisper_asr_api import WhisperAsrApi
+
+        response = Mock()
+        response.raise_for_status = Mock()
+        response.json.return_value = {
+            "text": "openai compatible asr",
+            "segments": [{"start": 0.0, "end": 1.0, "text": "openai compatible asr"}],
+        }
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
+            create_tiny_wav(temp_audio.name)
+            audio_path = temp_audio.name
+
+        try:
+            implementation = WhisperAsrApi(
+                base_url="http://localhost:8000/v1",
+                model="qwen2.5-omni",
+                provider="vllm",
+            )
+            implementation.client.post = Mock(return_value=response)
+            result = implementation.transcribe(
+                audio=audio_path, options=build_options(), language="es"
+            )
+
+            implementation.client.post.assert_called_once()
+            call = implementation.client.post.call_args
+            self.assertEqual(
+                "http://localhost:8000/v1/audio/transcriptions", call.args[0]
+            )
+            self.assertEqual("qwen2.5-omni", call.kwargs["data"]["model"])
+            self.assertEqual("verbose_json", call.kwargs["data"]["response_format"])
+            self.assertEqual("alpha bravo", call.kwargs["data"]["prompt"])
+            self.assertEqual("es", result["language"])
+            self._assert_result_contract(result)
+        finally:
+            os.unlink(audio_path)
+
     def test_whisper_transcribe_structural_contract(self):
         fake_whisper = types.ModuleType("whisper")
         fake_model = Mock()
