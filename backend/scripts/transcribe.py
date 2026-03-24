@@ -17,15 +17,15 @@ parser = argparse.ArgumentParser(description="Audio Transcription CLI")
 parser.add_argument("audio_file", help="Path to the audio file")
 parser.add_argument(
     "--implementation",
-    default=os.getenv("WHISPER_IMPLEMENTATION", "whisper"),
-    help="Specify the implementation to use",
+    default=os.getenv("WHISPER_IMPLEMENTATION", "whisper-asr-api"),
+    help="Specify the API-backed implementation to use",
 )
 parser.add_argument(
     "--model",
-    default=os.getenv("WHISPER_MODEL", "small.en"),
-    help="Whisper model to use",
+    default=os.getenv("ASR_MODEL") or os.getenv("WHISPER_MODEL", "small.en"),
+    help="ASR model to use",
 )
-parser.add_argument("--prompt", help="Prompt to pass to Whisper")
+parser.add_argument("--prompt", help="Prompt to pass to the ASR backend")
 parser.add_argument(
     "--cleanup", action="store_true", help="Perform cleanup on the transcript"
 )

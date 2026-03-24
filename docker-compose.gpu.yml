@@ -17,6 +17,15 @@ services:
               count: all
               capabilities: [gpu]
 
+  asr-whisper:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
   asr-qwen:
     deploy:
       resources:

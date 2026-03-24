@@ -1,11 +1,7 @@
-import importlib
 import os
-import sys
 import tempfile
-import types
 import unittest
 import wave
-from collections import namedtuple
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
@@ -28,19 +24,6 @@ def create_tiny_wav(path: str) -> None:
         wav_file.setsampwidth(2)
         wav_file.setframerate(8000)
         wav_file.writeframes(b"\x00\x00" * 800)
-
-
-def import_module_with_stubs(module_name: str, stubs: dict[str, object]):
-    previous_module = sys.modules.pop(module_name, None)
-    try:
-        with patch.dict(sys.modules, stubs):
-            module = importlib.import_module(module_name)
-    finally:
-        if previous_module is not None:
-            sys.modules[module_name] = previous_module
-        else:
-            sys.modules.pop(module_name, None)
-    return module
 
 
 class TestWhisperImplementations(unittest.TestCase):
@@ -281,161 +264,6 @@ class TestWhisperImplementations(unittest.TestCase):
             self._assert_result_contract(result)
         finally:
             os.unlink(audio_path)
-
-    def test_whisper_transcribe_structural_contract(self):
-        fake_whisper = types.ModuleType("whisper")
-        fake_model = Mock()
-        fake_model.transcribe.return_value = {
-            "text": "hello whisper",
-            "segments": [{"start": 0.0, "end": 0.5, "text": "hello whisper"}],
-            "language": "en",
-        }
-        fake_whisper.load_model = Mock(return_value=fake_model)
-        module = import_module_with_stubs(
-            "app.whisper.whisper", {"whisper": fake_whisper}
-        )
-
-        implementation = module.Whisper("tiny")
-        result = implementation.transcribe("audio.wav", build_options(), language="en")
-
-        fake_whisper.load_model.assert_called_once_with("tiny")
-        fake_model.transcribe.assert_called_once()
-        kwargs = fake_model.transcribe.call_args.kwargs
-        self.assertEqual("audio.wav", kwargs["audio"])
-        self.assertEqual("en", kwargs["language"])
-        self.assertEqual("alpha bravo", kwargs["initial_prompt"])
-        self._assert_result_contract(result)
-
-    def test_faster_whisper_transcribe_structural_contract(self):
-        fake_faster_whisper = types.ModuleType("faster_whisper")
-        segment_type = namedtuple("Segment", ["start", "end", "text"])
-
-        class FakeWhisperModel:
-            def __init__(self, *args, **kwargs):
-                self.init_args = args
-                self.init_kwargs = kwargs
-                self.transcribe_kwargs = None
-
-            def transcribe(self, **kwargs):
-                self.transcribe_kwargs = kwargs
-                return iter([segment_type(0.0, 0.5, "hello faster whisper")]), None
-
-        fake_faster_whisper.WhisperModel = FakeWhisperModel
-        module = import_module_with_stubs(
-            "app.whisper.faster_whisper", {"faster_whisper": fake_faster_whisper}
-        )
-
-        with patch.dict(
-            os.environ, {"TORCH_DEVICE": "cpu", "TORCH_DTYPE": "int8"}, clear=False
-        ):
-            implementation = module.FasterWhisper("tiny")
-            result = implementation.transcribe(
-                "audio.wav", build_options(vad_filter=True), language="en"
-            )
-
-        self.assertEqual("hello faster whisper", result["text"])
-        self.assertEqual("en", result["language"])
-        self.assertEqual(1, len(result["segments"]))
-        self.assertEqual("audio.wav", implementation.model.transcribe_kwargs["audio"])
-        self.assertTrue(implementation.model.transcribe_kwargs["vad_filter"])
-        self._assert_result_contract(result)
-
-    def test_whisper_s2t_transcribe_structural_contract(self):
-        fake_whisper_s2t = types.ModuleType("whisper_s2t")
-        fake_backends = types.ModuleType("whisper_s2t.backends")
-        fake_ctranslate2 = types.ModuleType("whisper_s2t.backends.ctranslate2")
-        fake_model_module = types.ModuleType("whisper_s2t.backends.ctranslate2.model")
-        fake_model_module.BEST_ASR_CONFIG = {"beam_size": 1}
-
-        class FakeS2TModel:
-            def __init__(self):
-                self.transcribe_called = False
-                self.transcribe_with_vad_called = False
-
-            def transcribe(self, *args, **kwargs):
-                self.transcribe_called = True
-                return [[{"start_time": 0.0, "end_time": 0.5, "text": "hello s2t"}]]
-
-            def transcribe_with_vad(self, *args, **kwargs):
-                self.transcribe_with_vad_called = True
-                return [[{"start_time": 0.0, "end_time": 0.5, "text": "hello vad"}]]
-
-        fake_model = FakeS2TModel()
-        load_model_mock = Mock(return_value=fake_model)
-        fake_whisper_s2t.load_model = load_model_mock
-
-        module = import_module_with_stubs(
-            "app.whisper.whisper_s2t",
-            {
-                "whisper_s2t": fake_whisper_s2t,
-                "whisper_s2t.backends": fake_backends,
-                "whisper_s2t.backends.ctranslate2": fake_ctranslate2,
-                "whisper_s2t.backends.ctranslate2.model": fake_model_module,
-            },
-        )
-
-        with patch.dict(
-            os.environ, {"TORCH_DEVICE": "cpu", "TORCH_DTYPE": "int8"}, clear=False
-        ):
-            implementation = module.WhisperS2T("small")
-            result = implementation.transcribe(
-                "audio.wav", build_options(vad_filter=True), language="en"
-            )
-
-        self.assertTrue(fake_model.transcribe_with_vad_called)
-        self.assertFalse(fake_model.transcribe_called)
-        self.assertEqual("hello vad\n", result["text"])
-        self.assertEqual("en", result["language"])
-        self._assert_result_contract(result)
-        self.assertEqual("small", load_model_mock.call_args.kwargs["model_identifier"])
-        self.assertEqual("CTranslate2", load_model_mock.call_args.kwargs["backend"])
-
-    def test_whisper_cpp_transcribe_structural_contract(self):
-        from app.whisper.whisper_cpp import WhisperCpp
-
-        with tempfile.TemporaryDirectory() as temp_dir:
-            model_path = os.path.join(temp_dir, "ggml-tiny.bin")
-            open(model_path, "wb").close()
-
-            audio_path = os.path.join(temp_dir, "tiny.wav")
-            create_tiny_wav(audio_path)
-
-            csv_path = f"{audio_path}.csv"
-            with open(csv_path, "w", encoding="utf-8") as csv_file:
-                csv_file.write("start,end,text\n")
-                csv_file.write("0,500,hello cpp\n")
-                csv_file.write("500,1000,[SOUND]\n")
-                csv_file.write("1000,1500,world cpp\n")
-
-            completed_process = Mock()
-            completed_process.check_returncode = Mock()
-            with patch(
-                "app.whisper.whisper_cpp.subprocess.run",
-                return_value=completed_process,
-            ) as run_mock:
-                implementation = WhisperCpp("tiny", temp_dir)
-                result = implementation.transcribe(
-                    audio=audio_path,
-                    options={
-                        "initial_prompt": "alpha bravo",
-                        "cleanup": False,
-                        "vad_filter": False,
-                        "decode_options": {"beam_size": 3, "best_of": 2},
-                        "cleanup_config": [],
-                    },
-                    language="en",
-                )
-
-            args = run_mock.call_args.args[0]
-            self.assertIn("--best-of", args)
-            self.assertIn("2", args)
-            self.assertIn("--beam-size", args)
-            self.assertIn("3", args)
-            self.assertIn("--prompt", args)
-            self.assertEqual("hello cpp\nworld cpp", result["text"])
-            self.assertEqual(2, len(result["segments"]))
-            self.assertFalse(os.path.exists(csv_path))
-            self._assert_result_contract(result)
 
     def test_whisper_asr_api_transcribe_structural_contract(self):
         from app.whisper.whisper_asr_api import WhisperAsrApi

@@ -9,6 +9,7 @@ from app.task import Task
 from .base import BaseWhisper
 
 API_IMPLEMENTATIONS = ["openai", "deepgram", "deepinfra"]
+LOCAL_IMPLEMENTATIONS = ["whisper", "faster-whisper", "whispers2t", "whisper.cpp"]
 
 
 class WhisperTask(Task):
@@ -34,9 +35,12 @@ class WhisperTask(Task):
             model_name = os.getenv("ASR_MODEL", backend)
             return f"whisper-asr-api:{provider_name}:{model_name}"
 
-        whisper_implementation = os.getenv("WHISPER_IMPLEMENTATION")
-        if not whisper_implementation:
-            raise RuntimeError("WHISPER_IMPLEMENTATION env must be set.")
+        whisper_implementation = os.getenv("WHISPER_IMPLEMENTATION", "whisper-asr-api")
+        if whisper_implementation in LOCAL_IMPLEMENTATIONS:
+            supported = ", ".join(API_IMPLEMENTATIONS + ["whisper-asr-api"])
+            raise RuntimeError(
+                f"Local Whisper implementations have been removed. Use one of: {supported}"
+            )
 
         model_name = os.getenv("WHISPER_MODEL")
 
@@ -50,8 +54,8 @@ class WhisperTask(Task):
             model_name = "openai/whisper-large-v3-turbo"
 
         if whisper_implementation == "whisper-asr-api":
-            provider_name = os.getenv("ASR_PROVIDER", "whisper")
-            model_name = os.getenv("ASR_MODEL") or model_name or "whisper"
+            provider_name = os.getenv("ASR_PROVIDER", "whisper-asr-webservice")
+            model_name = os.getenv("ASR_MODEL") or model_name or "small.en"
             return f"whisper-asr-api:{provider_name}:{model_name}"
 
         return f"{whisper_implementation}:{model_name}"
@@ -60,25 +64,6 @@ class WhisperTask(Task):
         with self.model_lock:
             logging.info(f"Initializing whisper model {implementation}")
             implementation, _, model = implementation.partition(":")
-            if implementation == "whisper.cpp":
-                from .whisper_cpp import WhisperCpp
-
-                return WhisperCpp(
-                    model,
-                    os.getenv("WHISPERCPP_MODEL_DIR", "/usr/local/lib/whisper-models"),
-                )
-            if implementation == "faster-whisper":
-                from .faster_whisper import FasterWhisper
-
-                return FasterWhisper(model)
-            if implementation == "whispers2t":
-                from .whisper_s2t import WhisperS2T
-
-                return WhisperS2T(model)
-            if implementation == "whisper":
-                from .whisper import Whisper
-
-                return Whisper(model)
             if implementation == "openai":
                 api_key = os.getenv("OPENAI_API_KEY")
                 if not api_key:
@@ -111,6 +96,11 @@ class WhisperTask(Task):
                     base_url=os.getenv("ASR_API_URL", "http://localhost:5000"),
                     provider=provider_name or os.getenv("ASR_PROVIDER"),
                     model=model_name or os.getenv("ASR_MODEL") or os.getenv("WHISPER_MODEL"),
+                )
+
+            if implementation in LOCAL_IMPLEMENTATIONS:
+                raise RuntimeError(
+                    f"Local Whisper implementation {implementation} is no longer supported"
                 )
 
             raise RuntimeError(f"Unknown implementation {implementation}")

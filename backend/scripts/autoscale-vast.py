@@ -98,8 +98,8 @@ class Autoscaler:
         self.queue = os.getenv("AUTOSCALE_QUEUE") or worker.get_transcription_queue(
             self.backend
         )
-        self.model = os.getenv("WHISPER_MODEL", "large-v3")
-        self.implementation = os.getenv("WHISPER_IMPLEMENTATION", "faster-whisper")
+        self.model = os.getenv("WHISPER_MODEL") or os.getenv("ASR_MODEL", "large-v3")
+        self.implementation = os.getenv("WHISPER_IMPLEMENTATION", "whisper-asr-api")
         self.autoscale_gpu_ram_mb = int(os.getenv("AUTOSCALE_GPU_RAM_MB", "0") or "0")
 
         # Figure out the public IP/host for external access
@@ -285,23 +285,10 @@ class Autoscaler:
         if self.backend != "whisper":
             return float(DEFAULT_NON_WHISPER_GPU_RAM_MB)
 
-        mem_util_factor = 1.0
-        if self.implementation in ["faster-whisper", "whisper.cpp"]:
-            mem_util_factor = 0.4
-        if self.implementation == "whispers2t":
-            mem_util_factor = 0.5
+        if self.implementation in {"openai", "deepgram", "deepinfra"}:
+            return float(10 * 1024)
 
-        vram_requirements = {
-            "tiny.en": 1.5 * 1024 * mem_util_factor,
-            "base.en": 2 * 1024 * mem_util_factor,
-            "small.en": 3.5 * 1024 * mem_util_factor,
-            "medium.en": 6.5 * 1024 * mem_util_factor,
-            "large": 12 * 1024 * mem_util_factor,
-            "large-v2": 12 * 1024 * mem_util_factor,
-            "large-v3": 12 * 1024 * mem_util_factor,
-            "large-v3-turbo": 10 * 1024 * mem_util_factor,
-        }
-        return vram_requirements[self.model]
+        return float(DEFAULT_NON_WHISPER_GPU_RAM_MB)
 
     def create_instances(self, count: int) -> int:
         logging.info(f"Scaling up by {count} instances")

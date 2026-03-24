@@ -40,7 +40,7 @@ dependencies = [
 ]
 name = "trunk-transcribe"
 version = "0.1.0"
-description = "Transcription of calls from trunk-recorder using OpenAI Whisper"
+description = "Transcription of calls from trunk-recorder using backend-specific ASR workers"
 readme = "../README.md"
 
 [dependency-groups]
@@ -55,25 +55,12 @@ dev = [
     "pytest-dotenv<1.0.0,>=0.5.2",
     "celery-types<1.0.0,>=0.22.0",
 ]
-whisper = [
-    "openai-whisper",
-]
-faster-whisper = [
-    "faster-whisper",
-]
-whispers2t = [
-    "whisper-s2t",
-]
-
 [tool.uv]
 package = false
 
 [tool.uv.sources]
 apprise = { git = "https://github.com/EricTendian/apprise.git", branch = "master" }
 geopy = { git = "https://github.com/EricTendian/geopy.git", branch = "geoapify" }
-openai-whisper = { git = "https://github.com/openai/whisper.git", rev = "v20250625" }
-faster-whisper = { git = "https://github.com/SYSTRAN/faster-whisper.git", rev = "v1.2.0" }
-whisper-s2t = { git = "https://github.com/shashikg/WhisperS2T.git", rev = "v1.3.1" }
 
 
 [tool.mypy]

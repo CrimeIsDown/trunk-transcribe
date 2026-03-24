@@ -1,13 +1,11 @@
 services:
   worker-whisper:
-    image: ghcr.io/crimeisdown/trunk-transcribe:${VERSION:-main}-${WHISPER_IMPLEMENTATION:-whisper}-${WHISPER_MODEL:-small.en}-cuda_${CUDA_VERSION:-12.1.0}
+    image: ghcr.io/crimeisdown/trunk-transcribe:${VERSION:-main}
     build:
       context: .
-      dockerfile: docker/${WORKER_DOCKERFILE:-Dockerfile.whisper}
+      dockerfile: ./docker/Dockerfile
       cache_from:
-        - ghcr.io/crimeisdown/trunk-transcribe:main-${WHISPER_IMPLEMENTATION:-whisper}-${WHISPER_MODEL:-small.en}-cuda_${CUDA_VERSION:-12.1.0}
-      args:
-        WHISPER_MODEL: ${WHISPER_MODEL:-small.en}
+        - ghcr.io/crimeisdown/trunk-transcribe:main
     command: worker
     volumes:
       - ./backend/app:/src/backend/app
@@ -19,13 +17,29 @@ services:
       - DEFAULT_TRANSCRIPTION_BACKEND=${DEFAULT_TRANSCRIPTION_BACKEND:-whisper}
       - TRANSCRIPTION_BACKEND=whisper
       - CELERY_QUEUES=transcribe_whisper
+      - ASR_API_URL=${ASR_API_URL:-http://asr-whisper:9000}
+      - ASR_PROVIDER=${ASR_PROVIDER:-whisper-asr-webservice}
+      - ASR_MODEL=${ASR_MODEL:-small.en}
+      - WHISPER_IMPLEMENTATION=${WHISPER_IMPLEMENTATION:-whisper-asr-api}
       - CELERY_LOGLEVEL
       - CELERY_BROKER_URL
       - CELERY_RESULT_BACKEND
       - CELERY_CONCURRENCY
       - CELERY_PREFETCH_MULTIPLIER
-      - WHISPER_IMPLEMENTATION
-      - WHISPER_MODEL
-      - ASR_API_URL
     env_file: .env
+    depends_on:
+      - asr-whisper
     restart: always
+
+  asr-whisper:
+    image: ${ASR_WHISPER_IMAGE:-onerahmet/openai-whisper-asr-webservice:latest-gpu}
+    volumes:
+      - whisper-asr-cache:/root/.cache
+    environment:
+      - ASR_MODEL=${ASR_MODEL:-small.en}
+      - ASR_ENGINE=${ASR_ENGINE:-faster_whisper}
+      - ASR_DEVICE=${ASR_DEVICE:-cuda}
+    restart: always
+
+volumes:
+  whisper-asr-cache:

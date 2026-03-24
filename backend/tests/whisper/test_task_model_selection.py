@@ -12,10 +12,10 @@ class TestWhisperTaskModelSelection(unittest.TestCase):
 
     def test_default_implementation_requires_env(self):
         with patch.dict(os.environ, {}, clear=True):
-            with self.assertRaisesRegex(
-                RuntimeError, "WHISPER_IMPLEMENTATION env must be set"
-            ):
-                _ = self.task.default_implementation
+            self.assertEqual(
+                "whisper-asr-api:whisper-asr-webservice:small.en",
+                self.task.default_implementation,
+            )
 
     def test_default_implementation_openai_uses_whisper_1(self):
         with patch.dict(
@@ -38,13 +38,16 @@ class TestWhisperTaskModelSelection(unittest.TestCase):
                 self.task.default_implementation,
             )
 
-    def test_default_implementation_non_api_uses_configured_model(self):
+    def test_default_implementation_whisper_uses_asr_api_by_default(self):
         with patch.dict(
             os.environ,
-            {"WHISPER_IMPLEMENTATION": "whisper", "WHISPER_MODEL": "tiny"},
+            {"ASR_PROVIDER": "whisper-asr-webservice", "ASR_MODEL": "large-v3"},
             clear=True,
         ):
-            self.assertEqual("whisper:tiny", self.task.default_implementation)
+            self.assertEqual(
+                "whisper-asr-api:whisper-asr-webservice:large-v3",
+                self.task.default_implementation,
+            )
 
     def test_default_implementation_qwen_uses_generic_asr_api(self):
         with patch.dict(
@@ -67,6 +70,15 @@ class TestWhisperTaskModelSelection(unittest.TestCase):
                 "whisper-asr-api:voxtral:voxtral",
                 self.task.default_implementation,
             )
+
+    def test_default_implementation_rejects_removed_local_implementations(self):
+        with patch.dict(
+            os.environ, {"WHISPER_IMPLEMENTATION": "faster-whisper"}, clear=True
+        ):
+            with self.assertRaisesRegex(
+                RuntimeError, "Local Whisper implementations have been removed"
+            ):
+                _ = self.task.default_implementation
 
     def test_model_uses_default_implementation_when_not_provided(self):
         expected_model = Mock()
