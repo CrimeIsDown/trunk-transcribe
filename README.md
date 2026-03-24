@@ -18,6 +18,8 @@ This is experimental alpha-version software, use at your own risk. Expect breaki
 1. The worker forwards audio to a sibling/local ASR HTTP service or a vendor API and normalizes the response
 1. The `post_transcribe` worker stores the results in search and sends notifications
 
+See [docs/architecture.md](./docs/architecture.md) for Mermaid diagrams covering the full runtime topology and the current transcript provider/model mapping.
+
 ## Getting Started
 
 *Prerequsites:*
