@@ -94,6 +94,7 @@ class Autoscaler:
         self.backend = resolve_transcription_backend(
             os.getenv("AUTOSCALE_BACKEND") or os.getenv("TRANSCRIPTION_BACKEND"),
             default_backend=os.getenv("DEFAULT_TRANSCRIPTION_BACKEND", "whisper"),
+            whisper_implementation=os.getenv("WHISPER_IMPLEMENTATION"),
         )
         self.queue = os.getenv("AUTOSCALE_QUEUE") or worker.get_transcription_queue(
             self.backend
@@ -231,6 +232,10 @@ class Autoscaler:
         return p.stdout.decode("utf-8").strip()
 
     def find_available_instances(self, vram_needed: float) -> list[dict]:
+        if vram_needed <= 0:
+            raise RuntimeError(
+                "The api transcription backend does not require GPU autoscaling. Run docker-compose.worker-api.yml on standard compute instead."
+            )
         vram_needed = max(10 * 1024, vram_needed)
         query = {
             "rentable": {"eq": "true"},
@@ -281,6 +286,9 @@ class Autoscaler:
     def _get_vram_required(self) -> float:
         if self.autoscale_gpu_ram_mb:
             return float(self.autoscale_gpu_ram_mb)
+
+        if self.backend == "api":
+            return 0.0
 
         if self.backend != "whisper":
             return float(DEFAULT_NON_WHISPER_GPU_RAM_MB)

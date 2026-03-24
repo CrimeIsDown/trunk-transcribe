@@ -53,7 +53,7 @@ def create_call(
     call_audio: UploadFile | None = None,
     db: Session = Depends(get_db),
     whisper_implementation: str | None = None,
-    transcription_backend: str = settings.DEFAULT_TRANSCRIPTION_BACKEND,
+    transcription_backend: str | None = None,
     batch: bool = False,
 ) -> JSONResponse:
     metadata = json.loads(call_json.file.read())

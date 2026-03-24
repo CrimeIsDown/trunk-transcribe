@@ -1,0 +1,32 @@
+services:
+  worker-api:
+    image: ghcr.io/crimeisdown/trunk-transcribe:${VERSION:-main}
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile
+      cache_from:
+        - ghcr.io/crimeisdown/trunk-transcribe:main
+    command: worker
+    volumes:
+      - ./backend/app:/src/backend/app
+      - ./backend/alembic.ini:/src/backend/alembic.ini
+      - ./backend/pyproject.toml:/src/backend/pyproject.toml
+      - ./config:/src/config
+      - ./docker/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
+    environment:
+      - DEFAULT_TRANSCRIPTION_BACKEND=${DEFAULT_TRANSCRIPTION_BACKEND:-api}
+      - TRANSCRIPTION_BACKEND=api
+      - CELERY_QUEUES=transcribe_api
+      - WHISPER_IMPLEMENTATION
+      - WHISPER_MODEL
+      - OPENAI_API_KEY
+      - DEEPGRAM_API_KEY
+      - DEEPINFRA_API_KEY
+      - DEEPINFRA_BASE_URL
+      - CELERY_LOGLEVEL
+      - CELERY_BROKER_URL
+      - CELERY_RESULT_BACKEND
+      - CELERY_CONCURRENCY
+      - CELERY_PREFETCH_MULTIPLIER
+    env_file: .env
+    restart: always

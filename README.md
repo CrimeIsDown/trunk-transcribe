@@ -14,8 +14,8 @@ This is experimental alpha-version software, use at your own risk. Expect breaki
 
 1. `transcribe.sh` runs from trunk-recorder which makes a POST request to the API, passing along the call WAV and JSON
 1. API resolves a `transcription_backend` for the request and adds the transcription job to the matching RabbitMQ queue
-1. A backend-specific worker stack consumes exactly one backend queue: `transcribe_whisper`, `transcribe_qwen`, or `transcribe_voxtral`
-1. The worker forwards audio to a sibling/local ASR HTTP service or a vendor API and normalizes the response
+1. A backend-specific worker stack consumes exactly one backend queue: `transcribe_whisper`, `transcribe_api`, `transcribe_qwen`, or `transcribe_voxtral`
+1. The worker either forwards audio to a sibling/local ASR HTTP service or calls a vendor-hosted API, then normalizes the response
 1. The `post_transcribe` worker stores the results in search and sends notifications
 
 See [docs/architecture.md](./docs/architecture.md) for Mermaid diagrams covering the full runtime topology and the current transcript provider/model mapping.
@@ -36,7 +36,7 @@ See [docs/architecture.md](./docs/architecture.md) for Mermaid diagrams covering
 1. Copy the `*.example` files in [`config`](./config/) to `.json` files and update them with your own settings. [See below](#configuration-files) for documentation on the specific settings.
 1. Run `./make.sh start` to start the default stack
     1. By default this starts the API services, a `post_transcribe` worker, a Whisper worker, GPU support for the Whisper worker, and MinIO
-    1. To run a different backend worker, update `COMPOSE_FILE` in `.env` to swap `docker-compose.worker-whisper.yml` for `docker-compose.worker-qwen.yml` or `docker-compose.worker-voxtral.yml`
+    1. To run a different backend worker, update `COMPOSE_FILE` in `.env` to swap `docker-compose.worker-whisper.yml` for `docker-compose.worker-api.yml`, `docker-compose.worker-qwen.yml`, or `docker-compose.worker-voxtral.yml`
 1. On the machine running `trunk-recorder`, in the `trunk-recorder` config, set the following for the systems you want to transcribe:
 
     ```json
@@ -67,6 +67,7 @@ There are numerous `docker-compose.*.yml` files in this repo for various configu
 Each transcription machine should run exactly one backend-specific worker stack:
 
 - `docker-compose.worker-whisper.yml` consumes `transcribe_whisper` and runs [`ahmetoner/whisper-asr-webservice`](https://github.com/ahmetoner/whisper-asr-webservice)
+- `docker-compose.worker-api.yml` consumes `transcribe_api` and forwards to OpenAI, Deepgram, or DeepInfra
 - `docker-compose.worker-qwen.yml` consumes `transcribe_qwen` and runs [`trunk-reporter/qwen3-asr-server`](https://github.com/trunk-reporter/qwen3-asr-server)
 - `docker-compose.worker-voxtral.yml` consumes `transcribe_voxtral` and runs [`vllm serve`](https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html) for [`mistralai/Voxtral-Mini-4B-Realtime-2602`](https://huggingface.co/mistralai/Voxtral-Mini-4B-Realtime-2602)
 
@@ -80,6 +81,15 @@ docker compose up -d
 ```
 
 The default Whisper stack uses `onerahmet/openai-whisper-asr-webservice:latest-gpu` with `ASR_ENGINE=faster_whisper`. To run Whisper on CPU, set `ASR_WHISPER_IMAGE=onerahmet/openai-whisper-asr-webservice:latest` and `ASR_DEVICE=cpu`, then omit `docker-compose.gpu.yml`.
+
+To add an API-forwarding machine:
+
+```bash
+COMPOSE_FILE=docker-compose.worker-api.yml
+docker compose up -d
+```
+
+The API worker does not need `docker-compose.gpu.yml`. Set `WHISPER_IMPLEMENTATION` to `openai`, `deepgram`, or `deepinfra`, then provide the matching API key.
 
 To add another Qwen machine:
 
@@ -101,27 +111,30 @@ The default Voxtral stack uses `vllm/vllm-openai:latest` plus Mistral's recommen
 
 ### Running workers using OpenAI's paid Whisper API
 
-To use the paid Whisper API by OpenAI instead of the default Whisper ASR sidecar, set the following in your `.env` file:
+To use the paid Whisper API by OpenAI, run the API backend instead of the Whisper sidecar worker and set the following in your `.env` file:
 
 ```
-# Run the regular post worker plus a Whisper worker that calls the OpenAI API
-COMPOSE_FILE=docker-compose.server.yml:docker-compose.worker.yml:docker-compose.worker-whisper.yml
+# Run the regular post worker plus an API-forwarding worker
+COMPOSE_FILE=docker-compose.server.yml:docker-compose.worker.yml:docker-compose.worker-api.yml
 
-# Route new jobs to the Whisper queue
-DEFAULT_TRANSCRIPTION_BACKEND=whisper
+# Route new jobs to the API queue
+DEFAULT_TRANSCRIPTION_BACKEND=api
 
-# Use the OpenAI speech API instead of the default sidecar server
+# Use the OpenAI speech API
 WHISPER_IMPLEMENTATION=openai
 OPENAI_API_KEY=my-api-key
 ```
 
-You may also want to set `CELERY_CONCURRENCY` to a higher number since local GPU inference is no longer the limiting factor.
+You may also want to set `CELERY_CONCURRENCY` to a higher number since the worker is only forwarding requests.
 
 ### Running workers using DeepInfra's Whisper API
 
-To use DeepInfra's OpenAI-compatible Whisper API instead of the default Whisper ASR sidecar, set the following in your `.env` file:
+To use DeepInfra's OpenAI-compatible Whisper API, run the API backend and set the following in your `.env` file:
 
 ```
+# Route jobs to the API queue
+DEFAULT_TRANSCRIPTION_BACKEND=api
+
 # Switch to DeepInfra implementation
 WHISPER_IMPLEMENTATION=deepinfra
 
@@ -130,6 +143,24 @@ DEEPINFRA_API_KEY=my-api-key
 
 # Optional model override (defaults to openai/whisper-large-v3-turbo)
 # WHISPER_MODEL=openai/whisper-large-v3-turbo
+```
+
+### Running workers using Deepgram's transcription API
+
+To use Deepgram's transcription API, run the API backend and set the following in your `.env` file:
+
+```
+# Route jobs to the API queue
+DEFAULT_TRANSCRIPTION_BACKEND=api
+
+# Switch to Deepgram implementation
+WHISPER_IMPLEMENTATION=deepgram
+
+# Deepgram API key
+DEEPGRAM_API_KEY=my-api-key
+
+# Optional model override (defaults to nova-2)
+# WHISPER_MODEL=nova-2
 ```
 
 ### Running workers on Windows
@@ -177,6 +208,8 @@ AUTOSCALE_WORKER_IMAGE=ghcr.io/crimeisdown/trunk-transcribe:main-whisper-large-v
 AUTOSCALE_MIN_INSTANCES=1
 AUTOSCALE_MAX_INSTANCES=10
 ```
+
+The Vast autoscaler is only useful for GPU-backed backends. The `api` backend is just request forwarding, so run `docker-compose.worker-api.yml` on standard CPU compute instead.
 
 If you want to maintain a constant number of instances on Vast.ai instead of autoscaling, just set the min and max instances to the same value. Run a separate autoscaler per backend when you want to scale more than one backend queue.
 

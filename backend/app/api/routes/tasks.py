@@ -25,7 +25,7 @@ def queue_for_transcription(
     call_audio: UploadFile,
     call_json: UploadFile,
     whisper_implementation: str | None = None,
-    transcription_backend: str = settings.DEFAULT_TRANSCRIPTION_BACKEND,
+    transcription_backend: str | None = None,
 ) -> JSONResponse:
     metadata = json.loads(call_json.file.read())
 

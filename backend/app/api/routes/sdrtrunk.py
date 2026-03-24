@@ -136,7 +136,7 @@ def create_call_from_sdrtrunk(
         build_transcribe_options(metadata),
         whisper_implementation=None,
         id=db_call.id,
-        transcription_backend=settings.resolved_default_transcription_backend,
+        transcription_backend=None,
     )
 
     return Response("Call imported successfully.", status_code=200)

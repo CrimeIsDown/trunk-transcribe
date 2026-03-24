@@ -4,11 +4,11 @@ from threading import Lock
 
 from celery_batches import Batches
 
-from app.core.config import resolve_transcription_backend
+from app.core.config import API_TRANSCRIPTION_IMPLEMENTATIONS, resolve_transcription_backend
 from app.task import Task
 from .base import BaseWhisper
 
-API_IMPLEMENTATIONS = ["openai", "deepgram", "deepinfra"]
+API_IMPLEMENTATIONS = list(API_TRANSCRIPTION_IMPLEMENTATIONS)
 LOCAL_IMPLEMENTATIONS = ["whisper", "faster-whisper", "whispers2t", "whisper.cpp"]
 
 
@@ -28,12 +28,34 @@ class WhisperTask(Task):
         backend = resolve_transcription_backend(
             os.getenv("TRANSCRIPTION_BACKEND"),
             default_backend=os.getenv("DEFAULT_TRANSCRIPTION_BACKEND", "whisper"),
+            whisper_implementation=os.getenv("WHISPER_IMPLEMENTATION"),
         )
 
-        if backend != "whisper":
+        if backend in {"qwen", "voxtral"}:
             provider_name = os.getenv("ASR_PROVIDER", backend)
             model_name = os.getenv("ASR_MODEL", backend)
             return f"whisper-asr-api:{provider_name}:{model_name}"
+
+        if backend == "api":
+            whisper_implementation = os.getenv("WHISPER_IMPLEMENTATION")
+            if whisper_implementation not in API_IMPLEMENTATIONS:
+                supported = ", ".join(API_IMPLEMENTATIONS)
+                raise RuntimeError(
+                    f"TRANSCRIPTION_BACKEND=api requires WHISPER_IMPLEMENTATION to be one of: {supported}"
+                )
+
+            model_name = os.getenv("WHISPER_MODEL")
+
+            if whisper_implementation == "openai":
+                model_name = "whisper-1"
+
+            if whisper_implementation == "deepgram" and not model_name:
+                model_name = "nova-2"
+
+            if whisper_implementation == "deepinfra" and not model_name:
+                model_name = "openai/whisper-large-v3-turbo"
+
+            return f"{whisper_implementation}:{model_name}"
 
         whisper_implementation = os.getenv("WHISPER_IMPLEMENTATION", "whisper-asr-api")
         if whisper_implementation in LOCAL_IMPLEMENTATIONS:

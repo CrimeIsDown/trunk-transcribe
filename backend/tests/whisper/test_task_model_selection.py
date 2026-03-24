@@ -17,7 +17,7 @@ class TestWhisperTaskModelSelection(unittest.TestCase):
                 self.task.default_implementation,
             )
 
-    def test_default_implementation_openai_uses_whisper_1(self):
+    def test_default_implementation_openai_promotes_to_api_backend(self):
         with patch.dict(
             os.environ,
             {"WHISPER_IMPLEMENTATION": "openai", "WHISPER_MODEL": "custom-model"},
@@ -25,11 +25,11 @@ class TestWhisperTaskModelSelection(unittest.TestCase):
         ):
             self.assertEqual("openai:whisper-1", self.task.default_implementation)
 
-    def test_default_implementation_deepgram_uses_default_model(self):
+    def test_default_implementation_deepgram_promotes_to_api_backend(self):
         with patch.dict(os.environ, {"WHISPER_IMPLEMENTATION": "deepgram"}, clear=True):
             self.assertEqual("deepgram:nova-2", self.task.default_implementation)
 
-    def test_default_implementation_deepinfra_uses_default_model(self):
+    def test_default_implementation_deepinfra_promotes_to_api_backend(self):
         with patch.dict(
             os.environ, {"WHISPER_IMPLEMENTATION": "deepinfra"}, clear=True
         ):
@@ -37,6 +37,14 @@ class TestWhisperTaskModelSelection(unittest.TestCase):
                 "deepinfra:openai/whisper-large-v3-turbo",
                 self.task.default_implementation,
             )
+
+    def test_api_backend_requires_vendor_api_implementation(self):
+        with patch.dict(os.environ, {"TRANSCRIPTION_BACKEND": "api"}, clear=True):
+            with self.assertRaisesRegex(
+                RuntimeError,
+                "TRANSCRIPTION_BACKEND=api requires WHISPER_IMPLEMENTATION",
+            ):
+                _ = self.task.default_implementation
 
     def test_default_implementation_whisper_uses_asr_api_by_default(self):
         with patch.dict(

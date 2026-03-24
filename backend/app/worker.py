@@ -66,10 +66,13 @@ recent_job_results: list[str] = []
 logger = logging.getLogger(__name__)
 
 
-def get_transcription_queue(backend: str | None = None) -> str:
+def get_transcription_queue(
+    backend: str | None = None, whisper_implementation: str | None = None
+) -> str:
     resolved_backend = resolve_transcription_backend(
         backend,
         default_backend=settings.resolved_default_transcription_backend,
+        whisper_implementation=whisper_implementation or settings.WHISPER_IMPLEMENTATION,
     )
     return TRANSCRIPTION_QUEUE_BY_BACKEND[resolved_backend]
 
@@ -83,7 +86,9 @@ def queue_task(
     index_name: Optional[str] = None,
     transcription_backend: Optional[str] = None,
 ):
-    transcription_queue = get_transcription_queue(transcription_backend)
+    transcription_queue = get_transcription_queue(
+        transcription_backend, whisper_implementation
+    )
     return (
         transcribe_task.s(options, audio_url, whisper_implementation).set(
             queue=transcription_queue

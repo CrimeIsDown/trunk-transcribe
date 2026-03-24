@@ -6,9 +6,11 @@ from typing import Annotated, Any
 from pydantic import BeforeValidator, PostgresDsn, computed_field
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
-SUPPORTED_TRANSCRIPTION_BACKENDS = ("whisper", "qwen", "voxtral")
+API_TRANSCRIPTION_IMPLEMENTATIONS = ("openai", "deepgram", "deepinfra")
+SUPPORTED_TRANSCRIPTION_BACKENDS = ("whisper", "api", "qwen", "voxtral")
 TRANSCRIPTION_QUEUE_BY_BACKEND = {
     "whisper": "transcribe_whisper",
+    "api": "transcribe_api",
     "qwen": "transcribe_qwen",
     "voxtral": "transcribe_voxtral",
 }
@@ -34,10 +36,24 @@ def validate_transcription_backend(value: str) -> str:
     return value
 
 
+def resolve_api_backend_for_implementation(
+    backend: str, whisper_implementation: str | None = None
+) -> str:
+    implementation = whisper_implementation
+    if implementation:
+        implementation = implementation.partition(":")[0]
+    if backend == "whisper" and implementation in API_TRANSCRIPTION_IMPLEMENTATIONS:
+        return "api"
+    return backend
+
+
 def resolve_transcription_backend(
-    explicit_backend: str | None, default_backend: str = "whisper"
+    explicit_backend: str | None,
+    default_backend: str = "whisper",
+    whisper_implementation: str | None = None,
 ) -> str:
     backend = explicit_backend or default_backend
+    backend = resolve_api_backend_for_implementation(backend, whisper_implementation)
     return validate_transcription_backend(backend)
 
 
@@ -120,13 +136,18 @@ class Settings(BaseSettings):
 
     @property
     def resolved_default_transcription_backend(self) -> str:
-        return resolve_transcription_backend(self.DEFAULT_TRANSCRIPTION_BACKEND)
+        return resolve_transcription_backend(
+            None,
+            default_backend=self.DEFAULT_TRANSCRIPTION_BACKEND,
+            whisper_implementation=self.WHISPER_IMPLEMENTATION,
+        )
 
     @property
     def resolved_transcription_backend(self) -> str:
         return resolve_transcription_backend(
             self.TRANSCRIPTION_BACKEND,
             default_backend=self.resolved_default_transcription_backend,
+            whisper_implementation=self.WHISPER_IMPLEMENTATION,
         )
 
     @property

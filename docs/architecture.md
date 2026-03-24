@@ -12,15 +12,18 @@ flowchart LR
 
     subgraph BW[Backend queues and workers]
         QW[transcribe_whisper]
+        QA[transcribe_api]
         QQ[transcribe_qwen]
         QV[transcribe_voxtral]
         WP[worker-whisper]
+        WA[worker-api]
         WQ[worker-qwen]
         WV[worker-voxtral]
     end
 
     subgraph ASR[Transcript providers]
         SW[Whisper ASR server]
+        SA[OpenAI / Deepgram / DeepInfra]
         SQ[Qwen ASR server]
         SV[Voxtral vLLM server]
     end
@@ -36,10 +39,12 @@ flowchart LR
 
     TR --> API --> RMQ
     RMQ --> QW --> WP --> SW
+    RMQ --> QA --> WA --> SA
     RMQ --> QQ --> WQ --> SQ
     RMQ --> QV --> WV --> SV
 
     WP --> RMQ
+    WA --> RMQ
     WQ --> RMQ
     WV --> RMQ
     RMQ --> PQ --> POST
@@ -61,9 +66,13 @@ flowchart TB
     subgraph Whisper[Whisper backend]
         WQ[transcribe_whisper] --> WW[worker-whisper]
         WW --> WS[whisper-asr-webservice<br/>default model: small.en]
-        WW -. optional .-> WO[OpenAI API<br/>whisper-1]
-        WW -. optional .-> WD[DeepInfra API<br/>openai/whisper-large-v3-turbo]
-        WW -. optional .-> WG[Deepgram API<br/>nova-2]
+    end
+
+    subgraph API[Vendor API backend]
+        AQ[transcribe_api] --> AW[worker-api]
+        AW --> AO[OpenAI API<br/>whisper-1]
+        AW --> AD[DeepInfra API<br/>openai/whisper-large-v3-turbo]
+        AW --> AG[Deepgram API<br/>nova-2]
     end
 
     subgraph Qwen[Qwen backend]
@@ -82,6 +91,7 @@ flowchart TB
 | Backend | Queue | Worker compose | Provider server | Default model |
 | --- | --- | --- | --- | --- |
 | Whisper | `transcribe_whisper` | `docker-compose.worker-whisper.yml` | `onerahmet/openai-whisper-asr-webservice` | `small.en` |
+| API | `transcribe_api` | `docker-compose.worker-api.yml` | OpenAI, Deepgram, or DeepInfra | Provider-specific |
 | Qwen | `transcribe_qwen` | `docker-compose.worker-qwen.yml` | `ghcr.io/trunk-reporter/qwen3-asr-server:gpu` | `qwen3-asr-p25` |
 | Voxtral | `transcribe_voxtral` | `docker-compose.worker-voxtral.yml` | `vllm/vllm-openai:latest` | `mistralai/Voxtral-Mini-4B-Realtime-2602` |
 
