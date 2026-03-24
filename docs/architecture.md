@@ -1,89 +1,78 @@
 # Architecture
 
-This document complements the top-level README with compact Mermaid diagrams for the deployed system and the transcription provider stack.
+This document complements the top-level README with a compact system diagram and a backend reference table.
 
-## Runtime Topology
+## Diagram Conventions
+
+- One diagram should answer one question. The main diagram below focuses on runtime flow, not every container detail.
+- Components are grouped by responsibility so the reader can scan left to right: ingest, routing, backend execution, post-processing, and consumers.
+- Provider nodes include the default model where that adds useful context.
+- Operational components such as Flower and the autoscaler are shown off the main transcript path.
+
+## System Flow
 
 ```mermaid
 flowchart LR
-    TR[trunk-recorder<br/>transcribe.sh]
-    API[API]
-    RMQ[(RabbitMQ)]
+    subgraph INGEST[Ingest]
+        TR[trunk-recorder<br/>transcribe.sh]
+        API[API]
+    end
 
-    subgraph BW[Backend queues and workers]
+    subgraph QUEUES[RabbitMQ queues]
         QW[transcribe_whisper]
         QA[transcribe_api]
         QQ[transcribe_qwen]
         QV[transcribe_voxtral]
+        QP[post_transcribe]
+    end
+
+    subgraph EXEC[Backend workers]
         WP[worker-whisper]
         WA[worker-api]
         WQ[worker-qwen]
         WV[worker-voxtral]
     end
 
-    subgraph ASR[Transcript providers]
-        SW[Whisper ASR server]
-        SA[OpenAI / Deepgram / DeepInfra]
-        SQ[Qwen ASR server]
-        SV[Voxtral vLLM server]
+    subgraph PROVIDERS[Transcript providers]
+        PW[Whisper ASR server<br/>default model: small.en]
+        PA[Vendor APIs<br/>OpenAI: whisper-1<br/>Deepgram: nova-2<br/>DeepInfra: whisper-large-v3-turbo]
+        PQW[Qwen server<br/>default model: qwen3-asr-p25]
+        PV[Voxtral vLLM<br/>default model: Voxtral-Mini-4B-Realtime-2602]
     end
 
-    PQ[post_transcribe]
-    POST[post worker]
-    DB[(Postgres)]
-    SEARCH[(Meilisearch / Typesense)]
-    UI[Frontend + chat-ui]
-    NOTIFY[Notifications]
-    FLOWER[Flower]
-    AUTO[autoscale-vast]
+    subgraph POSTPROC[Post-processing]
+        POST[post worker]
+        DB[(Postgres)]
+        SEARCH[(Meilisearch / Typesense)]
+        NOTIFY[Notifications]
+    end
 
-    TR --> API --> RMQ
-    RMQ --> QW --> WP --> SW
-    RMQ --> QA --> WA --> SA
-    RMQ --> QQ --> WQ --> SQ
-    RMQ --> QV --> WV --> SV
+    subgraph OPS[Ops and consumers]
+        UI[Frontend + chat-ui]
+        FLOWER[Flower]
+        AUTO[autoscale-vast]
+    end
 
-    WP --> RMQ
-    WA --> RMQ
-    WQ --> RMQ
-    WV --> RMQ
-    RMQ --> PQ --> POST
+    TR -->|upload call + metadata| API
+    API -->|enqueue by transcription_backend| QW
+    API -->|enqueue by transcription_backend| QA
+    API -->|enqueue by transcription_backend| QQ
+    API -->|enqueue by transcription_backend| QV
 
+    QW --> WP --> PW -->|normalized transcript| QP
+    QA --> WA --> PA -->|normalized transcript| QP
+    QQ --> WQ --> PQW -->|normalized transcript| QP
+    QV --> WV --> PV -->|normalized transcript| QP
+
+    QP --> POST
     POST --> DB
     POST --> SEARCH
     POST --> NOTIFY
+
     UI --> API
     UI --> SEARCH
-    FLOWER --> RMQ
-    AUTO --> RMQ
-    AUTO -. scales backend workers .-> BW
-```
-
-## Transcript Providers And Models
-
-```mermaid
-flowchart TB
-    subgraph Whisper[Whisper backend]
-        WQ[transcribe_whisper] --> WW[worker-whisper]
-        WW --> WS[whisper-asr-webservice<br/>default model: small.en]
-    end
-
-    subgraph API[Vendor API backend]
-        AQ[transcribe_api] --> AW[worker-api]
-        AW --> AO[OpenAI API<br/>whisper-1]
-        AW --> AD[DeepInfra API<br/>openai/whisper-large-v3-turbo]
-        AW --> AG[Deepgram API<br/>nova-2]
-    end
-
-    subgraph Qwen[Qwen backend]
-        QQ[transcribe_qwen] --> QW[worker-qwen]
-        QW --> QS[qwen3-asr-server<br/>default model: qwen3-asr-p25]
-    end
-
-    subgraph Voxtral[Voxtral backend]
-        VQ[transcribe_voxtral] --> VW[worker-voxtral]
-        VW --> VS[vLLM OpenAI server<br/>default model: Voxtral-Mini-4B-Realtime-2602]
-    end
+    FLOWER -. monitors .-> QUEUES
+    AUTO -. scales GPU-backed backend workers .-> EXEC
 ```
 
 ## Default Backend Stacks
@@ -99,5 +88,6 @@ flowchart TB
 
 - Each machine should run one backend-specific worker stack plus any shared infrastructure it needs to reach RabbitMQ and the API.
 - The backend worker normalizes transcripts before handing them to the shared `post_transcribe` flow.
+- The `api` backend is forwarding-only and does not need GPU capacity.
 - `autoscale-vast` should manage one backend queue per autoscaler instance.
 - Flower observes queue and worker state; it is not on the transcript data path.
