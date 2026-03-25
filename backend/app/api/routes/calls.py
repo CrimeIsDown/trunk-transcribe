@@ -15,7 +15,6 @@ from fastapi.responses import JSONResponse
 from sqlmodel import Session, select, func
 
 from app.api.depends import get_db
-from app.core.config import settings
 from app.models.transcript import Transcript
 from app.utils import storage
 from app import worker

@@ -33,7 +33,9 @@ def get_cors_allowed_origins() -> list[str]:
     configured_origins = os.environ.get("CORS_ALLOWED_ORIGINS")
     if configured_origins is None:
         return settings.CORS_ALLOWED_ORIGINS
-    return [origin.strip() for origin in configured_origins.split(",") if origin.strip()]
+    return [
+        origin.strip() for origin in configured_origins.split(",") if origin.strip()
+    ]
 
 
 def is_origin_allowed(origin: str | None) -> bool:

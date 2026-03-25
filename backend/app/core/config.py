@@ -119,7 +119,6 @@ class Settings(BaseSettings):
     S3_PUBLIC_URL: str = ""
 
     @computed_field
-    @property
     def sqlalchemy_database_uri(self) -> str:
         return PostgresDsn.build(
             scheme="postgresql+psycopg",

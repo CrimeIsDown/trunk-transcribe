@@ -13,7 +13,7 @@ class TestWhisperTaskModelSelection(unittest.TestCase):
     def test_default_implementation_requires_env(self):
         with patch.dict(os.environ, {}, clear=True):
             self.assertEqual(
-                "whisper-asr-api:whisper-asr-webservice:small.en",
+                "whisper-asr-api:speaches:Systran/faster-distil-whisper-small.en",
                 self.task.default_implementation,
             )
 
@@ -49,11 +49,14 @@ class TestWhisperTaskModelSelection(unittest.TestCase):
     def test_default_implementation_whisper_uses_asr_api_by_default(self):
         with patch.dict(
             os.environ,
-            {"ASR_PROVIDER": "whisper-asr-webservice", "ASR_MODEL": "large-v3"},
+            {
+                "ASR_PROVIDER": "speaches",
+                "ASR_MODEL": "Systran/faster-whisper-large-v3",
+            },
             clear=True,
         ):
             self.assertEqual(
-                "whisper-asr-api:whisper-asr-webservice:large-v3",
+                "whisper-asr-api:speaches:Systran/faster-whisper-large-v3",
                 self.task.default_implementation,
             )
 

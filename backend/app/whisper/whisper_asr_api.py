@@ -16,9 +16,7 @@ class WhisperAsrApi(BaseWhisper):
         self.model = model
         self.provider = provider
 
-    def _normalize_response(
-        self, response_data: dict, language: str
-    ) -> WhisperResult:
+    def _normalize_response(self, response_data: dict, language: str) -> WhisperResult:
         return {
             "text": response_data.get("text", ""),
             "segments": response_data.get("segments", []),

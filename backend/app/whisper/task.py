@@ -4,7 +4,10 @@ from threading import Lock
 
 from celery_batches import Batches
 
-from app.core.config import API_TRANSCRIPTION_IMPLEMENTATIONS, resolve_transcription_backend
+from app.core.config import (
+    API_TRANSCRIPTION_IMPLEMENTATIONS,
+    resolve_transcription_backend,
+)
 from app.task import Task
 from .base import BaseWhisper
 
@@ -33,8 +36,8 @@ class WhisperTask(Task):
 
         if backend in {"qwen", "voxtral"}:
             provider_name = os.getenv("ASR_PROVIDER", backend)
-            model_name = os.getenv("ASR_MODEL", backend)
-            return f"whisper-asr-api:{provider_name}:{model_name}"
+            backend_model_name = os.getenv("ASR_MODEL", backend)
+            return f"whisper-asr-api:{provider_name}:{backend_model_name}"
 
         if backend == "api":
             whisper_implementation = os.getenv("WHISPER_IMPLEMENTATION")
@@ -44,18 +47,18 @@ class WhisperTask(Task):
                     f"TRANSCRIPTION_BACKEND=api requires WHISPER_IMPLEMENTATION to be one of: {supported}"
                 )
 
-            model_name = os.getenv("WHISPER_MODEL")
+            api_model_name: str | None = os.getenv("WHISPER_MODEL")
 
             if whisper_implementation == "openai":
-                model_name = "whisper-1"
+                api_model_name = "whisper-1"
 
-            if whisper_implementation == "deepgram" and not model_name:
-                model_name = "nova-2"
+            if whisper_implementation == "deepgram" and not api_model_name:
+                api_model_name = "nova-2"
 
-            if whisper_implementation == "deepinfra" and not model_name:
-                model_name = "openai/whisper-large-v3-turbo"
+            if whisper_implementation == "deepinfra" and not api_model_name:
+                api_model_name = "openai/whisper-large-v3-turbo"
 
-            return f"{whisper_implementation}:{model_name}"
+            return f"{whisper_implementation}:{api_model_name}"
 
         whisper_implementation = os.getenv("WHISPER_IMPLEMENTATION", "whisper-asr-api")
         if whisper_implementation in LOCAL_IMPLEMENTATIONS:
@@ -64,23 +67,27 @@ class WhisperTask(Task):
                 f"Local Whisper implementations have been removed. Use one of: {supported}"
             )
 
-        model_name = os.getenv("WHISPER_MODEL")
+        whisper_model_name: str | None = os.getenv("WHISPER_MODEL")
 
         if whisper_implementation == "openai":
-            model_name = "whisper-1"
+            whisper_model_name = "whisper-1"
 
-        if whisper_implementation == "deepgram" and not model_name:
-            model_name = "nova-2"
+        if whisper_implementation == "deepgram" and not whisper_model_name:
+            whisper_model_name = "nova-2"
 
-        if whisper_implementation == "deepinfra" and not model_name:
-            model_name = "openai/whisper-large-v3-turbo"
+        if whisper_implementation == "deepinfra" and not whisper_model_name:
+            whisper_model_name = "openai/whisper-large-v3-turbo"
 
         if whisper_implementation == "whisper-asr-api":
-            provider_name = os.getenv("ASR_PROVIDER", "whisper-asr-webservice")
-            model_name = os.getenv("ASR_MODEL") or model_name or "small.en"
-            return f"whisper-asr-api:{provider_name}:{model_name}"
+            provider_name = os.getenv("ASR_PROVIDER", "speaches")
+            whisper_model_name = (
+                os.getenv("ASR_MODEL")
+                or whisper_model_name
+                or "Systran/faster-distil-whisper-small.en"
+            )
+            return f"whisper-asr-api:{provider_name}:{whisper_model_name}"
 
-        return f"{whisper_implementation}:{model_name}"
+        return f"{whisper_implementation}:{whisper_model_name}"
 
     def initialize_model(self, implementation: str) -> BaseWhisper:
         with self.model_lock:
@@ -117,7 +124,9 @@ class WhisperTask(Task):
                 return WhisperAsrApi(
                     base_url=os.getenv("ASR_API_URL", "http://localhost:5000"),
                     provider=provider_name or os.getenv("ASR_PROVIDER"),
-                    model=model_name or os.getenv("ASR_MODEL") or os.getenv("WHISPER_MODEL"),
+                    model=model_name
+                    or os.getenv("ASR_MODEL")
+                    or os.getenv("WHISPER_MODEL"),
                 )
 
             if implementation in LOCAL_IMPLEMENTATIONS:

@@ -34,7 +34,7 @@ flowchart LR
     end
 
     subgraph PROVIDERS[Transcript providers]
-        PW[Whisper ASR server<br/>default model: small.en]
+        PW[Speaches Whisper server<br/>default model: Systran/faster-distil-whisper-small.en]
         PA[Vendor APIs<br/>OpenAI: whisper-1<br/>Deepgram: nova-2<br/>DeepInfra: whisper-large-v3-turbo]
         PQW[Qwen server<br/>default model: qwen3-asr-p25]
         PV[Voxtral vLLM<br/>default model: Voxtral-Mini-4B-Realtime-2602]
@@ -79,7 +79,7 @@ flowchart LR
 
 | Backend | Queue | Worker compose | Provider server | Default model |
 | --- | --- | --- | --- | --- |
-| Whisper | `transcribe_whisper` | `docker-compose.worker-whisper.yml` | `onerahmet/openai-whisper-asr-webservice` | `small.en` |
+| Whisper | `transcribe_whisper` | `docker-compose.worker-whisper.yml` | `ghcr.io/speaches-ai/speaches` | `Systran/faster-distil-whisper-small.en` |
 | API | `transcribe_api` | `docker-compose.worker-api.yml` | OpenAI, Deepgram, or DeepInfra | Provider-specific |
 | Qwen | `transcribe_qwen` | `docker-compose.worker-qwen.yml` | `ghcr.io/trunk-reporter/qwen3-asr-server:gpu` | `qwen3-asr-p25` |
 | Voxtral | `transcribe_voxtral` | `docker-compose.worker-voxtral.yml` | `vllm/vllm-openai:latest` | `mistralai/Voxtral-Mini-4B-Realtime-2602` |

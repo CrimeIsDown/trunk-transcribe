@@ -66,7 +66,7 @@ There are numerous `docker-compose.*.yml` files in this repo for various configu
 
 Each transcription machine should run exactly one backend-specific worker stack:
 
-- `docker-compose.worker-whisper.yml` consumes `transcribe_whisper` and runs [`ahmetoner/whisper-asr-webservice`](https://github.com/ahmetoner/whisper-asr-webservice)
+- `docker-compose.worker-whisper.yml` consumes `transcribe_whisper` and runs [`speaches`](https://github.com/speaches-ai/speaches)
 - `docker-compose.worker-api.yml` consumes `transcribe_api` and forwards to OpenAI, Deepgram, or DeepInfra
 - `docker-compose.worker-qwen.yml` consumes `transcribe_qwen` and runs [`trunk-reporter/qwen3-asr-server`](https://github.com/trunk-reporter/qwen3-asr-server)
 - `docker-compose.worker-voxtral.yml` consumes `transcribe_voxtral` and runs [`vllm serve`](https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html) for [`mistralai/Voxtral-Mini-4B-Realtime-2602`](https://huggingface.co/mistralai/Voxtral-Mini-4B-Realtime-2602)
@@ -80,7 +80,7 @@ COMPOSE_FILE=docker-compose.worker-whisper.yml:docker-compose.gpu.yml
 docker compose up -d
 ```
 
-The default Whisper stack uses `onerahmet/openai-whisper-asr-webservice:latest-gpu` with `ASR_ENGINE=faster_whisper`. To run Whisper on CPU, set `ASR_WHISPER_IMAGE=onerahmet/openai-whisper-asr-webservice:latest` and `ASR_DEVICE=cpu`, then omit `docker-compose.gpu.yml`.
+The default Whisper stack uses `ghcr.io/speaches-ai/speaches:latest-cuda` and calls its OpenAI-compatible `/v1/audio/transcriptions` endpoint. To run Whisper on CPU, set `ASR_WHISPER_IMAGE=ghcr.io/speaches-ai/speaches:latest-cpu` and omit `docker-compose.gpu.yml`.
 
 To add an API-forwarding machine:
 

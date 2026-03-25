@@ -17,9 +17,9 @@ services:
       - DEFAULT_TRANSCRIPTION_BACKEND=${DEFAULT_TRANSCRIPTION_BACKEND:-whisper}
       - TRANSCRIPTION_BACKEND=whisper
       - CELERY_QUEUES=transcribe_whisper
-      - ASR_API_URL=${ASR_API_URL:-http://asr-whisper:9000}
-      - ASR_PROVIDER=${ASR_PROVIDER:-whisper-asr-webservice}
-      - ASR_MODEL=${ASR_MODEL:-small.en}
+      - ASR_API_URL=${ASR_API_URL:-http://asr-whisper:8000/v1}
+      - ASR_PROVIDER=${ASR_PROVIDER:-speaches}
+      - ASR_MODEL=${ASR_MODEL:-Systran/faster-distil-whisper-small.en}
       - WHISPER_IMPLEMENTATION=${WHISPER_IMPLEMENTATION:-whisper-asr-api}
       - CELERY_LOGLEVEL
       - CELERY_BROKER_URL
@@ -32,13 +32,9 @@ services:
     restart: always
 
   asr-whisper:
-    image: ${ASR_WHISPER_IMAGE:-onerahmet/openai-whisper-asr-webservice:latest-gpu}
+    image: ${ASR_WHISPER_IMAGE:-ghcr.io/speaches-ai/speaches:latest-cuda}
     volumes:
-      - whisper-asr-cache:/root/.cache
-    environment:
-      - ASR_MODEL=${ASR_MODEL:-small.en}
-      - ASR_ENGINE=${ASR_ENGINE:-faster_whisper}
-      - ASR_DEVICE=${ASR_DEVICE:-cuda}
+      - whisper-asr-cache:/home/ubuntu/.cache/huggingface/hub
     restart: always
 
 volumes:

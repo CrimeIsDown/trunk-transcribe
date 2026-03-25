@@ -16,7 +16,6 @@ from fastapi import (
 from sqlmodel import Session
 
 from app.api.depends import get_db
-from app.core.config import settings
 from app.models.metadata import Metadata
 from app.utils import storage
 from app import worker

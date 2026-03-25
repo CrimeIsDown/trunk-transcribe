@@ -12,7 +12,6 @@ from fastapi import (
 )
 from fastapi.responses import JSONResponse
 
-from app.core.config import settings
 from app.utils import storage
 from app import worker
 

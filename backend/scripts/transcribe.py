@@ -22,7 +22,8 @@ parser.add_argument(
 )
 parser.add_argument(
     "--model",
-    default=os.getenv("ASR_MODEL") or os.getenv("WHISPER_MODEL", "small.en"),
+    default=os.getenv("ASR_MODEL")
+    or os.getenv("WHISPER_MODEL", "Systran/faster-distil-whisper-small.en"),
     help="ASR model to use",
 )
 parser.add_argument("--prompt", help="Prompt to pass to the ASR backend")

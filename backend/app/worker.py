@@ -72,7 +72,8 @@ def get_transcription_queue(
     resolved_backend = resolve_transcription_backend(
         backend,
         default_backend=settings.resolved_default_transcription_backend,
-        whisper_implementation=whisper_implementation or settings.WHISPER_IMPLEMENTATION,
+        whisper_implementation=whisper_implementation
+        or settings.WHISPER_IMPLEMENTATION,
     )
     return TRANSCRIPTION_QUEUE_BY_BACKEND[resolved_backend]
 
