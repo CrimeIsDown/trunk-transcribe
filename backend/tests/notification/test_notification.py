@@ -20,6 +20,18 @@ class TestTruncateTranscript(unittest.TestCase):
         result = notification.truncate_transcript(transcript)
         self.assertEqual(result, transcript)
 
+    def test_truncates_over_max_length_transcript(self):
+        # max is 1024 - 200 = 824 chars; build one longer
+        transcript = "B" * 825
+        result = notification.truncate_transcript(transcript)
+        self.assertTrue(result.endswith("... (truncated)"))
+        # The result begins with the first 824 Bs (the truncated portion)
+        self.assertTrue(result.startswith("B" * 824))
+
+    def test_short_transcript_unchanged(self):
+        transcript = "short"
+        self.assertEqual(transcript, notification.truncate_transcript(transcript))
+
 
 class AppriseStub:
     def __init__(self):
@@ -310,6 +322,137 @@ class TestNotification(unittest.TestCase):
         self.assertFalse(should_send)
         self.assertEqual(title, "")
         self.assertEqual(body, transcript)
+
+
+class TestBuildSuffixEdgeCases(unittest.TestCase):
+    def test_build_suffix_no_talkgroup_no_delay_no_url(self):
+        # Recent call (not delayed), no talkgroup, no URL - suffix should be empty
+        metadata = {
+            "talkgroup_tag": "TG123",
+            "stop_time": time.time(),  # just happened, not delayed
+            "start_time": time.time(),
+        }
+        result = notification.build_suffix(metadata, add_talkgroup=False, search_url="")
+        self.assertEqual("", result)
+
+    def test_build_suffix_only_talkgroup(self):
+        metadata = {
+            "talkgroup_tag": "TG456",
+            "stop_time": time.time(),
+            "start_time": time.time(),
+        }
+        result = notification.build_suffix(metadata, add_talkgroup=True, search_url="")
+        self.assertIn("<b>TG456</b>", result)
+        self.assertNotIn("(delayed)", result)
+        self.assertNotIn("View in search", result)
+
+    def test_build_suffix_only_url(self):
+        metadata = {
+            "talkgroup_tag": "TG789",
+            "stop_time": time.time(),
+            "start_time": time.time(),
+        }
+        search_url = "https://example.com/search"
+        result = notification.build_suffix(
+            metadata, add_talkgroup=False, search_url=search_url
+        )
+        self.assertIn("View in search", result)
+        self.assertIn(search_url, result)
+        self.assertNotIn("<b>", result)
+
+
+class TestShouldSendAlertRadius(unittest.TestCase):
+    def test_alerts_when_location_within_radius(self):
+        config = {
+            "channels": ["tgram://$TELEGRAM_BOT_TOKEN/-1"],
+            "location": {
+                "geo": {"lat": 41.872321, "lng": -87.764948},
+                "radius": 5,  # 5 miles - nearby incident should match
+            },
+        }
+        # Incident very close to user (< 5 miles)
+        geo = {
+            "geo": {"lat": 41.886719, "lng": -87.764503},
+            "geo_formatted_address": "333 N Central Ave, Chicago, IL 60644",
+        }
+        transcript = "fire at 333 north central"
+
+        should_send, title, body = notification.should_send_alert(
+            config, transcript, geo
+        )
+
+        self.assertTrue(should_send)
+        self.assertIn("333 N Central Ave", title)
+
+    def test_does_not_alert_when_location_outside_radius(self):
+        config = {
+            "channels": ["tgram://$TELEGRAM_BOT_TOKEN/-1"],
+            "location": {
+                "geo": {"lat": 41.872321, "lng": -87.764948},
+                "radius": 0.01,  # 0.01 miles - extremely tight radius
+            },
+        }
+        # Incident across town (much more than 0.01 miles)
+        geo = {
+            "geo": {"lat": 41.999, "lng": -87.900},
+            "geo_formatted_address": "Far Away, Chicago, IL",
+        }
+        transcript = "incident at far away location"
+
+        should_send, title, body = notification.should_send_alert(
+            config, transcript, geo
+        )
+
+        self.assertFalse(should_send)
+
+
+class TestShouldSendAlertIgnoreKeywords(unittest.TestCase):
+    def test_does_not_alert_when_ignore_keyword_present(self):
+        config = {
+            "channels": ["tgram://$TELEGRAM_BOT_TOKEN/-1"],
+            "keywords": ["fire"],
+            "ignore_keywords": ["test"],
+        }
+        # "fire" matches but "test" is also present → should be suppressed
+        transcript = "this is a test fire alarm"
+        geo = None
+
+        should_send, title, body = notification.should_send_alert(
+            config, transcript, geo
+        )
+
+        self.assertFalse(should_send)
+
+    def test_alerts_when_keyword_matches_and_no_ignore_keyword(self):
+        config = {
+            "channels": ["tgram://$TELEGRAM_BOT_TOKEN/-1"],
+            "keywords": ["fire"],
+            "ignore_keywords": ["test"],
+        }
+        transcript = "active fire at the warehouse"
+        geo = None
+
+        should_send, title, body = notification.should_send_alert(
+            config, transcript, geo
+        )
+
+        self.assertTrue(should_send)
+        self.assertIn("fire", title)
+
+    def test_alerts_when_ignore_keywords_is_empty_list(self):
+        config = {
+            "channels": ["tgram://$TELEGRAM_BOT_TOKEN/-1"],
+            "keywords": ["fire"],
+            "ignore_keywords": [],
+        }
+        transcript = "active fire reported"
+        geo = None
+
+        should_send, title, body = notification.should_send_alert(
+            config, transcript, geo
+        )
+
+        self.assertTrue(should_send)
 
 
 if __name__ == "__main__":

@@ -74,5 +74,115 @@ class TestTranscript(unittest.TestCase):
             self.assertGreater(hallucination_count, edited_count)
 
 
+class TestCleanupTranscriptReplace(unittest.TestCase):
+    """Tests for the 'replace' action in cleanup_transcript()."""
+
+    def _make_result(self, segments: list[str]) -> WhisperResult:
+        return {
+            "language": "en",
+            "text": "\n".join(segments),
+            "segments": [
+                {"start": i, "end": i + 1, "text": s} for i, s in enumerate(segments)
+            ],
+        }
+
+    def test_partial_replace_substitutes_substring(self):
+        """Partial match with replace action substitutes the matched substring."""
+        config = [
+            {
+                "pattern": "badword",
+                "replacement": "***",
+                "match_type": "partial",
+                "action": "replace",
+                "is_hallucination": False,
+            }
+        ]
+        result = self._make_result(["This is a badword example"])
+        cleaned = cleanup_transcript(result, config)
+        self.assertEqual(cleaned["segments"][0]["text"], "This is a *** example")
+        self.assertIn("***", cleaned["text"])
+
+    def test_full_replace_substitutes_entire_segment(self):
+        """Full match with replace action replaces the entire segment text."""
+        config = [
+            {
+                "pattern": "replace me entirely",
+                "replacement": "clean text",
+                "match_type": "full",
+                "action": "replace",
+                "is_hallucination": False,
+            }
+        ]
+        result = self._make_result(["replace me entirely"])
+        cleaned = cleanup_transcript(result, config)
+        self.assertEqual(cleaned["segments"][0]["text"], "clean text")
+        self.assertEqual(cleaned["text"], "clean text")
+
+    def test_full_replace_is_case_insensitive_on_match(self):
+        """Full match comparison is case-insensitive (matching behavior from source)."""
+        config = [
+            {
+                "pattern": "Replace Me Entirely",
+                "replacement": "clean text",
+                "match_type": "full",
+                "action": "replace",
+                "is_hallucination": False,
+            }
+        ]
+        result = self._make_result(["replace me entirely"])
+        cleaned = cleanup_transcript(result, config)
+        self.assertEqual(cleaned["segments"][0]["text"], "clean text")
+
+    def test_partial_replace_does_not_affect_non_matching_segments(self):
+        """Replace action only affects segments that match the pattern."""
+        config = [
+            {
+                "pattern": "badword",
+                "replacement": "***",
+                "match_type": "partial",
+                "action": "replace",
+                "is_hallucination": False,
+            }
+        ]
+        result = self._make_result(
+            ["All clear here", "badword spotted", "Nothing here"]
+        )
+        cleaned = cleanup_transcript(result, config)
+        self.assertEqual(cleaned["segments"][0]["text"], "All clear here")
+        self.assertEqual(cleaned["segments"][1]["text"], "*** spotted")
+        self.assertEqual(cleaned["segments"][2]["text"], "Nothing here")
+
+    def test_replace_hallucination_all_segments_raises(self):
+        """If every segment is a replace+hallucination match, WhisperException is raised."""
+        config = [
+            {
+                "pattern": "hallucinated phrase",
+                "replacement": "",
+                "match_type": "full",
+                "action": "replace",
+                "is_hallucination": True,
+            }
+        ]
+        result = self._make_result(["hallucinated phrase"])
+        with self.assertRaises(WhisperException):
+            cleanup_transcript(result, config)
+
+    def test_replace_hallucination_partial_segments_does_not_raise(self):
+        """If only some segments are hallucinations, no exception is raised."""
+        config = [
+            {
+                "pattern": "hallucinated phrase",
+                "replacement": "",
+                "match_type": "full",
+                "action": "replace",
+                "is_hallucination": True,
+            }
+        ]
+        result = self._make_result(["hallucinated phrase", "real transmission content"])
+        cleaned = cleanup_transcript(result, config)
+        # Both segments remain (replace doesn't delete)
+        self.assertEqual(len(cleaned["segments"]), 2)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -93,6 +93,44 @@ class TestTranscript(unittest.TestCase):
         with self.assertRaises(WhisperException):
             transcript.validate()
 
+    def test_txt_nosrc(self):
+        raw_transcript = [
+            ({"src": "Speaker 1", "tag": "Helena"}, "Hi"),
+            (None, "Are you far away now?"),
+            ({"src": "Speaker 2", "tag": "Kate"}, "Yes, we went out of town."),
+        ]
+        transcript = Transcript(transcript=raw_transcript)
+
+        result = transcript.txt_nosrc
+
+        self.assertEqual("Hi\nAre you far away now?\nYes, we went out of town.", result)
+
+    def test_validate_raises_on_too_short_transcript(self):
+        # Total joined text is < 4 chars
+        transcript = Transcript()
+        transcript.transcript = [(None, "hi")]
+        with self.assertRaises(WhisperException):
+            transcript.validate()
+
+    def test_validate_returns_self_on_valid_transcript(self):
+        transcript = Transcript()
+        transcript.append("Hello world")
+        result = transcript.validate()
+        self.assertIs(transcript, result)
+
+    def test_append_ignores_empty_string(self):
+        transcript = Transcript()
+        transcript.append("")
+        self.assertEqual(0, len(transcript.transcript))
+
+    def test_append_with_whitespace_only_skips(self):
+        # Whitespace-only strings have len > 0, so they ARE appended
+        # (the check is just len(transcript), not .strip())
+        transcript = Transcript()
+        transcript.append("   ")
+        # "   " has len 3 > 0, so it gets appended
+        self.assertEqual(1, len(transcript.transcript))
+
     def test_update_src(self):
         # Test with an empty transcript
         transcript = Transcript()

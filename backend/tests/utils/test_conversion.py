@@ -3,7 +3,7 @@ import unittest
 from subprocess import CompletedProcess
 from unittest.mock import patch
 
-from app.utils.conversion import _convert_file
+from app.utils.conversion import _convert_file, _build_metadata_args
 from app.models.metadata import Metadata
 
 
@@ -112,6 +112,126 @@ class TestConversion(unittest.TestCase):
         self.assertTrue(os.path.exists(result))
 
         os.remove(result)
+
+
+class TestBuildMetadataArgs(unittest.TestCase):
+    def _base_metadata(self, **overrides):
+        base = {
+            "freq": 477787500,
+            "start_time": 1673118015,
+            "stop_time": 1673118023,
+            "emergency": 0,
+            "encrypted": 0,
+            "call_length": 5,
+            "talkgroup": 1,
+            "talkgroup_tag": "CFD Fire N",
+            "talkgroup_description": "Fire: Main (North)",
+            "talkgroup_group_tag": "Fire Dispatch",
+            "talkgroup_group": "Chicago Fire Department",
+            "audio_type": "digital",
+            "short_name": "chi_cfd",
+            "freqList": [],
+            "srcList": [],
+        }
+        base.update(overrides)
+        return Metadata(base)
+
+    def test_uses_src_tags_as_artist_when_available(self):
+        metadata = self._base_metadata(
+            srcList=[
+                {
+                    "src": 1,
+                    "time": 1673118015,
+                    "pos": 0.0,
+                    "emergency": 0,
+                    "signal_system": "",
+                    "tag": "E96",
+                    "transcript_prompt": "",
+                },
+                {
+                    "src": 2,
+                    "time": 1673118020,
+                    "pos": 4.0,
+                    "emergency": 0,
+                    "signal_system": "",
+                    "tag": "Fire Main",
+                    "transcript_prompt": "",
+                },
+            ]
+        )
+
+        args = _build_metadata_args(metadata)
+
+        # Artist should be the tagged sources joined by ", "
+        self.assertIn("artist=E96, Fire Main", args)
+
+    def test_falls_back_to_talkgroup_description_when_no_tags(self):
+        metadata = self._base_metadata(
+            srcList=[
+                {
+                    "src": 1,
+                    "time": 1673118015,
+                    "pos": 0.0,
+                    "emergency": 0,
+                    "signal_system": "",
+                    "tag": "",  # empty tag
+                    "transcript_prompt": "",
+                },
+            ]
+        )
+
+        args = _build_metadata_args(metadata)
+
+        self.assertIn("artist=Fire: Main (North)", args)
+
+    def test_falls_back_to_talkgroup_description_when_no_srcs(self):
+        metadata = self._base_metadata(srcList=[])
+
+        args = _build_metadata_args(metadata)
+
+        self.assertIn("artist=Fire: Main (North)", args)
+
+    def test_deduplicates_src_tags(self):
+        metadata = self._base_metadata(
+            srcList=[
+                {
+                    "src": 1,
+                    "time": 1673118015,
+                    "pos": 0.0,
+                    "emergency": 0,
+                    "signal_system": "",
+                    "tag": "E96",
+                    "transcript_prompt": "",
+                },
+                {
+                    "src": 2,
+                    "time": 1673118020,
+                    "pos": 4.0,
+                    "emergency": 0,
+                    "signal_system": "",
+                    "tag": "E96",  # duplicate
+                    "transcript_prompt": "",
+                },
+            ]
+        )
+
+        args = _build_metadata_args(metadata)
+
+        # Should appear once, not twice
+        self.assertIn("artist=E96", args)
+        # Count occurrences of "E96, E96" vs "E96" — should only be one E96
+        artist_value = next(a for a in args if a.startswith("artist="))
+        self.assertEqual("artist=E96", artist_value)
+
+    def test_includes_required_metadata_keys(self):
+        metadata = self._base_metadata()
+        args = _build_metadata_args(metadata)
+
+        self.assertIn("composer=trunk-recorder", args)
+        self.assertIn("title=CFD Fire N", args)
+        self.assertIn("album=Chicago Fire Department", args)
+        self.assertIn("date=2023-01-07", args)
+        self.assertIn("year=2023", args)
 
 
 if __name__ == "__main__":
