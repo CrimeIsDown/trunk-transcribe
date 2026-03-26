@@ -44,15 +44,15 @@ class TestApiRoutes(unittest.TestCase):
                 "app.api.routes.tasks.storage.upload_raw_audio",
                 return_value="s3://audio.wav",
             ) as upload_mock:
-                with patch(
-                    "app.api.routes.tasks.worker.queue_task",
-                    return_value=queue_result,
-                ) as queue_mock:
-                    response = self.client.post(
-                        f"{API_PREFIX}/tasks?whisper_implementation=deepgram:nova-2&transcription_backend=qwen",
-                        files={
-                            "call_audio": ("tiny.wav", b"RIFF", "audio/wav"),
-                            "call_json": (
+                    with patch(
+                        "app.api.routes.tasks.worker.queue_task",
+                        return_value=queue_result,
+                    ) as queue_mock:
+                        response = self.client.post(
+                            f"{API_PREFIX}/tasks?whisper_implementation=deepinfra:openai/whisper-large-v3-turbo&transcription_backend=qwen",
+                            files={
+                                "call_audio": ("tiny.wav", b"RIFF", "audio/wav"),
+                                "call_json": (
                                 "call.json",
                                 json.dumps(metadata),
                                 "application/json",
@@ -64,7 +64,9 @@ class TestApiRoutes(unittest.TestCase):
         self.assertEqual({"task_id": "task-123"}, response.json())
         upload_mock.assert_called_once()
         queue_mock.assert_called_once()
-        self.assertEqual("deepgram:nova-2", queue_mock.call_args.args[3])
+        self.assertEqual(
+            "deepinfra:openai/whisper-large-v3-turbo", queue_mock.call_args.args[3]
+        )
         self.assertEqual("qwen", queue_mock.call_args.kwargs["transcription_backend"])
 
     def test_calls_route_queues_job_and_uses_db_call_id(self):

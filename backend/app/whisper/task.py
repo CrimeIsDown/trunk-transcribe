@@ -52,9 +52,6 @@ class WhisperTask(Task):
             if whisper_implementation == "openai":
                 api_model_name = "whisper-1"
 
-            if whisper_implementation == "deepgram" and not api_model_name:
-                api_model_name = "nova-2"
-
             if whisper_implementation == "deepinfra" and not api_model_name:
                 api_model_name = "openai/whisper-large-v3-turbo"
 
@@ -71,9 +68,6 @@ class WhisperTask(Task):
 
         if whisper_implementation == "openai":
             whisper_model_name = "whisper-1"
-
-        if whisper_implementation == "deepgram" and not whisper_model_name:
-            whisper_model_name = "nova-2"
 
         if whisper_implementation == "deepinfra" and not whisper_model_name:
             whisper_model_name = "openai/whisper-large-v3-turbo"
@@ -100,13 +94,6 @@ class WhisperTask(Task):
                 from .openai import OpenAIApi
 
                 return OpenAIApi(api_key)
-            if implementation == "deepgram":
-                api_key = os.getenv("DEEPGRAM_API_KEY")
-                if not api_key:
-                    raise RuntimeError("DEEPGRAM_API_KEY env must be set.")
-                from .deepgram import DeepgramApi
-
-                return DeepgramApi(api_key, model)
             if implementation == "deepinfra":
                 api_key = os.getenv("DEEPINFRA_API_KEY")
                 if not api_key:

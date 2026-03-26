@@ -2,7 +2,6 @@ import os
 import tempfile
 import unittest
 import wave
-from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 
@@ -117,74 +116,6 @@ class TestWhisperImplementations(unittest.TestCase):
             self.assertEqual("en", kwargs["language"])
             self.assertIn("alpha bravo", kwargs["prompt"])
             self.assertEqual(expected, result)
-            self._assert_result_contract(result)
-        finally:
-            os.unlink(audio_path)
-
-    def test_deepgram_api_transcribe_structural_contract(self):
-        from app.whisper.deepgram import DeepgramApi
-
-        utterance = SimpleNamespace(start=0.0, end=1.0, transcript="hello deepgram")
-        response = SimpleNamespace(
-            results=SimpleNamespace(
-                utterances=[utterance],
-                channels=[
-                    SimpleNamespace(
-                        alternatives=[SimpleNamespace(transcript="hello deepgram")]
-                    )
-                ],
-            )
-        )
-        transcribe_file_mock = Mock(return_value=response)
-        client = Mock()
-        client.listen.prerecorded.v.return_value.transcribe_file = transcribe_file_mock
-
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
-            create_tiny_wav(temp_audio.name)
-            audio_path = temp_audio.name
-
-        try:
-            with patch("app.whisper.deepgram.DeepgramClient", return_value=client):
-                with patch(
-                    "app.whisper.deepgram.PrerecordedOptions",
-                    return_value={"options": "ok"},
-                ) as options_mock:
-                    implementation = DeepgramApi(api_key="deepgram-key", model="nova-2")
-                    result = implementation.transcribe(
-                        audio=audio_path, options=build_options(), language="en"
-                    )
-
-            self.assertEqual({"options": "ok"}, transcribe_file_mock.call_args.args[1])
-            self.assertEqual(120, transcribe_file_mock.call_args.kwargs["timeout"])
-            options_mock.assert_called_once()
-            self.assertEqual("hello deepgram", result["text"])
-            self.assertEqual("en", result["language"])
-            self.assertEqual(1, len(result["segments"]))
-            self._assert_result_contract(result)
-        finally:
-            os.unlink(audio_path)
-
-    def test_deepgram_api_returns_empty_result_when_no_utterances(self):
-        from app.whisper.deepgram import DeepgramApi
-
-        response = SimpleNamespace(results=None)
-        transcribe_file_mock = Mock(return_value=response)
-        client = Mock()
-        client.listen.prerecorded.v.return_value.transcribe_file = transcribe_file_mock
-
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
-            create_tiny_wav(temp_audio.name)
-            audio_path = temp_audio.name
-
-        try:
-            with patch("app.whisper.deepgram.DeepgramClient", return_value=client):
-                with patch("app.whisper.deepgram.PrerecordedOptions", return_value={}):
-                    implementation = DeepgramApi(api_key="deepgram-key", model="nova-2")
-                    result = implementation.transcribe(
-                        audio=audio_path, options=build_options(), language="en"
-                    )
-
-            self.assertEqual({"segments": [], "text": "", "language": "en"}, result)
             self._assert_result_contract(result)
         finally:
             os.unlink(audio_path)

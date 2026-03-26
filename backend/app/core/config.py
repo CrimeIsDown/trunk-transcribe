@@ -6,7 +6,7 @@ from typing import Annotated, Any
 from pydantic import BeforeValidator, PostgresDsn, computed_field
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
-API_TRANSCRIPTION_IMPLEMENTATIONS = ("openai", "deepgram", "deepinfra")
+API_TRANSCRIPTION_IMPLEMENTATIONS = ("openai", "deepinfra")
 SUPPORTED_TRANSCRIPTION_BACKENDS = ("whisper", "api", "qwen", "voxtral")
 TRANSCRIPTION_QUEUE_BY_BACKEND = {
     "whisper": "transcribe_whisper",

@@ -293,7 +293,7 @@ class Autoscaler:
         if self.backend != "whisper":
             return float(DEFAULT_NON_WHISPER_GPU_RAM_MB)
 
-        if self.implementation in {"openai", "deepgram", "deepinfra"}:
+        if self.implementation in {"openai", "deepinfra"}:
             return float(10 * 1024)
 
         return float(DEFAULT_NON_WHISPER_GPU_RAM_MB)

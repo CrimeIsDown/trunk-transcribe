@@ -89,7 +89,7 @@ COMPOSE_FILE=docker-compose.worker-api.yml
 docker compose up -d
 ```
 
-The API worker does not need `docker-compose.gpu.yml`. Set `WHISPER_IMPLEMENTATION` to `openai`, `deepgram`, or `deepinfra`, then provide the matching API key.
+The API worker does not need `docker-compose.gpu.yml`. Set `WHISPER_IMPLEMENTATION` to `openai` or `deepinfra`, then provide the matching API key.
 
 To add another Qwen machine:
 
@@ -143,24 +143,6 @@ DEEPINFRA_API_KEY=my-api-key
 
 # Optional model override (defaults to openai/whisper-large-v3-turbo)
 # WHISPER_MODEL=openai/whisper-large-v3-turbo
-```
-
-### Running workers using Deepgram's transcription API
-
-To use Deepgram's transcription API, run the API backend and set the following in your `.env` file:
-
-```
-# Route jobs to the API queue
-DEFAULT_TRANSCRIPTION_BACKEND=api
-
-# Switch to Deepgram implementation
-WHISPER_IMPLEMENTATION=deepgram
-
-# Deepgram API key
-DEEPGRAM_API_KEY=my-api-key
-
-# Optional model override (defaults to nova-2)
-# WHISPER_MODEL=nova-2
 ```
 
 ### Running workers on Windows

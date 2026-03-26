@@ -45,7 +45,10 @@ class TestWorkerRouting(unittest.TestCase):
             "transcribe_api", worker.get_transcription_queue("whisper", "openai:whisper-1")
         )
         self.assertEqual(
-            "transcribe_api", worker.get_transcription_queue(None, "deepgram:nova-2")
+            "transcribe_api",
+            worker.get_transcription_queue(
+                None, "deepinfra:openai/whisper-large-v3-turbo"
+            ),
         )
 
     def test_get_transcription_queue_rejects_unknown_backend(self):

@@ -22,8 +22,6 @@ jobs:
         include:
           - whisper_implementation: openai
             whisper_model: whisper-1
-          - whisper_implementation: deepgram
-            whisper_model: nova-2
           - whisper_implementation: deepinfra
             whisper_model: openai/whisper-large-v3-turbo
 
@@ -71,7 +69,6 @@ jobs:
 
           { set +x; } 2>/dev/null
           sed -i 's/^# OPENAI_API_KEY=$/OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}/g' .env
-          sed -i 's/^# DEEPGRAM_API_KEY=$/DEEPGRAM_API_KEY=${{ secrets.DEEPGRAM_API_KEY }}/g' .env
           sed -i 's/^# DEEPINFRA_API_KEY=$/DEEPINFRA_API_KEY=${{ secrets.DEEPINFRA_API_KEY }}/g' .env
           sed -i 's/^# GOOGLE_GEMINI_API_KEY=$/GOOGLE_GEMINI_API_KEY=${{ secrets.GOOGLE_GEMINI_API_KEY }}/g' .env
           sed -i 's/^# GOOGLE_MAPS_API_KEY=$/GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }}/g' .env

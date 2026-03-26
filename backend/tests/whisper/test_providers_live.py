@@ -1,7 +1,6 @@
 import os
 import unittest
 
-from app.whisper.deepgram import DeepgramApi
 from app.whisper.deepinfra import DeepInfraApi
 from app.whisper.openai import OpenAIApi
 
@@ -38,14 +37,6 @@ class TestLiveProviders(unittest.TestCase):
     @unittest.skipUnless(os.getenv("OPENAI_API_KEY"), "OPENAI_API_KEY not set")
     def test_openai_live(self):
         implementation = OpenAIApi(api_key=os.environ["OPENAI_API_KEY"])
-        result = implementation.transcribe(TINY_AUDIO_FILE, build_options(), "en")
-        self._assert_result_contract(result)
-
-    @unittest.skipUnless(os.getenv("DEEPGRAM_API_KEY"), "DEEPGRAM_API_KEY not set")
-    def test_deepgram_live(self):
-        implementation = DeepgramApi(
-            api_key=os.environ["DEEPGRAM_API_KEY"], model="nova-2"
-        )
         result = implementation.transcribe(TINY_AUDIO_FILE, build_options(), "en")
         self._assert_result_contract(result)
 
