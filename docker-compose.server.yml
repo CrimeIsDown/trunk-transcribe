@@ -70,6 +70,7 @@ services:
     volumes:
       - ./docker/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
       - flower-data:/src/data
+    env_file: .env
     ports:
       - ${FLOWER_PORT:-5555}:5555
     environment:
