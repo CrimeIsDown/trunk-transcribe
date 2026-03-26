@@ -15,10 +15,10 @@ This is experimental alpha-version software, use at your own risk. Expect breaki
 1. `transcribe.sh` runs from trunk-recorder which makes a POST request to the API, passing along the call WAV and JSON
 1. API resolves a `transcription_backend` for the request and adds the transcription job to the matching RabbitMQ queue
 1. A backend-specific worker stack consumes exactly one backend queue: `transcribe_whisper`, `transcribe_api`, `transcribe_qwen`, or `transcribe_voxtral`
-1. The worker either forwards audio to a sibling/local ASR HTTP service or calls a vendor-hosted API, then normalizes the response
+1. Every backend worker uses the same OpenAI-compatible transcription contract: send audio to `POST /v1/audio/transcriptions`, receive verbose JSON back, and normalize that into the shared transcript shape
 1. The `post_transcribe` worker stores the results in search and sends notifications
 
-See [docs/architecture.md](./docs/architecture.md) for Mermaid diagrams covering the full runtime topology and the current transcript provider/model mapping.
+See [docs/architecture.md](./docs/architecture.md) for Mermaid diagrams covering the full runtime topology and the current transcription contract.
 
 ## Getting Started
 
@@ -67,7 +67,7 @@ There are numerous `docker-compose.*.yml` files in this repo for various configu
 Each transcription machine should run exactly one backend-specific worker stack:
 
 - `docker-compose.worker-whisper.yml` consumes `transcribe_whisper` and runs [`speaches`](https://github.com/speaches-ai/speaches)
-- `docker-compose.worker-api.yml` consumes `transcribe_api` and forwards to OpenAI, Deepgram, or DeepInfra
+- `docker-compose.worker-api.yml` consumes `transcribe_api` and forwards to OpenAI or DeepInfra
 - `docker-compose.worker-qwen.yml` consumes `transcribe_qwen` and runs [`trunk-reporter/qwen3-asr-server`](https://github.com/trunk-reporter/qwen3-asr-server)
 - `docker-compose.worker-voxtral.yml` consumes `transcribe_voxtral` and runs [`vllm serve`](https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html) for [`mistralai/Voxtral-Mini-4B-Realtime-2602`](https://huggingface.co/mistralai/Voxtral-Mini-4B-Realtime-2602)
 
@@ -90,6 +90,8 @@ docker compose up -d
 ```
 
 The API worker does not need `docker-compose.gpu.yml`. Set `WHISPER_IMPLEMENTATION` to `openai` or `deepinfra`, then provide the matching API key.
+
+All four backend stacks now share one runtime boundary: the worker talks to an OpenAI-compatible `/v1/audio/transcriptions` endpoint. The difference between Whisper, API, Qwen, and Voxtral is queue routing and deployment shape, not a different in-process provider implementation.
 
 To add another Qwen machine:
 
@@ -120,7 +122,7 @@ COMPOSE_FILE=docker-compose.server.yml:docker-compose.worker.yml:docker-compose.
 # Route new jobs to the API queue
 DEFAULT_TRANSCRIPTION_BACKEND=api
 
-# Use the OpenAI speech API
+# Use the OpenAI-compatible speech API
 WHISPER_IMPLEMENTATION=openai
 OPENAI_API_KEY=my-api-key
 ```
@@ -144,6 +146,8 @@ DEEPINFRA_API_KEY=my-api-key
 # Optional model override (defaults to openai/whisper-large-v3-turbo)
 # WHISPER_MODEL=openai/whisper-large-v3-turbo
 ```
+
+In both cases, the worker still uses the same `POST /v1/audio/transcriptions` contract that it uses for the local Whisper, Qwen, and Voxtral servers.
 
 ### Running workers on Windows
 

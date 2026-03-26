@@ -1,12 +1,13 @@
 # Architecture
 
-This document complements the top-level README with a compact system diagram and a backend reference table.
+This document complements the top-level README with a compact system diagram, a backend reference table, and the shared transcription runtime contract.
 
 ## Diagram Conventions
 
 - One diagram should answer one question. The main diagram below focuses on runtime flow, not every container detail.
 - Components are grouped by responsibility so the reader can scan left to right: ingest, routing, backend execution, post-processing, and consumers.
 - Provider nodes include the default model where that adds useful context.
+- The important execution boundary is the transcription API contract, not provider-specific SDK code.
 - Operational components such as Flower and the autoscaler are shown off the main transcript path.
 
 ## System Flow
@@ -59,10 +60,15 @@ flowchart LR
     API -->|enqueue by transcription_backend| QQ
     API -->|enqueue by transcription_backend| QV
 
-    QW --> WP --> PW -->|normalized transcript| QP
-    QA --> WA --> PA -->|normalized transcript| QP
-    QQ --> WQ --> PQW -->|normalized transcript| QP
-    QV --> WV --> PV -->|normalized transcript| QP
+    QW --> WP -->|POST /v1/audio/transcriptions| PW
+    QA --> WA -->|POST /v1/audio/transcriptions| PA
+    QQ --> WQ -->|POST /v1/audio/transcriptions| PQW
+    QV --> WV -->|POST /v1/audio/transcriptions| PV
+
+    PW -->|normalized transcript| QP
+    PA -->|normalized transcript| QP
+    PQW -->|normalized transcript| QP
+    PV -->|normalized transcript| QP
 
     QP --> POST
     POST --> DB
@@ -80,9 +86,19 @@ flowchart LR
 | Backend | Queue | Worker compose | Provider server | Default model |
 | --- | --- | --- | --- | --- |
 | Whisper | `transcribe_whisper` | `docker-compose.worker-whisper.yml` | `ghcr.io/speaches-ai/speaches` | `Systran/faster-distil-whisper-small.en` |
-| API | `transcribe_api` | `docker-compose.worker-api.yml` | OpenAI, Deepgram, or DeepInfra | Provider-specific |
+| API | `transcribe_api` | `docker-compose.worker-api.yml` | OpenAI or DeepInfra | Provider-specific |
 | Qwen | `transcribe_qwen` | `docker-compose.worker-qwen.yml` | `ghcr.io/trunk-reporter/qwen3-asr-server:gpu` | `qwen3-asr-p25` |
 | Voxtral | `transcribe_voxtral` | `docker-compose.worker-voxtral.yml` | `vllm/vllm-openai:latest` | `mistralai/Voxtral-Mini-4B-Realtime-2602` |
+
+## Runtime Contract
+
+All active transcription backends in this repo now use the same runtime contract:
+
+- the worker sends audio to an OpenAI-compatible `POST /v1/audio/transcriptions` endpoint
+- the provider returns a verbose JSON transcript
+- the worker normalizes that response into the shared transcript shape used by `post_transcribe`
+
+That means queue routing is still backend-specific, but execution is no longer split between local ASR servers and separate in-process provider SDK implementations.
 
 ## Notes
 
