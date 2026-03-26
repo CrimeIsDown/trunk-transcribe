@@ -21,6 +21,7 @@ import sentry_sdk
 from dotenv import load_dotenv
 
 from app import worker
+from app.core.config import resolve_transcription_backend
 
 load_dotenv()
 
@@ -45,6 +46,23 @@ DEFAULT_MIN_INSTANCES = 1
 DEFAULT_MAX_INSTANCES = 10
 DEFAULT_INTERVAL = 60
 FORBIDDEN_INSTANCE_CONFIG = "config/forbidden_instances.json"
+DEFAULT_NON_WHISPER_GPU_RAM_MB = 24 * 1024
+PASSTHROUGH_ENV_PREFIXES = (
+    "ASR_",
+    "CELERY_",
+    "DEEPGRAM_",
+    "DEEPINFRA_",
+    "OPENAI_",
+    "SENTRY_",
+    "TORCH_",
+    "TRANSCRIPTION_",
+    "WHISPER_",
+)
+PASSTHROUGH_ENV_NAMES = {
+    "API_BASE_URL",
+    "DEFAULT_TRANSCRIPTION_BACKEND",
+    "GIT_COMMIT",
+}
 
 http = requests.Session()
 http.request = functools.partial(http.request, timeout=10)  # type: ignore
@@ -73,8 +91,17 @@ class Autoscaler:
             self.vast_api_key = open(os.path.expanduser("~/.vast_api_key")).read()
         self.vast_api_key = self.vast_api_key.strip()
 
-        self.model = os.getenv("WHISPER_MODEL", "large-v3")
-        self.implementation = os.getenv("WHISPER_IMPLEMENTATION", "faster-whisper")
+        self.backend = resolve_transcription_backend(
+            os.getenv("AUTOSCALE_BACKEND") or os.getenv("TRANSCRIPTION_BACKEND"),
+            default_backend=os.getenv("DEFAULT_TRANSCRIPTION_BACKEND", "whisper"),
+            whisper_implementation=os.getenv("WHISPER_IMPLEMENTATION"),
+        )
+        self.queue = os.getenv("AUTOSCALE_QUEUE") or worker.get_transcription_queue(
+            self.backend
+        )
+        self.model = os.getenv("WHISPER_MODEL") or os.getenv("ASR_MODEL", "large-v3")
+        self.implementation = os.getenv("WHISPER_IMPLEMENTATION", "whisper-asr-api")
+        self.autoscale_gpu_ram_mb = int(os.getenv("AUTOSCALE_GPU_RAM_MB", "0") or "0")
 
         # Figure out the public IP/host for external access
         hostname = urlparse(os.getenv("API_BASE_URL", "")).hostname
@@ -84,9 +111,10 @@ class Autoscaler:
         self.envs = {
             k: v.replace("rabbitmq", hostname)
             for k, v in os.environ.items()
-            if k.startswith("CELERY")
+            if k.startswith(PASSTHROUGH_ENV_PREFIXES) or k in PASSTHROUGH_ENV_NAMES
         }
-        self.envs["CELERY_QUEUES"] = worker.CELERY_GPU_QUEUE
+        self.envs["CELERY_QUEUES"] = self.queue
+        self.envs["TRANSCRIPTION_BACKEND"] = self.backend
 
         if os.getenv("SENTRY_DSN"):
             self.envs["SENTRY_DSN"] = os.getenv("SENTRY_DSN", "")
@@ -102,7 +130,10 @@ class Autoscaler:
         if image:
             self.image = image
         else:
-            self.image = f"ghcr.io/crimeisdown/trunk-transcribe:main-{self.implementation}-{self.model}-cuda_{cuda_version}"
+            self.image = os.getenv(
+                "AUTOSCALE_WORKER_IMAGE",
+                f"ghcr.io/crimeisdown/trunk-transcribe:{os.getenv('VERSION', 'main')}",
+            )
 
         if os.path.isfile(FORBIDDEN_INSTANCE_CONFIG):
             with open(FORBIDDEN_INSTANCE_CONFIG) as config:
@@ -179,7 +210,7 @@ class Autoscaler:
 
     def get_queue_status(self) -> dict:
         broker_api = os.getenv("FLOWER_BROKER_API")
-        url = f"{broker_api}queues/%2F/{worker.CELERY_GPU_QUEUE}"
+        url = f"{broker_api}queues/%2F/{self.queue}"
         r = http.get(url)
         r.raise_for_status()
         return r.json()
@@ -201,6 +232,10 @@ class Autoscaler:
         return p.stdout.decode("utf-8").strip()
 
     def find_available_instances(self, vram_needed: float) -> list[dict]:
+        if vram_needed <= 0:
+            raise RuntimeError(
+                "The api transcription backend does not require GPU autoscaling. Run docker-compose.worker-api.yml on standard compute instead."
+            )
         vram_needed = max(10 * 1024, vram_needed)
         query = {
             "rentable": {"eq": "true"},
@@ -239,7 +274,8 @@ class Autoscaler:
         instances = list(
             filter(
                 lambda i: ["CELERY_BROKER_URL", self.envs["CELERY_BROKER_URL"]]
-                in i["extra_env"],
+                in i["extra_env"]
+                and ["CELERY_QUEUES", self.queue] in i["extra_env"],
                 r.json()["instances"],
             )
         )
@@ -247,28 +283,25 @@ class Autoscaler:
         self._update_pending_instances(instances)
         return instances
 
+    def _get_vram_required(self) -> float:
+        if self.autoscale_gpu_ram_mb:
+            return float(self.autoscale_gpu_ram_mb)
+
+        if self.backend == "api":
+            return 0.0
+
+        if self.backend != "whisper":
+            return float(DEFAULT_NON_WHISPER_GPU_RAM_MB)
+
+        if self.implementation in {"openai", "deepinfra"}:
+            return float(10 * 1024)
+
+        return float(DEFAULT_NON_WHISPER_GPU_RAM_MB)
+
     def create_instances(self, count: int) -> int:
         logging.info(f"Scaling up by {count} instances")
 
-        mem_util_factor = 1.0
-        # Decrease the memory needed for certain forks
-        if self.implementation in ["faster-whisper", "whisper.cpp"]:
-            mem_util_factor = 0.4
-        if self.implementation == "whispers2t":
-            mem_util_factor = 0.5
-
-        vram_requirements = {
-            "tiny.en": 1.5 * 1024 * mem_util_factor,
-            "base.en": 2 * 1024 * mem_util_factor,
-            "small.en": 3.5 * 1024 * mem_util_factor,
-            "medium.en": 6.5 * 1024 * mem_util_factor,
-            "large": 12 * 1024 * mem_util_factor,
-            "large-v2": 12 * 1024 * mem_util_factor,
-            "large-v3": 12 * 1024 * mem_util_factor,
-            "large-v3-turbo": 10 * 1024 * mem_util_factor,
-        }
-
-        vram_required = vram_requirements[self.model]
+        vram_required = self._get_vram_required()
         instances = self.find_available_instances(vram_required)
 
         instances_created = 0
@@ -482,7 +515,7 @@ class Autoscaler:
 
     def run(self):
         logging.info(
-            f"Started autoscaler: min_instances={self.min} max_instances={self.max} interval={self.interval}"
+            f"Started autoscaler: backend={self.backend} queue={self.queue} min_instances={self.min} max_instances={self.max} interval={self.interval}"
         )
 
         # Start monitoring the queue stats

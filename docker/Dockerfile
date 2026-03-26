@@ -41,9 +41,7 @@ COPY uv.lock uv.lock
 
 # Install the project's dependencies using the lockfile and settings
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --directory backend --no-install-project --no-dev $WHISPER_IMPLEMENTATION_GROUP
-
-# $WHISPER_INSTALL_INSTRUCTIONS
+    uv sync --frozen --directory backend --no-install-project --no-dev
 
 COPY backend/alembic.ini backend/alembic.ini
 COPY backend/app backend/app

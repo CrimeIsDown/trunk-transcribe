@@ -1,9 +1,7 @@
 import os
 import unittest
 
-from app.whisper.deepgram import DeepgramApi
-from app.whisper.deepinfra import DeepInfraApi
-from app.whisper.openai import OpenAIApi
+from app.whisper.whisper_asr_api import WhisperAsrApi
 
 
 RUN_LIVE_PROVIDER_TESTS = os.getenv("RUN_LIVE_PROVIDER_TESTS", "").lower() == "true"
@@ -37,14 +35,11 @@ class TestLiveProviders(unittest.TestCase):
 
     @unittest.skipUnless(os.getenv("OPENAI_API_KEY"), "OPENAI_API_KEY not set")
     def test_openai_live(self):
-        implementation = OpenAIApi(api_key=os.environ["OPENAI_API_KEY"])
-        result = implementation.transcribe(TINY_AUDIO_FILE, build_options(), "en")
-        self._assert_result_contract(result)
-
-    @unittest.skipUnless(os.getenv("DEEPGRAM_API_KEY"), "DEEPGRAM_API_KEY not set")
-    def test_deepgram_live(self):
-        implementation = DeepgramApi(
-            api_key=os.environ["DEEPGRAM_API_KEY"], model="nova-2"
+        implementation = WhisperAsrApi(
+            base_url=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+            model="whisper-1",
+            provider="openai",
+            headers={"Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}"},
         )
         result = implementation.transcribe(TINY_AUDIO_FILE, build_options(), "en")
         self._assert_result_contract(result)
@@ -52,8 +47,13 @@ class TestLiveProviders(unittest.TestCase):
     @unittest.skipUnless(os.getenv("DEEPINFRA_API_KEY"), "DEEPINFRA_API_KEY not set")
     def test_deepinfra_live(self):
         model = os.getenv("DEEPINFRA_MODEL", "openai/whisper-large-v3-turbo")
-        implementation = DeepInfraApi(
-            api_key=os.environ["DEEPINFRA_API_KEY"], model=model
+        implementation = WhisperAsrApi(
+            base_url=os.getenv(
+                "DEEPINFRA_BASE_URL", "https://api.deepinfra.com/v1/openai"
+            ),
+            model=model,
+            provider="deepinfra",
+            headers={"Authorization": f"Bearer {os.environ['DEEPINFRA_API_KEY']}"},
         )
         result = implementation.transcribe(TINY_AUDIO_FILE, build_options(), "en")
         self._assert_result_contract(result)

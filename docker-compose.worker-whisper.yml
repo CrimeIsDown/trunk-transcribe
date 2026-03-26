@@ -1,5 +1,5 @@
 services:
-  whisper:
+  worker-whisper:
     image: ghcr.io/crimeisdown/trunk-transcribe:${VERSION:-main}
     build:
       context: .
@@ -26,6 +26,7 @@ services:
       - CELERY_RESULT_BACKEND
       - CELERY_CONCURRENCY
       - CELERY_PREFETCH_MULTIPLIER
+    env_file: .env
     depends_on:
       - asr-whisper
     restart: always

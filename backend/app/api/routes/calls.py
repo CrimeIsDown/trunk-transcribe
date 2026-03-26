@@ -52,6 +52,7 @@ def create_call(
     call_audio: UploadFile | None = None,
     db: Session = Depends(get_db),
     whisper_implementation: str | None = None,
+    transcription_backend: str | None = None,
     batch: bool = False,
 ) -> JSONResponse:
     metadata = json.loads(call_json.file.read())
@@ -96,13 +97,17 @@ def create_call(
 
     db_call = models.create_call(db=db, call=call)
 
-    task = worker.queue_task(
-        audio_url,
-        metadata,
-        build_transcribe_options(metadata),
-        whisper_implementation,
-        db_call.id,
-    )
+    try:
+        task = worker.queue_task(
+            audio_url,
+            metadata,
+            build_transcribe_options(metadata),
+            whisper_implementation,
+            db_call.id,
+            transcription_backend=transcription_backend,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     return JSONResponse(
         {"task_id": task.id},

@@ -13,7 +13,12 @@ from celery import Celery, signals, states
 from celery.exceptions import Reject
 from sentry_sdk.integrations.celery import CeleryIntegration
 
-from app.core.config import settings
+from app.core.config import (
+    POST_TRANSCRIBE_QUEUE,
+    TRANSCRIPTION_QUEUE_BY_BACKEND,
+    resolve_transcription_backend,
+    settings,
+)
 from app.geocoding.geocoding import lookup_geo
 from app.models.metadata import Metadata
 from app.notifications.notification import send_notifications
@@ -23,7 +28,7 @@ from app.utils.exceptions import before_send
 from app.utils.storage import fetch_audio
 from app.whisper.base import TranscribeOptions, WhisperResult
 from app.whisper.exceptions import WhisperException
-from app.whisper.task import API_IMPLEMENTATIONS, WhisperTask
+from app.whisper.task import WhisperTask
 from app.whisper.transcribe import transcribe
 
 if settings.SENTRY_DSN:
@@ -44,7 +49,6 @@ if settings.SENTRY_DSN:
     )
 
 CELERY_DEFAULT_QUEUE = settings.CELERY_DEFAULT_QUEUE
-CELERY_GPU_QUEUE = settings.celery_gpu_queue
 
 celery = Celery(
     "worker",
@@ -62,6 +66,18 @@ recent_job_results: list[str] = []
 logger = logging.getLogger(__name__)
 
 
+def get_transcription_queue(
+    backend: str | None = None, whisper_implementation: str | None = None
+) -> str:
+    resolved_backend = resolve_transcription_backend(
+        backend,
+        default_backend=settings.resolved_default_transcription_backend,
+        whisper_implementation=whisper_implementation
+        or settings.WHISPER_IMPLEMENTATION,
+    )
+    return TRANSCRIPTION_QUEUE_BY_BACKEND[resolved_backend]
+
+
 def queue_task(
     audio_url: str,
     metadata: Metadata,
@@ -69,15 +85,17 @@ def queue_task(
     whisper_implementation: Optional[str] = None,
     id: Optional[int | str] = None,
     index_name: Optional[str] = None,
+    transcription_backend: Optional[str] = None,
 ):
+    transcription_queue = get_transcription_queue(
+        transcription_backend, whisper_implementation
+    )
     return (
         transcribe_task.s(options, audio_url, whisper_implementation).set(
-            queue=CELERY_DEFAULT_QUEUE
-            if settings.WHISPER_IMPLEMENTATION in API_IMPLEMENTATIONS
-            else CELERY_GPU_QUEUE
+            queue=transcription_queue
         )
         | post_transcribe_task.s(metadata, audio_url, id, index_name).set(
-            queue=f"post_{CELERY_DEFAULT_QUEUE}"
+            queue=POST_TRANSCRIBE_QUEUE
         )
     ).apply_async()
 

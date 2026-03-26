@@ -24,6 +24,7 @@ def queue_for_transcription(
     call_audio: UploadFile,
     call_json: UploadFile,
     whisper_implementation: str | None = None,
+    transcription_backend: str | None = None,
 ) -> JSONResponse:
     metadata = json.loads(call_json.file.read())
 
@@ -54,9 +55,16 @@ def queue_for_transcription(
     finally:
         os.unlink(raw_audio.name)
 
-    task = worker.queue_task(
-        audio_url, metadata, build_transcribe_options(metadata), whisper_implementation
-    )
+    try:
+        task = worker.queue_task(
+            audio_url,
+            metadata,
+            build_transcribe_options(metadata),
+            whisper_implementation,
+            transcription_backend=transcription_backend,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     return JSONResponse({"task_id": task.id}, status_code=201)
 

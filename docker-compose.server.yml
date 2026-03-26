@@ -70,12 +70,13 @@ services:
     volumes:
       - ./docker/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
       - flower-data:/src/data
+    env_file: .env
     ports:
       - ${FLOWER_PORT:-5555}:5555
     environment:
       - CELERY_BROKER_URL
       - CELERY_RESULT_BACKEND
-      - CELERY_QUEUES=transcribe,transcribe_gpu,post_transcribe
+      - CELERY_QUEUES=transcribe_whisper,transcribe_api,transcribe_qwen,transcribe_voxtral,post_transcribe
       - FLOWER_PURGE_OFFLINE_WORKERS=120
       - FLOWER_PERSISTENT=1
       - FLOWER_DB=/src/data/flower
