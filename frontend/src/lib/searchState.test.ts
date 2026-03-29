@@ -60,6 +60,8 @@ describe('searchState', () => {
         },
       },
       callId: 'abc123',
+      hitsPerPage: 40,
+      sortBy: 'calls:start_time:asc',
     })
 
     const url = new URL(relativeUrl, 'http://localhost')
@@ -76,6 +78,8 @@ describe('searchState', () => {
     expect(url.searchParams.get('calls[range][start_time]')).toBe(
       '1741500000:1741507200',
     )
+    expect(url.searchParams.get('calls[hitsPerPage]')).toBe('40')
+    expect(url.searchParams.get('calls[sortBy]')).toBe('calls:start_time:asc')
   })
 
   it('creates stable thread ids from the normalized search scope', () => {

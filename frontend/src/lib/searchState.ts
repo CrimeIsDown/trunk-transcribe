@@ -39,6 +39,7 @@ export interface BuildScannerSearchUrlInput {
   focusWindowSeconds?: number
   indexName?: string
   hitsPerPage?: number
+  sortBy?: string
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -323,9 +324,10 @@ export function buildScannerSearchUrl(
   const indexName = input.indexName || DEFAULT_INDEX_NAME
   const hitsPerPage = input.hitsPerPage || 60
   const focusWindowSeconds = input.focusWindowSeconds || 30 * 60
+  const sortBy = input.sortBy || `${indexName}:start_time:desc`
 
   const indexState: Record<string, unknown> = {
-    sortBy: `${indexName}:start_time:desc`,
+    sortBy,
     hitsPerPage,
   }
 

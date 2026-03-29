@@ -88,6 +88,10 @@ code {
   background: var(--bs-tertiary-bg);
 }
 
+.ais-Hits-item .selected, .ais-InfiniteHits-item .selected {
+  background: var(--bs-tertiary-bg);
+}
+
 .ais-Hits-item blockquote, .ais-InfiniteHits-item blockquote {
   border-left: 0.1rem solid var(--bs-primary-border-subtle);
   padding-left: 0.3rem;
