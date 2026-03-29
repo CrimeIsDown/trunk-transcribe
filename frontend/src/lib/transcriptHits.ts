@@ -82,6 +82,10 @@ export function parseSelectedHitId(hash: string): string | undefined {
 	return match ? match[1] : undefined;
 }
 
+function normalizeTranscriptLineBreaks(value: string): string {
+	return value.replaceAll("\\n", "<br>").replaceAll("\n", "<br>");
+}
+
 export function getTranscriptHitGeoPoint(
 	hit: Pick<TranscriptHit, "_geo">,
 ): { lat: number; lng: number } | undefined {
@@ -246,7 +250,9 @@ export function createTranscriptHitTransformer({
 					});
 					src.label = hasTag ? highlightedSource.tag ?? String(src.src) : String(src.src);
 				}
-				segment[1] = (highlightedSegment[1] ?? segment[1]).replaceAll("\n", "<br>");
+				segment[1] = normalizeTranscriptLineBreaks(
+					highlightedSegment[1] ?? segment[1],
+				);
 			}
 		});
 

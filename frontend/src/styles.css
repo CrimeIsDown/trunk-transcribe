@@ -168,6 +168,53 @@ code {
   color: var(--bs-gray-900);
 }
 
+.transcript-map-page {
+  min-height: calc(100vh - 3rem);
+}
+
+.transcript-map-shell {
+  position: relative;
+}
+
+.transcript-map-shell__canvas {
+  position: relative;
+}
+
+.transcript-map {
+  height: 70vh;
+  border: 1px solid var(--bs-border-color);
+  border-radius: var(--bs-border-radius-lg);
+  overflow: hidden;
+  background: var(--bs-tertiary-bg);
+}
+
+.transcript-map__loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(255 255 255 / 72%);
+  backdrop-filter: blur(2px);
+}
+
+.transcript-map__sidebar-inner {
+  top: 1rem;
+}
+
+.transcript-map__results .ais-Hits-list {
+  margin-top: 1rem;
+}
+
+.transcript-map-popup {
+  min-width: 16rem;
+  color: var(--bs-gray-900);
+}
+
+.transcript-map-popup .btn {
+  white-space: nowrap;
+}
+
 .metadata-modal pre {
   height: 80vh;
 }

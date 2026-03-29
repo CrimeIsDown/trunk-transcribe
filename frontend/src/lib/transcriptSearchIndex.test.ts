@@ -1,78 +1,102 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from 'vitest'
 
 import {
-	clampTranscriptSearchRangeToMonth,
-	getTranscriptCurrentMonthIndexName,
-	getTranscriptMonthRangeBounds,
-	getTranscriptSearchIndexNameForRange,
-	getTranscriptSearchIndexNameFromLocation,
-	rewriteTranscriptSortByIndexName,
-} from "./transcriptSearchIndex";
+  buildTranscriptArchiveSearchUrl,
+  clampTranscriptSearchRangeToMonth,
+  getTranscriptCurrentMonthIndexName,
+  getTranscriptMonthRangeBounds,
+  getTranscriptMonthIndexName,
+  getTranscriptSearchIndexNameForRange,
+  getTranscriptSearchIndexNameFromLocation,
+  isTranscriptMonthlyIndexName,
+  rewriteTranscriptSortByIndexName,
+} from './transcriptSearchIndex'
 
-describe("transcriptSearchIndex", () => {
-	const referenceDate = new Date(2024, 2, 15, 12, 0, 0);
-	const marchRangeStart = Math.floor(Date.UTC(2024, 2, 15, 12, 0, 0) / 1000);
-	const marchRangeEnd = Math.floor(Date.UTC(2024, 3, 5, 12, 0, 0) / 1000);
-	const config = {
-		baseIndexName: "calls",
-		splitByMonth: true,
-		referenceDate,
-	};
+describe('transcriptSearchIndex', () => {
+  const referenceDate = new Date('2026-03-15T12:00:00Z')
 
-	it("defaults to the current month when split-by-month is enabled and no index is present", () => {
-		expect(getTranscriptSearchIndexNameFromLocation("", config)).toBe(
-			getTranscriptCurrentMonthIndexName(config),
-		);
-	});
+  it('recognizes and derives monthly index names', () => {
+    expect(getTranscriptMonthIndexName('calls', referenceDate)).toBe(
+      'calls_2026_03',
+    )
+    expect(
+      getTranscriptCurrentMonthIndexName({
+        baseIndexName: 'calls',
+        splitByMonth: true,
+        referenceDate,
+      }),
+    ).toBe('calls_2026_03')
+    expect(isTranscriptMonthlyIndexName('calls_2026_03', 'calls')).toBe(true)
+    expect(isTranscriptMonthlyIndexName('calls', 'calls')).toBe(false)
+  })
 
-	it("canonicalizes legacy base-index urls to the current month when split-by-month is enabled", () => {
-		expect(
-			getTranscriptSearchIndexNameFromLocation("?calls[query]=shots", config),
-		).toBe(getTranscriptCurrentMonthIndexName(config));
-	});
+  it('selects an archive index from location and range state', () => {
+    expect(
+      getTranscriptSearchIndexNameFromLocation('?calls[query]=shots', {
+        baseIndexName: 'calls',
+        splitByMonth: true,
+        referenceDate,
+      }),
+    ).toBe('calls_2026_03')
+    expect(
+      getTranscriptSearchIndexNameFromLocation('?calls_2026_03[query]=shots', {
+        baseIndexName: 'calls',
+        splitByMonth: true,
+        referenceDate,
+      }),
+    ).toBe('calls_2026_03')
 
-	it("preserves explicit monthly index urls", () => {
-		expect(
-			getTranscriptSearchIndexNameFromLocation(
-				"?calls_2024_02[query]=shots",
-				config,
-			),
-		).toBe("calls_2024_02");
-	});
+    const marchStart = Math.floor(Date.parse('2026-03-18T05:00:00Z') / 1000)
+    expect(
+      getTranscriptSearchIndexNameForRange(
+        {
+          start_time: `${marchStart}:${marchStart + 3600}`,
+        },
+        {
+          baseIndexName: 'calls',
+          splitByMonth: true,
+          referenceDate,
+        },
+      ),
+    ).toBe('calls_2026_03')
+  })
 
-	it("falls back to the base index when split-by-month is disabled", () => {
-		expect(
-			getTranscriptSearchIndexNameFromLocation("?calls[query]=shots", {
-				baseIndexName: "calls",
-				splitByMonth: false,
-				referenceDate,
-			}),
-		).toBe("calls");
-	});
+  it('clamps ranges and rewrites archive urls', () => {
+    const start = Math.floor(Date.parse('2026-03-18T05:00:00Z') / 1000)
+    const end = Math.floor(Date.parse('2026-04-02T05:00:00Z') / 1000)
+    const monthBounds = getTranscriptMonthRangeBounds(new Date(start * 1000))
 
-	it("selects the month index from a call-time range", () => {
-		expect(
-			getTranscriptSearchIndexNameForRange({ start_time: `${marchRangeStart}:${
-				marchRangeStart + 3600
-			}` }, config),
-		).toBe("calls_2024_03")
-	});
+    expect(clampTranscriptSearchRangeToMonth(`${start}:${end}`)).toBe(
+      `${monthBounds.start_time}:${monthBounds.end_time}`,
+    )
 
-	it("clamps cross-month ranges to the selected month", () => {
-		const bounds = getTranscriptMonthRangeBounds(referenceDate);
+    expect(rewriteTranscriptSortByIndexName('calls:start_time:desc', 'calls_2026_03', 'calls')).toBe(
+      'calls_2026_03:start_time:desc',
+    )
 
-		expect(clampTranscriptSearchRangeToMonth(`${marchRangeStart}:${marchRangeEnd}`)).toBe(
-			`${bounds.start_time}:${bounds.end_time}`,
-		);
-	});
+    const archiveUrl = buildTranscriptArchiveSearchUrl({
+      currentIndexName: 'calls',
+      nextIndexName: 'calls_2026_03',
+      scope: {
+        query: 'shots fired',
+        range: {
+          start_time: clampTranscriptSearchRangeToMonth(`${start}:${end}`),
+        },
+      },
+      hitsPerPage: 40,
+      sortBy: 'calls:start_time:desc',
+      hash: '#hit-123',
+    })
 
-	it("rewrites sortBy prefixes when switching indexes", () => {
-		expect(
-			rewriteTranscriptSortByIndexName(
-				"calls:start_time:desc",
-				"calls_2024_03",
-				"calls",
-			),
-		).toBe("calls_2024_03:start_time:desc");
-	});
-});
+    const parsed = new URL(archiveUrl, 'http://localhost')
+    expect(parsed.searchParams.get('calls_2026_03[query]')).toBe('shots fired')
+    expect(parsed.searchParams.get('calls_2026_03[range][start_time]')).toBe(
+      `${monthBounds.start_time}:${monthBounds.end_time}`,
+    )
+    expect(parsed.searchParams.get('calls_2026_03[hitsPerPage]')).toBe('40')
+    expect(parsed.searchParams.get('calls_2026_03[sortBy]')).toBe(
+      'calls_2026_03:start_time:desc',
+    )
+    expect(parsed.hash).toBe('#hit-123')
+  })
+})

@@ -9,11 +9,17 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as MapRouteImport } from './routes/map'
 import { Route as LiveRouteImport } from './routes/live'
 import { Route as ChatRouteImport } from './routes/chat'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiCopilotkitRouteImport } from './routes/api/copilotkit'
 
+const MapRoute = MapRouteImport.update({
+  id: '/map',
+  path: '/map',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LiveRoute = LiveRouteImport.update({
   id: '/live',
   path: '/live',
@@ -39,12 +45,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/chat': typeof ChatRoute
   '/live': typeof LiveRoute
+  '/map': typeof MapRoute
   '/api/copilotkit': typeof ApiCopilotkitRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/chat': typeof ChatRoute
   '/live': typeof LiveRoute
+  '/map': typeof MapRoute
   '/api/copilotkit': typeof ApiCopilotkitRoute
 }
 export interface FileRoutesById {
@@ -52,25 +60,34 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/chat': typeof ChatRoute
   '/live': typeof LiveRoute
+  '/map': typeof MapRoute
   '/api/copilotkit': typeof ApiCopilotkitRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/chat' | '/live' | '/api/copilotkit'
+  fullPaths: '/' | '/chat' | '/live' | '/map' | '/api/copilotkit'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/chat' | '/live' | '/api/copilotkit'
-  id: '__root__' | '/' | '/chat' | '/live' | '/api/copilotkit'
+  to: '/' | '/chat' | '/live' | '/map' | '/api/copilotkit'
+  id: '__root__' | '/' | '/chat' | '/live' | '/map' | '/api/copilotkit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ChatRoute: typeof ChatRoute
   LiveRoute: typeof LiveRoute
+  MapRoute: typeof MapRoute
   ApiCopilotkitRoute: typeof ApiCopilotkitRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/map': {
+      id: '/map'
+      path: '/map'
+      fullPath: '/map'
+      preLoaderRoute: typeof MapRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/live': {
       id: '/live'
       path: '/live'
@@ -106,6 +123,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ChatRoute: ChatRoute,
   LiveRoute: LiveRoute,
+  MapRoute: MapRoute,
   ApiCopilotkitRoute: ApiCopilotkitRoute,
 }
 export const routeTree = rootRouteImport

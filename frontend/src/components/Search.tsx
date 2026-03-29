@@ -23,7 +23,6 @@ import {
 	useRefinementList,
 } from "react-instantsearch";
 import {
-	buildScannerSearchUrl,
 	extractScannerSearchScope,
 } from "@/lib/searchState";
 import {

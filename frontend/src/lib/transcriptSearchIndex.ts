@@ -1,4 +1,7 @@
-import { buildScannerSearchUrl } from './searchState'
+import {
+  buildScannerSearchUrl,
+  type ScannerSearchScope,
+} from './searchState'
 
 const DEFAULT_BASE_INDEX_NAME = import.meta.env.VITE_MEILI_INDEX || 'calls'
 const DEFAULT_SPLIT_BY_MONTH =
@@ -17,7 +20,7 @@ export interface TranscriptSearchRange {
 export interface BuildTranscriptArchiveSearchUrlInput {
   currentIndexName: string
   nextIndexName: string
-  scope: TranscriptSearchRange & Record<string, unknown>
+  scope: ScannerSearchScope
   hitsPerPage?: number
   sortBy?: string
   hash?: string
