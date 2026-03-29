@@ -226,14 +226,16 @@ function TranscriptGeoMap({ hits }: { hits: TranscriptRenderedHit[] }) {
   }, [hits])
 
   return (
-    <div
-      ref={elementRef}
-      className="transcript-map ais-GeoSearch-map rounded border bg-body-tertiary"
-      aria-label="Transcript map"
-    />
-    <div className="small text-muted mt-2">
-      Bounding box: <code>{boundingBox}</code>
-    </div>
+    <>
+      <div
+        ref={elementRef}
+        className="transcript-map ais-GeoSearch-map rounded border bg-body-tertiary"
+        aria-label="Transcript map"
+      />
+      <div className="small text-muted mt-2">
+        Bounding box: <code>{boundingBox}</code>
+      </div>
+    </>
   )
 }
 
