@@ -6,7 +6,7 @@ import { history } from 'instantsearch.js/es/lib/routers'
 import { simple } from 'instantsearch.js/es/lib/stateMappings'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, Badge, Col, Row } from 'react-bootstrap'
 import {
   ClearRefinements,
@@ -28,6 +28,12 @@ import {
   createTranscriptHitTransformer,
   type TranscriptRenderedHit,
 } from '@/lib/transcriptHits'
+import {
+  DEFAULT_TRANSCRIPT_MAP_CENTER,
+  DEFAULT_TRANSCRIPT_MAP_BOUNDING_BOX,
+  DEFAULT_TRANSCRIPT_MAP_ZOOM,
+  formatInsideBoundingBox,
+} from '@/lib/transcriptGeoSearch'
 import {
   getTranscriptSearchIndexNameFromLocation,
   type TranscriptSearchIndexConfig,
@@ -110,6 +116,9 @@ function TranscriptGeoMap({ hits }: { hits: TranscriptRenderedHit[] }) {
   const elementRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<L.Map | null>(null)
   const markersRef = useRef<L.LayerGroup | null>(null)
+  const [boundingBox, setBoundingBox] = useState(
+    DEFAULT_TRANSCRIPT_MAP_BOUNDING_BOX,
+  )
 
   useEffect(() => {
     if (!elementRef.current || mapRef.current) {
@@ -118,17 +127,27 @@ function TranscriptGeoMap({ hits }: { hits: TranscriptRenderedHit[] }) {
 
     const map = L.map(elementRef.current, {
       scrollWheelZoom: false,
-    }).setView([41.8781, -87.6298], 10)
+    }).setView(
+      [DEFAULT_TRANSCRIPT_MAP_CENTER.lat, DEFAULT_TRANSCRIPT_MAP_CENTER.lng],
+      DEFAULT_TRANSCRIPT_MAP_ZOOM,
+    )
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution:
         '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     }).addTo(map)
 
+    const updateBoundingBox = () => {
+      setBoundingBox(formatInsideBoundingBox(map.getBounds()))
+    }
+
     markersRef.current = L.layerGroup().addTo(map)
+    map.on('moveend zoomend', updateBoundingBox)
+    updateBoundingBox()
     mapRef.current = map
 
     return () => {
+      map.off('moveend zoomend', updateBoundingBox)
       markersRef.current?.clearLayers()
       map.remove()
       mapRef.current = null
@@ -159,7 +178,10 @@ function TranscriptGeoMap({ hits }: { hits: TranscriptRenderedHit[] }) {
       )
 
     if (geoHits.length === 0) {
-      map.setView([41.8781, -87.6298], 10)
+      map.setView(
+        [DEFAULT_TRANSCRIPT_MAP_CENTER.lat, DEFAULT_TRANSCRIPT_MAP_CENTER.lng],
+        DEFAULT_TRANSCRIPT_MAP_ZOOM,
+      )
       return
     }
 
@@ -174,6 +196,7 @@ function TranscriptGeoMap({ hits }: { hits: TranscriptRenderedHit[] }) {
       }).addTo(markers)
 
       const popup = document.createElement('div')
+      popup.className = 'transcript-map-popup'
       const title = document.createElement('a')
       title.href = hit.permalink
       title.textContent = `${hit.talkgroup_description} (${hit.talkgroup_tag})`
@@ -205,9 +228,12 @@ function TranscriptGeoMap({ hits }: { hits: TranscriptRenderedHit[] }) {
   return (
     <div
       ref={elementRef}
-      className="ais-GeoSearch-map rounded border bg-body-tertiary"
+      className="transcript-map ais-GeoSearch-map rounded border bg-body-tertiary"
       aria-label="Transcript map"
     />
+    <div className="small text-muted mt-2">
+      Bounding box: <code>{boundingBox}</code>
+    </div>
   )
 }
 
