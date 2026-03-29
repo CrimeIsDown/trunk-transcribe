@@ -4,11 +4,9 @@ import { instantMeiliSearch } from "@meilisearch/instant-meilisearch";
 import type { UiState } from "instantsearch.js";
 import { history } from "instantsearch.js/es/lib/routers";
 import { simple } from "instantsearch.js/es/lib/stateMappings";
-import { unescape as unescapeHtml } from "instantsearch.js/es/lib/utils";
-import moment from "moment";
-import { useEffect, useState } from "react";
-import { Accordion, Button, Col, Collapse, Row } from "react-bootstrap";
-import { FaCalendar, FaFilter, FaRedo } from "react-icons/fa";
+import { useEffect, useMemo, useState } from "react";
+import { Accordion, Alert, Button, Col, Collapse, Row } from "react-bootstrap";
+import { FaFilter, FaRedo } from "react-icons/fa";
 import {
 	ClearRefinements,
 	CurrentRefinements,
@@ -22,265 +20,48 @@ import {
 	SortBy,
 	Stats,
 	useInstantSearch,
-	useRange,
 	useRefinementList,
 } from "react-instantsearch";
 import {
 	buildScannerSearchUrl,
-	epochSecondsToLocalDateTimeValue,
-	toEpochSeconds,
+	extractScannerSearchScope,
 } from "@/lib/searchState";
+import {
+	createTranscriptHitTransformer,
+	parseSelectedHitId,
+	type TranscriptRenderedHit,
+} from "@/lib/transcriptHits";
+import {
+	buildTranscriptArchiveSearchUrl,
+	clampTranscriptSearchRangeToMonth,
+	getTranscriptCurrentMonthIndexName,
+	getTranscriptSearchIndexNameForRange,
+	getTranscriptSearchIndexNameFromLocation,
+	type TranscriptSearchIndexConfig,
+} from "@/lib/transcriptSearchIndex";
 import {
 	transformCurrentRefinements,
 	transformHierarchyMenuItems,
 	transformSystemRefinementItems,
 } from "@/lib/transcriptSearchLabels";
+import CallTimeRangeFilter from "./CallTimeRangeFilter";
 import SearchAnalysisPanel from "./chat/SearchAnalysisPanel";
 import { Hit as HitComponent } from "./Hit";
-
-type SearchTranscriptSource = {
-	filter_link: string;
-	src: string | number;
-	label: string;
-	tag?: string;
-	address?: string;
-};
-
-type SearchTranscriptSegment = [SearchTranscriptSource | null, string];
-
-type SearchHighlightResult = {
-	transcript: {
-		value: string;
-	};
-	raw_transcript: {
-		value: string;
-	};
-};
-
-type SearchHit = Record<string, unknown> & {
-	_highlightResult: SearchHighlightResult;
-	__position?: number;
-	audio_type: string;
-	call_length: number;
-	encrypted?: number;
-	contextUrl?: string;
-	geo_formatted_address?: string;
-	highlighted_transcript?: SearchTranscriptSegment[];
-	id: string | number;
-	json?: string;
-	objectID?: string | number;
-	permalink?: string;
-	raw_audio_url: string;
-	raw_metadata: string | Record<string, unknown>;
-	raw_transcript: string | SearchTranscriptSegment[];
-	relative_time?: string;
-	short_name: string;
-	start_time: number;
-	start_time_ms?: number;
-	start_time_string?: string;
-	talkgroup: string | number;
-	talkgroup_description: string;
-	talkgroup_group: string;
-	talkgroup_group_tag: string;
-	talkgroup_group_tag_color?: string;
-	talkgroup_tag: string;
-	time_warning?: string;
-};
-
-type SearchRenderedHit = Omit<
-	SearchHit,
-	| "highlighted_transcript"
-	| "raw_metadata"
-	| "raw_transcript"
-	| "talkgroup_group_tag_color"
-> & {
-	highlighted_transcript: SearchTranscriptSegment[];
-	raw_metadata: Record<string, unknown> & { encrypted?: number };
-	raw_transcript: SearchTranscriptSegment[];
-	talkgroup_group_tag_color: string;
-};
-
-function buildRangeWindow(
-	startTime: number,
-	beforeSeconds: number,
-	afterSeconds: number,
-): string {
-	return `${startTime - beforeSeconds}:${startTime + afterSeconds}`;
-}
-
-function parseSelectedHitId(hash: string): string | undefined {
-	const match = /^#hit-(.+)$/.exec(hash);
-	return match ? match[1] : undefined;
-}
-
-function createTransformItems({
-	indexName,
-	hitsPerPage,
-	sortBy,
-}: {
-	indexName: string;
-	hitsPerPage: number;
-	sortBy: string;
-}): (items: SearchHit[]) => SearchRenderedHit[] {
-	return (items: SearchHit[]): SearchRenderedHit[] => {
-		items.forEach((hit) => {
-			const rawTranscript = JSON.parse(
-				hit.raw_transcript as string,
-			) as SearchTranscriptSegment[];
-			const rawMetadata = JSON.parse(hit.raw_metadata as string) as Record<
-				string,
-				unknown
-			> & {
-				encrypted?: number;
-			};
-
-			hit.raw_transcript = rawTranscript;
-			hit.raw_metadata = rawMetadata;
-
-			const {
-				_highlightResult,
-				__position: _position,
-				raw_metadata: _rawMetadata,
-				...hitClone
-			} = hit;
-			hit.json = JSON.stringify(hitClone, null, 2);
-
-			// Needed since react-instantsearch depends on objectID for setting the key
-			hit.objectID = hit.id;
-
-			hit._highlightResult.transcript.value = unescapeHtml(
-				hit._highlightResult.transcript.value,
-			).trim();
-
-			let highlightedTranscript: SearchTranscriptSegment[];
-			try {
-				highlightedTranscript = JSON.parse(
-					unescapeHtml(hit._highlightResult.raw_transcript.value),
-				) as SearchTranscriptSegment[];
-			} catch (error) {
-				console.log(error);
-				highlightedTranscript = rawTranscript;
-			}
-			hit.highlighted_transcript = highlightedTranscript;
-
-			if (hit.audio_type === "digital tdma") {
-				hit.audio_type = "digital";
-			}
-			hit.audio_type =
-				hit.audio_type.charAt(0).toUpperCase() + hit.audio_type.slice(1);
-
-			switch (hit.talkgroup_group_tag) {
-				case "Law Dispatch":
-				case "Law Tac":
-				case "Law Talk":
-				case "Security":
-					hit.talkgroup_group_tag_color = "primary";
-					break;
-				case "Fire Dispatch":
-				case "Fire-Tac":
-				case "Fire-Talk":
-				case "EMS Dispatch":
-				case "EMS-Tac":
-				case "EMS-Talk":
-					hit.talkgroup_group_tag_color = "danger";
-					break;
-				case "Public Works":
-				case "Utilities":
-					hit.talkgroup_group_tag_color = "success";
-					break;
-				case "Multi-Tac":
-				case "Emergency Ops":
-					hit.talkgroup_group_tag_color = "warning";
-					break;
-				default:
-					hit.talkgroup_group_tag_color = "secondary";
-			}
-
-			let start_time = moment.unix(hit.start_time);
-			if (hit.short_name === "chi_cpd") {
-				if (rawMetadata.encrypted === 1) {
-					hit.time_warning = ` - delayed until ${start_time
-						.toDate()
-						.toLocaleTimeString()}`;
-					start_time = start_time.subtract(30, "minutes");
-					hit.encrypted = 1;
-				}
-			}
-			hit.start_time_ms = hit.start_time * 1000 + 1; // Add 1 since OpenMHz shows calls older than the specified time, and we want to include the current one
-			hit.start_time_string = start_time.toDate().toLocaleString();
-			hit.relative_time = start_time.fromNow();
-			hit.permalink = buildScannerSearchUrl({
-				indexName,
-				hitsPerPage,
-				sortBy,
-				scope: {
-					refinementList: {
-						talkgroup_tag: [hit.talkgroup_tag],
-					},
-					range: {
-						start_time: `${hit.start_time}:${hit.start_time}`,
-					},
-				},
-			});
-			hit.contextUrl = buildScannerSearchUrl({
-				indexName,
-				hitsPerPage,
-				sortBy,
-				callId: String(hit.id),
-				scope: {
-					refinementList: {
-						talkgroup_tag: [hit.talkgroup_tag],
-					},
-					range: {
-						start_time: buildRangeWindow(hit.start_time, 20 * 60, 10 * 60),
-					},
-				},
-			});
-
-			// Apply highlights
-			for (let i = 0; i < rawTranscript.length; i++) {
-				const segment = rawTranscript[i];
-				const highlightedSegment = highlightedTranscript[i] ?? segment;
-				const src = segment[0];
-				const highlightedSource = highlightedSegment[0];
-				if (src && highlightedSource) {
-					const hasTag = Boolean(highlightedSource.tag?.length);
-					const refinementKey = hasTag ? "units" : "radios";
-					const refinementValue = hasTag
-						? highlightedSource.tag
-						: String(src.src);
-					src.filter_link = buildScannerSearchUrl({
-						indexName,
-						hitsPerPage,
-						sortBy,
-						scope: {
-							refinementList: {
-								[refinementKey]: [refinementValue],
-							},
-						},
-					});
-					if (hasTag) {
-						src.label = highlightedSource.tag ?? String(src.src);
-					} else {
-						src.label = String(src.src);
-					}
-				}
-				// Show newlines properly
-				segment[1] = (highlightedSegment[1] ?? segment[1]).replaceAll(
-					"\n",
-					"<br>",
-				);
-			}
-		});
-
-		return items as SearchRenderedHit[];
-	};
-}
+import SavedTranscriptSearches from "./SavedTranscriptSearches";
 
 const hostUrl = import.meta.env.VITE_MEILI_URL || "http://localhost:7700";
 const apiKey = import.meta.env.VITE_MEILI_MASTER_KEY || "testing";
-const indexName = import.meta.env.VITE_MEILI_INDEX || "calls";
+const baseIndexName = import.meta.env.VITE_MEILI_INDEX || "calls";
+const splitByMonth = import.meta.env.VITE_MEILI_INDEX_SPLIT_BY_MONTH === "true";
+const archiveIndexConfig: TranscriptSearchIndexConfig = {
+	baseIndexName,
+	splitByMonth,
+};
 const AUTO_REFRESH_INTERVAL_MS = 10_000;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 function buildDefaultIndexUiState(indexName: string) {
 	return {
@@ -324,69 +105,146 @@ function transformSystemRefinementListItems(
 	return transformSystemRefinementItems(items);
 }
 
-function CallTimeRangeFilter() {
-	const { start, refine } = useRange({
-		attribute: "start_time",
-	});
+function remapSearchStateIndex(
+	routeState: UiState,
+	fromIndexName: string,
+	toIndexName: string,
+): UiState {
+	if (fromIndexName === toIndexName) {
+		return routeState;
+	}
 
-	const [minValue, setMinValue] = useState("");
-	const [maxValue, setMaxValue] = useState("");
+	const nextRouteState = { ...routeState } as Record<string, unknown>;
+	const fromIndexState = nextRouteState[fromIndexName];
+	if (!isRecord(fromIndexState)) {
+		return routeState;
+	}
 
-	useEffect(() => {
-		setMinValue(epochSecondsToLocalDateTimeValue(start[0]));
-	}, [start[0]]);
+	// Monthly indexes need the search state to live under the active month key.
+	// Canonicalizing legacy base-index URLs here keeps routing and search aligned.
+	const toIndexState = isRecord(nextRouteState[toIndexName])
+		? (nextRouteState[toIndexName] as Record<string, unknown>)
+		: {};
 
-	useEffect(() => {
-		setMaxValue(epochSecondsToLocalDateTimeValue(start[1]));
-	}, [start[1]]);
-
-	const updateRange = (nextMinValue: string, nextMaxValue: string) => {
-		const nextMin = toEpochSeconds(nextMinValue);
-		const nextMax = toEpochSeconds(nextMaxValue);
-		refine([nextMin, nextMax]);
+	nextRouteState[toIndexName] = {
+		...toIndexState,
+		...fromIndexState,
 	};
+	delete nextRouteState[fromIndexName];
+	return nextRouteState as UiState;
+}
+
+function TranscriptArchiveIndexNotice({
+	baseIndexName,
+	indexName,
+	splitByMonth,
+}: {
+	baseIndexName: string;
+	indexName: string;
+	splitByMonth: boolean;
+}) {
+	const { indexUiState } = useInstantSearch<UiState>();
+	const currentMonthIndexName = useMemo(
+		() => getTranscriptCurrentMonthIndexName(archiveIndexConfig),
+		[baseIndexName, splitByMonth],
+	);
+	const indexState = (indexUiState || {}) as Record<string, unknown>;
+	const searchScope = useMemo(
+		() => extractScannerSearchScope(indexState),
+		[indexState],
+	);
+	const searchUiState = useMemo(
+		() => ({
+			hitsPerPage:
+				typeof indexState.hitsPerPage === "number" &&
+				Number.isFinite(indexState.hitsPerPage)
+					? indexState.hitsPerPage
+					: undefined,
+			sortBy:
+				typeof indexState.sortBy === "string" && indexState.sortBy
+					? indexState.sortBy
+					: undefined,
+		}),
+		[indexState],
+	);
+	const searchRange = searchScope.range?.start_time;
+	const nextIndexName = searchRange
+		? getTranscriptSearchIndexNameForRange(searchScope.range, archiveIndexConfig)
+		: undefined;
+	const shouldRedirect =
+		splitByMonth && Boolean(searchRange) && nextIndexName !== indexName;
+	const shouldShowArchiveBanner =
+		splitByMonth && indexName !== currentMonthIndexName && !searchRange;
+
+	useEffect(() => {
+		if (!shouldRedirect || typeof window === "undefined") {
+			return;
+		}
+
+		const nextUrl = buildTranscriptArchiveSearchUrl({
+			currentIndexName: indexName,
+			nextIndexName: nextIndexName || currentMonthIndexName,
+			scope: {
+				...searchScope,
+				range: {
+					start_time: clampTranscriptSearchRangeToMonth(searchRange),
+				},
+			},
+			hitsPerPage: searchUiState.hitsPerPage,
+			sortBy: searchUiState.sortBy,
+			hash: window.location.hash,
+		});
+
+		window.location.replace(nextUrl);
+	}, [
+		currentMonthIndexName,
+		indexName,
+		nextIndexName,
+		searchRange,
+		searchScope,
+		searchUiState.hitsPerPage,
+		searchUiState.sortBy,
+		shouldRedirect,
+	]);
+
+	if (!shouldShowArchiveBanner) {
+		return null;
+	}
 
 	return (
-		<Row>
-			<Col>
-				<label htmlFor="minStartTime">From Time</label>
-				<div className="input-group date">
-					<input
-						type="datetime-local"
-						id="minStartTime"
-						className="form-control"
-						value={minValue}
-						onChange={(event) => {
-							const nextValue = event.target.value;
-							setMinValue(nextValue);
-							updateRange(nextValue, maxValue);
-						}}
-					/>
-					<span className="input-group-text">
-						<FaCalendar />
-					</span>
+		<Alert variant="warning" className="mb-3">
+			<div className="d-flex flex-column flex-lg-row justify-content-between gap-2">
+				<div>
+					<div className="fw-semibold">Archive month selected</div>
+					<div className="small">
+						Showing {indexName}. The latest month is {currentMonthIndexName}.
+					</div>
 				</div>
-			</Col>
-			<Col>
-				<label htmlFor="maxStartTime">To Time</label>
-				<div className="input-group date">
-					<input
-						type="datetime-local"
-						id="maxStartTime"
-						className="form-control"
-						value={maxValue}
-						onChange={(event) => {
-							const nextValue = event.target.value;
-							setMaxValue(nextValue);
-							updateRange(minValue, nextValue);
-						}}
-					/>
-					<span className="input-group-text">
-						<FaCalendar />
-					</span>
-				</div>
-			</Col>
-		</Row>
+				<Button
+					type="button"
+					size="sm"
+					variant="outline-dark"
+					onClick={() => {
+						if (typeof window === "undefined") {
+							return;
+						}
+
+						const nextUrl = buildTranscriptArchiveSearchUrl({
+							currentIndexName: indexName,
+							nextIndexName: currentMonthIndexName,
+							scope: searchScope,
+							hitsPerPage: searchUiState.hitsPerPage,
+							sortBy: searchUiState.sortBy,
+							hash: window.location.hash,
+						});
+
+						window.location.replace(nextUrl);
+					}}
+				>
+					Go to latest month
+				</Button>
+			</div>
+		</Alert>
 	);
 }
 
@@ -409,7 +267,7 @@ function TranscriptSearchResults({
 			? indexState.hitsPerPage
 			: 60;
 
-	const transformItems = createTransformItems({
+	const transformItems = createTranscriptHitTransformer({
 		indexName,
 		hitsPerPage,
 		sortBy,
@@ -521,6 +379,12 @@ function SearchToolbarActions({ indexName }: { indexName: string }) {
 
 const SearchComponent = () => {
 	const searchClient = instantMeiliSearch(hostUrl, apiKey).searchClient;
+	const searchLocationSearch =
+		typeof window === "undefined" ? "" : window.location.search;
+	const indexName = getTranscriptSearchIndexNameFromLocation(
+		searchLocationSearch,
+		archiveIndexConfig,
+	);
 
 	const [filtersOpen, setFiltersOpen] = useState(true);
 	const [selectedHitId, setSelectedHitId] = useState<string | undefined>(() =>
@@ -550,6 +414,15 @@ const SearchComponent = () => {
 				const routeState = qsModule.parse(location.search.slice(1), {
 					arrayLimit: 99,
 				}) as unknown as UiState;
+
+				if (splitByMonth && Object.keys(routeState).length) {
+					return remapSearchStateIndex(
+						routeState,
+						baseIndexName,
+						indexName,
+					);
+				}
+
 				if (!Object.keys(routeState).length) {
 					const defaultSort = `${indexName}:start_time:desc`;
 					return {
@@ -649,27 +522,34 @@ const SearchComponent = () => {
 								/>
 							</Row>
 							<Accordion
-								defaultActiveKey={["0", "1", "2", "3", "4"]}
+								defaultActiveKey={["0", "1", "2", "3", "4", "5", "6", "7", "8"]}
 								flush
 								alwaysOpen
 							>
 								<Accordion.Item eventKey="0">
+									<Accordion.Header>Saved Searches</Accordion.Header>
+									<Accordion.Body>
+										<SavedTranscriptSearches indexName={indexName} />
+									</Accordion.Body>
+								</Accordion.Item>
+
+								<Accordion.Item eventKey="1">
 									<Accordion.Header>
 										System / Department / Talkgroup
 									</Accordion.Header>
 									<Accordion.Body>
-								<HierarchicalMenu
-									attributes={[
-										"talkgroup_hierarchy.lvl0",
-										"talkgroup_hierarchy.lvl1",
-										"talkgroup_hierarchy.lvl2",
-									]}
-									transformItems={transformHierarchyMenuListItems}
-								/>
-							</Accordion.Body>
-						</Accordion.Item>
+										<HierarchicalMenu
+											attributes={[
+												"talkgroup_hierarchy.lvl0",
+												"talkgroup_hierarchy.lvl1",
+												"talkgroup_hierarchy.lvl2",
+											]}
+											transformItems={transformHierarchyMenuListItems}
+										/>
+									</Accordion.Body>
+								</Accordion.Item>
 
-								<Accordion.Item eventKey="1">
+								<Accordion.Item eventKey="2">
 									<Accordion.Header>Radio System</Accordion.Header>
 									<Accordion.Body>
 										<RefinementList
@@ -689,7 +569,7 @@ const SearchComponent = () => {
 									</Accordion.Body>
 								</Accordion.Item>
 
-								<Accordion.Item eventKey="2">
+								<Accordion.Item eventKey="3">
 									<Accordion.Header>Departments</Accordion.Header>
 									<Accordion.Body>
 										<RefinementList
@@ -708,7 +588,7 @@ const SearchComponent = () => {
 									</Accordion.Body>
 								</Accordion.Item>
 
-								<Accordion.Item eventKey="3">
+								<Accordion.Item eventKey="4">
 									<Accordion.Header>Talkgroups</Accordion.Header>
 									<Accordion.Body>
 										<RefinementList
@@ -727,7 +607,7 @@ const SearchComponent = () => {
 									</Accordion.Body>
 								</Accordion.Item>
 
-								<Accordion.Item eventKey="4">
+								<Accordion.Item eventKey="5">
 									<Accordion.Header>Talkgroup Type</Accordion.Header>
 									<Accordion.Body>
 										<RefinementList
@@ -746,7 +626,7 @@ const SearchComponent = () => {
 									</Accordion.Body>
 								</Accordion.Item>
 
-								<Accordion.Item eventKey="5">
+								<Accordion.Item eventKey="6">
 									<Accordion.Header>Units</Accordion.Header>
 									<Accordion.Body>
 										<RefinementList
@@ -765,7 +645,7 @@ const SearchComponent = () => {
 									</Accordion.Body>
 								</Accordion.Item>
 
-								<Accordion.Item eventKey="6">
+								<Accordion.Item eventKey="7">
 									<Accordion.Header>Radio IDs</Accordion.Header>
 									<Accordion.Body>
 										<RefinementList
@@ -784,17 +664,22 @@ const SearchComponent = () => {
 									</Accordion.Body>
 								</Accordion.Item>
 
-								<Accordion.Item eventKey="7">
-									<Accordion.Header>Call Time</Accordion.Header>
-									<Accordion.Body>
-										<CallTimeRangeFilter />
-									</Accordion.Body>
-								</Accordion.Item>
+									<Accordion.Item eventKey="8">
+										<Accordion.Header>Call Time</Accordion.Header>
+										<Accordion.Body>
+										<CallTimeRangeFilter archiveConfig={archiveIndexConfig} />
+										</Accordion.Body>
+									</Accordion.Item>
 							</Accordion>
 						</div>
 					</Collapse>
 				</Col>
 				<Col className="search-panel__results">
+					<TranscriptArchiveIndexNotice
+						baseIndexName={baseIndexName}
+						indexName={indexName}
+						splitByMonth={splitByMonth}
+					/>
 					<TranscriptSearchResults
 						indexName={indexName}
 						selectedHitId={selectedHitId}

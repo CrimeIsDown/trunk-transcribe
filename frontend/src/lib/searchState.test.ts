@@ -5,6 +5,7 @@ import {
   buildScannerSearchUrl,
   createScannerChatThreadId,
   extractScannerSearchScope,
+  extractScannerSearchUiState,
 } from './searchState'
 
 describe('searchState', () => {
@@ -107,5 +108,37 @@ describe('searchState', () => {
         query: 'vehicle pursuit',
       }),
     ).not.toBe(createScannerChatThreadId(baseScope))
+  })
+
+  it('extracts a normalized scanner search ui state without the analysis limit', () => {
+    expect(
+      extractScannerSearchUiState({
+        query: ' shots fired ',
+        refinementList: {
+          short_name: ['sys2', 'sys1'],
+        },
+        hierarchicalMenu: {
+          'talkgroup_hierarchy.lvl0': 'sys1',
+        },
+        range: {
+          start_time: '1700000000:1700003600',
+        },
+        sortBy: ' calls:start_time:asc ',
+        hitsPerPage: 40,
+      }),
+    ).toEqual({
+      query: 'shots fired',
+      refinementList: {
+        short_name: ['sys1', 'sys2'],
+      },
+      hierarchicalMenu: {
+        'talkgroup_hierarchy.lvl0': 'sys1',
+      },
+      range: {
+        start_time: '1700000000:1700003600',
+      },
+      sortBy: 'calls:start_time:asc',
+      hitsPerPage: 40,
+    })
   })
 })

@@ -32,6 +32,12 @@ export interface ScannerSearchScope {
   maxHits?: number
 }
 
+export interface ScannerSearchUiState
+  extends Omit<ScannerSearchScope, 'maxHits'> {
+  hitsPerPage?: number
+  sortBy?: string
+}
+
 export interface BuildScannerSearchUrlInput {
   scope?: ScannerSearchScope
   callId?: string
@@ -157,6 +163,24 @@ function normalizeRangeValue(value: unknown): string | undefined {
   return trimmed
 }
 
+function normalizeSortByValue(value: unknown): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined
+  }
+
+  const trimmed = value.trim()
+  return trimmed ? trimmed : undefined
+}
+
+function normalizeHitsPerPageValue(value: unknown): number | undefined {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return undefined
+  }
+
+  const normalized = Math.floor(value)
+  return normalized > 0 ? normalized : undefined
+}
+
 function normalizeSearchScope(scope: ScannerSearchScope): ScannerSearchScope {
   const normalizedRefinementList = sortRecord(
     Object.fromEntries(
@@ -229,6 +253,21 @@ export function extractScannerSearchScope(
     },
     maxHits,
   })
+}
+
+export function extractScannerSearchUiState(
+  indexUiState: Record<string, unknown> | undefined,
+): ScannerSearchUiState {
+  const scope = extractScannerSearchScope(indexUiState)
+  const { maxHits: _maxHits, ...savedScope } = scope
+  const sortBy = normalizeSortByValue(indexUiState?.sortBy)
+  const hitsPerPage = normalizeHitsPerPageValue(indexUiState?.hitsPerPage)
+
+  return {
+    ...savedScope,
+    ...(sortBy ? { sortBy } : {}),
+    ...(hitsPerPage ? { hitsPerPage } : {}),
+  }
 }
 
 export function createScannerChatThreadId(scope: ScannerSearchScope): string {
