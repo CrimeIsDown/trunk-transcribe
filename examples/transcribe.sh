@@ -30,7 +30,7 @@ fi
   # [[ "$TALKGROUP" == "9051" ]] \
 # ; then
   # Define these environment variables or replace them with your values
-  API_BASE_URL="${API_BASE_URL:-http://127.0.0.1:8000}"
+  API_BASE_URL="${API_BASE_URL:-http://127.0.0.1:8000/api/v1}"
   API_KEY="${API_KEY:-testing}"
 
   if [[ "$(ps -o comm= $PPID)" =~ ^(recorder|trunk-recorder)$ ]]; then

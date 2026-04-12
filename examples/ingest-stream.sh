@@ -81,7 +81,7 @@ EOF
 
 export STREAM_NAME="$(basename ${1%.*})"
 export STREAM_URL="$(jq -r '.source_url' ${1})"
-export API_BASE_URL="${API_BASE_URL:-http://127.0.0.1:8000}"
+export API_BASE_URL="${API_BASE_URL:-http://127.0.0.1:8000/api/v1}"
 
 # if the stream_url does not contain mp3, then find the mp3 stream
 # curl the stream_url and find a mp3 url

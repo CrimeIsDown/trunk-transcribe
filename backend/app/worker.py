@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import json
 import logging
 import os
 import signal
 from hashlib import sha256
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import requests
 import sentry_sdk
@@ -19,10 +21,6 @@ from app.core.config import (
     resolve_transcription_backend,
     settings,
 )
-from app.geocoding.geocoding import lookup_geo
-from app.models.metadata import Metadata
-from app.notifications.notification import send_notifications
-from app.search.adapters import MeilisearchAdapter, SearchAdapter, TypesenseAdapter
 from app.utils import api_client
 from app.utils.exceptions import before_send
 from app.utils.storage import fetch_audio
@@ -31,9 +29,16 @@ from app.whisper.exceptions import WhisperException
 from app.whisper.task import WhisperTask
 from app.whisper.transcribe import transcribe
 
+if TYPE_CHECKING:
+    # Keep these imports type-only so a transcribe-only worker can boot without
+    # loading the DB/search stack during module import.
+    from app.models.metadata import Metadata
+    from app.search.adapters import SearchAdapter
+
 if settings.SENTRY_DSN:
     sentry_sdk.init(
         dsn=settings.SENTRY_DSN,
+        auto_enabling_integrations=False,
         integrations=[
             CeleryIntegration(),
         ],
@@ -184,6 +189,12 @@ def post_transcribe_task(
     id: Optional[int | str] = None,
     index_name: Optional[str] = None,
 ):
+    # post_transcribe is the only path that needs DB/search/geocoding modules.
+    # Import them lazily so worker-only hosts can start with just queue/API env.
+    from app.geocoding.geocoding import lookup_geo
+    from app.notifications.notification import send_notifications
+    from app.search.adapters import MeilisearchAdapter, TypesenseAdapter
+
     logger.debug(result)
 
     if "digital" in metadata["audio_type"]:
