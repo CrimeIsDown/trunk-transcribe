@@ -43,4 +43,11 @@ services:
     environment:
       - HF_TOKEN
       - VLLM_DISABLE_COMPILE_CACHE=1
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     restart: always

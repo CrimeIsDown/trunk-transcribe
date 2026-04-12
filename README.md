@@ -76,11 +76,11 @@ The shared `docker-compose.worker.yml` service is the `post_transcribe` worker. 
 To add another Whisper machine:
 
 ```bash
-COMPOSE_FILE=docker-compose.worker-whisper.yml:docker-compose.gpu.yml
+COMPOSE_FILE=docker-compose.worker-whisper.yml
 docker compose up -d
 ```
 
-The default Whisper stack uses `ghcr.io/speaches-ai/speaches:latest-cuda` and calls its OpenAI-compatible `/v1/audio/transcriptions` endpoint. To run Whisper on CPU, set `ASR_WHISPER_IMAGE=ghcr.io/speaches-ai/speaches:latest-cpu` and omit `docker-compose.gpu.yml`.
+The default Whisper stack uses `ghcr.io/speaches-ai/speaches:latest-cuda` and calls its OpenAI-compatible `/v1/audio/transcriptions` endpoint. To run Whisper on CPU, set `ASR_WHISPER_IMAGE=ghcr.io/speaches-ai/speaches:latest-cpu` and remove the inline GPU reservation from `docker-compose.worker-whisper.yml`.
 
 To add an API-forwarding machine:
 
@@ -89,23 +89,23 @@ COMPOSE_FILE=docker-compose.worker-api.yml
 docker compose up -d
 ```
 
-The API worker does not need `docker-compose.gpu.yml`. Set `WHISPER_IMPLEMENTATION` to `openai` or `deepinfra`, then provide the matching API key.
+The API worker does not need any GPU reservation. Set `WHISPER_IMPLEMENTATION` to `openai` or `deepinfra`, then provide the matching API key.
 
 All four backend stacks now share one runtime boundary: the worker talks to an OpenAI-compatible `/v1/audio/transcriptions` endpoint. The difference between Whisper, API, Qwen, and Voxtral is queue routing and deployment shape, not a different in-process provider implementation.
 
 To add another Qwen machine:
 
 ```bash
-COMPOSE_FILE=docker-compose.worker-qwen.yml:docker-compose.gpu.yml
+COMPOSE_FILE=docker-compose.worker-qwen.yml
 docker compose up -d
 ```
 
-If you want the Qwen stack to run without a GPU, set `ASR_QWEN_IMAGE=ghcr.io/trunk-reporter/qwen3-asr-server:cpu` and omit `docker-compose.gpu.yml`.
+If you want the Qwen stack to run without a GPU, set `ASR_QWEN_IMAGE=ghcr.io/trunk-reporter/qwen3-asr-server:cpu` and remove the inline GPU reservation from `docker-compose.worker-qwen.yml`.
 
 To add another Voxtral machine:
 
 ```bash
-COMPOSE_FILE=docker-compose.worker-voxtral.yml:docker-compose.gpu.yml
+COMPOSE_FILE=docker-compose.worker-voxtral.yml
 docker compose up -d
 ```
 
@@ -154,7 +154,7 @@ In both cases, the worker still uses the same `POST /v1/audio/transcriptions` co
 The worker can be run on Windows if needed.
 
 1. Clone the repo or otherwise download the zip file from GitHub and extract it.
-1. Copy `.env.example` to `.env` and update it with the appropriate settings. Your `COMPOSE_FILE` line should be set to `COMPOSE_FILE=docker-compose.worker-whisper.yml:docker-compose.gpu.yml`.
+1. Copy `.env.example` to `.env` and update it with the appropriate settings. Your `COMPOSE_FILE` line should be set to `COMPOSE_FILE=docker-compose.worker-whisper.yml`.
 1. Choose one of the two paths below for actually running the worker.
 
 #### Using Docker / WSL (Recommended)

@@ -35,6 +35,13 @@ services:
     image: ${ASR_WHISPER_IMAGE:-ghcr.io/speaches-ai/speaches:latest-cuda}
     volumes:
       - whisper-asr-cache:/home/ubuntu/.cache/huggingface/hub
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     restart: always
 
 volumes:

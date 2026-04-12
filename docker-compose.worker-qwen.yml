@@ -39,6 +39,13 @@ services:
       - PORT=8765
       - MODEL_PATH=/model
       - ALIGNER_PATH=/aligner
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     restart: always
 
 volumes:
