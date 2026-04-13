@@ -97,7 +97,6 @@ class WhisperTask(Task):
     def initialize_model(self, implementation: str) -> BaseWhisper:
         with self.model_lock:
             implementation = self.normalize_implementation(implementation)
-            logging.info(f"Initializing whisper model {implementation}")
             implementation, _, model = implementation.partition(":")
             if implementation == "whisper-asr-api":
                 from .whisper_asr_api import WhisperAsrApi
@@ -108,6 +107,12 @@ class WhisperTask(Task):
                     provider_name, _, model_name = model.partition(":")
                 headers = self._get_provider_headers(provider_name)
                 base_url = self._get_provider_base_url(provider_name)
+                logging.info(
+                    "Initializing ASR client provider=%s model=%s base_url=%s",
+                    provider_name or os.getenv("ASR_PROVIDER"),
+                    model_name or os.getenv("ASR_MODEL") or os.getenv("WHISPER_MODEL"),
+                    base_url,
+                )
                 return WhisperAsrApi(
                     base_url=base_url,
                     provider=provider_name or os.getenv("ASR_PROVIDER"),
