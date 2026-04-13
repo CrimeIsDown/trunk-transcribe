@@ -48,7 +48,6 @@ services:
         whisper_model_registry.download_model_files_if_not_exist(model)
         PY
         exec uvicorn --factory speaches.main:create_app
-    env_file: .env
     environment:
       - ASR_MODEL=${ASR_MODEL:-Systran/faster-distil-whisper-small.en}
     volumes:
