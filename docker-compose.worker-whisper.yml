@@ -28,7 +28,8 @@ services:
       - CELERY_PREFETCH_MULTIPLIER
     env_file: .env
     depends_on:
-      - asr-whisper
+      asr-whisper:
+        condition: service_healthy
     restart: always
 
   asr-whisper:
@@ -50,6 +51,20 @@ services:
         exec uvicorn --factory speaches.main:create_app
     environment:
       - ASR_MODEL=${ASR_MODEL:-Systran/faster-distil-whisper-small.en}
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - |
+          import urllib.request
+          urllib.request.urlopen(
+              "http://127.0.0.1:8000/v1/models?task=automatic-speech-recognition",
+              timeout=5,
+          )
+      interval: 5s
+      timeout: 5s
+      retries: 12
     volumes:
       - whisper-asr-cache:/home/ubuntu/.cache/huggingface/hub
     deploy:
