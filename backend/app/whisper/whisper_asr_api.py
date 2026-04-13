@@ -20,9 +20,17 @@ class WhisperAsrApi(BaseWhisper):
         self.headers = headers or {}
 
     def _normalize_response(self, response_data: dict, language: str) -> WhisperResult:
+        segments = response_data.get("segments") or []
+        if not segments and response_data.get("text"):
+            segments = [
+                {"start": float(i), "end": float(i + 1), "text": line}
+                for i, line in enumerate(
+                    [line.strip() for line in response_data["text"].splitlines() if line.strip()]
+                )
+            ]
         return {
             "text": response_data.get("text", ""),
-            "segments": response_data.get("segments", []),
+            "segments": segments,
             "language": response_data.get("language", language),
         }
 

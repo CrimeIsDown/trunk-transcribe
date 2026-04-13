@@ -113,7 +113,7 @@ def cleanup_transcript(
                         segment["text"] = item["replacement"]
                 break
     # Do not proceed any further if the entire transcript appears to be hallucinations
-    if len(result["segments"]) == hallucination_count:
+    if result["segments"] and len(result["segments"]) == hallucination_count:
         raise WhisperException("Transcript invalid, 100% hallucination")
 
     prev_seg_text = ""

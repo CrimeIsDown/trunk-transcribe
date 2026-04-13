@@ -116,6 +116,45 @@ class TestWhisperImplementations(unittest.TestCase):
         finally:
             os.unlink(audio_path)
 
+    def test_whisper_asr_api_synthesizes_segments_from_text_only_response(self):
+        from app.whisper.whisper_asr_api import WhisperAsrApi
+
+        response = Mock()
+        response.raise_for_status = Mock()
+        response.json.return_value = {
+            "text": "first line\nsecond line",
+            "language": "en",
+        }
+        session = Mock()
+        session.post.return_value = response
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
+            create_tiny_wav(temp_audio.name)
+            audio_path = temp_audio.name
+
+        try:
+            with patch(
+                "app.whisper.whisper_asr_api.requests.Session", return_value=session
+            ):
+                implementation = WhisperAsrApi(base_url="http://localhost:5000/v1")
+                result = implementation.transcribe(
+                    audio=audio_path,
+                    options=build_options(vad_filter=False),
+                    language="en",
+                )
+
+            self.assertEqual("first line\nsecond line", result["text"])
+            self.assertEqual(
+                [
+                    {"start": 0.0, "end": 1.0, "text": "first line"},
+                    {"start": 1.0, "end": 2.0, "text": "second line"},
+                ],
+                result["segments"],
+            )
+            self.assertEqual("en", result["language"])
+        finally:
+            os.unlink(audio_path)
+
     def test_whisper_task_initialize_model_uses_http_adapter_for_openai(self):
         from app.whisper.task import WhisperTask
         from app.whisper.whisper_asr_api import WhisperAsrApi

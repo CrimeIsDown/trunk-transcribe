@@ -183,6 +183,15 @@ class TestCleanupTranscriptReplace(unittest.TestCase):
         # Both segments remain (replace doesn't delete)
         self.assertEqual(len(cleaned["segments"]), 2)
 
+    def test_cleanup_transcript_empty_segments_returns_empty_result(self):
+        result: WhisperResult = {
+            "language": "en",
+            "text": "",
+            "segments": [],
+        }
+        cleaned = cleanup_transcript(result, [])
+        self.assertEqual(result, cleaned)
+
 
 if __name__ == "__main__":
     unittest.main()
