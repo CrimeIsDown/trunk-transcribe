@@ -32,22 +32,29 @@ fi
   # Define these environment variables or replace them with your values
   API_BASE_URL="${API_BASE_URL:-http://127.0.0.1:8000/api/v1}"
   API_KEY="${API_KEY:-testing}"
+  # Example: set TRANSCRIPTION_BACKEND=qwen to force this call onto the Qwen queue.
+  TRANSCRIPTION_BACKEND="${TRANSCRIPTION_BACKEND:-}"
+  CALLS_URL="$API_BASE_URL/calls"
+
+  if [[ -n "$TRANSCRIPTION_BACKEND" ]]; then
+    CALLS_URL="$CALLS_URL?transcription_backend=$TRANSCRIPTION_BACKEND"
+  fi
+
+  curl_args=(
+    --connect-timeout 1
+    --request POST
+    --url "$CALLS_URL"
+    --header "Authorization: Bearer $API_KEY"
+    --header 'Content-Type: multipart/form-data'
+    --form "call_audio=@$wav"
+    --form "call_json=@$json"
+  )
 
   if [[ "$(ps -o comm= $PPID)" =~ ^(recorder|trunk-recorder)$ ]]; then
-    curl -sS --connect-timeout 1 --request POST \
-        --url "$API_BASE_URL/calls" \
-        --header "Authorization: Bearer $API_KEY" \
-        --header 'Content-Type: multipart/form-data' \
-        --form call_audio=@$wav \
-        --form call_json=@$json &
+    curl -sS "${curl_args[@]}" &
     disown
     # We run the curl command as a background process and disown it to not hang up trunk-recorder.
   else
-    curl -sS --connect-timeout 1 --request POST \
-        --url "$API_BASE_URL/calls" \
-        --header "Authorization: Bearer $API_KEY" \
-        --header 'Content-Type: multipart/form-data' \
-        --form call_audio=@$wav \
-        --form call_json=@$json
+    curl -sS "${curl_args[@]}"
   fi
 # fi
