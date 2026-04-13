@@ -19,7 +19,7 @@ services:
       - CELERY_QUEUES=transcribe_whisper
       - ASR_API_URL=${ASR_API_URL:-http://asr-whisper:8000/v1}
       - ASR_PROVIDER=${ASR_PROVIDER:-speaches}
-      - ASR_MODEL=${ASR_MODEL:-Systran/faster-distil-whisper-small.en}
+      - ASR_MODEL=${ASR_MODEL:-Systran/faster-whisper-large-v3}
       - WHISPER_IMPLEMENTATION=${WHISPER_IMPLEMENTATION:-whisper-asr-api}
       - CELERY_LOGLEVEL
       - CELERY_BROKER_URL
