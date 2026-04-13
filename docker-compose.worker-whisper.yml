@@ -43,10 +43,17 @@ services:
         from speaches.executors.whisper.utils import model_registry as whisper_model_registry
 
         model = os.environ["ASR_MODEL"]
+        print(f"[speaches-init] validating model {model}", flush=True)
         if model not in [entry.id for entry in whisper_model_registry.list_remote_models()]:
             raise SystemExit(f"Unknown speaches ASR model: {model}")
 
-        whisper_model_registry.download_model_files_if_not_exist(model)
+        print(f"[speaches-init] ensuring model is cached: {model}", flush=True)
+        was_downloaded = whisper_model_registry.download_model_files_if_not_exist(model)
+        if was_downloaded:
+            print(f"[speaches-init] model download completed: {model}", flush=True)
+        else:
+            print(f"[speaches-init] model already cached: {model}", flush=True)
+        print("[speaches-init] starting speaches server", flush=True)
         PY
         exec uvicorn --factory speaches.main:create_app
     environment:
