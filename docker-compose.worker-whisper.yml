@@ -33,6 +33,24 @@ services:
 
   asr-whisper:
     image: ${ASR_WHISPER_IMAGE:-ghcr.io/speaches-ai/speaches:latest-cuda}
+    command:
+      - sh
+      - -lc
+      - |
+        python - <<'PY'
+        import os
+        from speaches.executors.whisper.utils import model_registry as whisper_model_registry
+
+        model = os.environ["ASR_MODEL"]
+        if model not in [entry.id for entry in whisper_model_registry.list_remote_models()]:
+            raise SystemExit(f"Unknown speaches ASR model: {model}")
+
+        whisper_model_registry.download_model_files_if_not_exist(model)
+        PY
+        exec uvicorn --factory speaches.main:create_app
+    env_file: .env
+    environment:
+      - ASR_MODEL=${ASR_MODEL:-Systran/faster-distil-whisper-small.en}
     volumes:
       - whisper-asr-cache:/home/ubuntu/.cache/huggingface/hub
     deploy:
