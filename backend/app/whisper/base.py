@@ -16,6 +16,12 @@ class WhisperResult(TypedDict):
     language: Optional[str]
 
 
+class TranscribeTaskResult(TypedDict):
+    result: WhisperResult
+    transcription_provider: str
+    transcription_model: str
+
+
 class TranscribeOptions(TypedDict):
     initial_prompt: str
     cleanup: bool

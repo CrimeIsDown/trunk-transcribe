@@ -37,3 +37,5 @@ class Metadata(SearchableMetadata):
     encrypted: Literal[0, 1]
     freqList: list[FreqListItem]
     srcList: list[SrcListItem]
+    transcription_provider: NotRequired[str]
+    transcription_model: NotRequired[str]

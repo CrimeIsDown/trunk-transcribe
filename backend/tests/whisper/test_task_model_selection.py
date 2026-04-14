@@ -80,6 +80,35 @@ class TestWhisperTaskModelSelection(unittest.TestCase):
                 self.task.default_implementation,
             )
 
+    def test_resolve_provider_and_model_uses_whisper_defaults(self):
+        with patch.dict(
+            os.environ,
+            {
+                "ASR_PROVIDER": "speaches",
+                "ASR_MODEL": "Systran/faster-whisper-large-v3",
+            },
+            clear=True,
+        ):
+            self.assertEqual(
+                ("speaches", "Systran/faster-whisper-large-v3"),
+                self.task.resolve_provider_and_model("whisper-asr-api"),
+            )
+
+    def test_resolve_provider_and_model_applies_vendor_defaults(self):
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(
+                ("openai", "custom-model"),
+                self.task.resolve_provider_and_model("openai:custom-model"),
+            )
+            self.assertEqual(
+                ("openai", "whisper-1"),
+                self.task.resolve_provider_and_model("openai"),
+            )
+            self.assertEqual(
+                ("deepinfra", "openai/whisper-large-v3-turbo"),
+                self.task.resolve_provider_and_model("deepinfra"),
+            )
+
     def test_default_implementation_rejects_removed_local_implementations(self):
         with patch.dict(
             os.environ, {"WHISPER_IMPLEMENTATION": "faster-whisper"}, clear=True

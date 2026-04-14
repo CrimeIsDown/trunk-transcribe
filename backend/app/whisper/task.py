@@ -37,6 +37,38 @@ class WhisperTask(Task):
             return f"whisper-asr-api:{name}:{model}"
         return implementation
 
+    def resolve_provider_and_model(
+        self, implementation: str | None = None
+    ) -> tuple[str, str]:
+        normalized = self.normalize_implementation(
+            implementation or self.default_implementation
+        )
+        implementation_name, _, provider_model = normalized.partition(":")
+        if implementation_name != "whisper-asr-api":
+            raise RuntimeError(f"Unknown implementation {implementation_name}")
+
+        provider_name = None
+        model_name = None
+        if provider_model:
+            provider_name, _, model_name = provider_model.partition(":")
+
+        provider_name = provider_name or os.getenv("ASR_PROVIDER") or "speaches"
+
+        model_name = (
+            model_name
+            or os.getenv("ASR_MODEL")
+            or os.getenv("WHISPER_MODEL")
+        )
+
+        if provider_name == "openai" and not model_name:
+            model_name = "whisper-1"
+        elif provider_name == "deepinfra" and not model_name:
+            model_name = "openai/whisper-large-v3-turbo"
+        elif not model_name:
+            model_name = "Systran/faster-distil-whisper-small.en"
+
+        return provider_name, model_name
+
     @property
     def default_implementation(self) -> str:
         backend = resolve_transcription_backend(
@@ -101,24 +133,21 @@ class WhisperTask(Task):
             if implementation == "whisper-asr-api":
                 from .whisper_asr_api import WhisperAsrApi
 
-                provider_name = None
-                model_name = None
-                if model:
-                    provider_name, _, model_name = model.partition(":")
+                provider_name, model_name = self.resolve_provider_and_model(
+                    f"{implementation}:{model}" if model else implementation
+                )
                 headers = self._get_provider_headers(provider_name)
                 base_url = self._get_provider_base_url(provider_name)
                 logging.info(
                     "Initializing ASR client provider=%s model=%s base_url=%s",
-                    provider_name or os.getenv("ASR_PROVIDER"),
-                    model_name or os.getenv("ASR_MODEL") or os.getenv("WHISPER_MODEL"),
+                    provider_name,
+                    model_name,
                     base_url,
                 )
                 return WhisperAsrApi(
                     base_url=base_url,
-                    provider=provider_name or os.getenv("ASR_PROVIDER"),
-                    model=model_name
-                    or os.getenv("ASR_MODEL")
-                    or os.getenv("WHISPER_MODEL"),
+                    provider=provider_name,
+                    model=model_name,
                     headers=headers,
                 )
 

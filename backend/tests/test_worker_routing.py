@@ -4,7 +4,30 @@ from unittest.mock import MagicMock, patch
 from app import worker
 
 
+def build_metadata(audio_type: str = "analog") -> dict:
+    return {
+        "freq": 1,
+        "start_time": 1700000000,
+        "stop_time": 1700000005,
+        "call_length": 5.0,
+        "talkgroup": 1,
+        "talkgroup_tag": "tag",
+        "talkgroup_description": "desc",
+        "talkgroup_group_tag": "group-tag",
+        "talkgroup_group": "group",
+        "audio_type": audio_type,
+        "short_name": "short",
+        "emergency": 0,
+        "encrypted": 0,
+        "freqList": [],
+        "srcList": [],
+    }
+
+
 class TestWorkerRouting(unittest.TestCase):
+    def tearDown(self):
+        worker.search_adapters = []
+
     def test_get_transcription_queue_defaults_to_whisper(self):
         with patch.dict(
             "os.environ",
@@ -120,3 +143,50 @@ class TestWorkerRouting(unittest.TestCase):
         transcribe_signature.set.assert_called_once_with(queue="transcribe_api")
         post_signature.set.assert_called_once_with(queue="post_transcribe")
         chain_result.apply_async.assert_called_once_with()
+
+    def test_post_transcribe_task_patches_and_indexes_enriched_metadata(self):
+        search_adapter = MagicMock()
+        search_adapter.index_call.return_value = "https://search.example/call"
+        worker.search_adapters = [search_adapter]
+
+        result = {
+            "result": {
+                "text": "hello world",
+                "segments": [{"start": 0.0, "end": 1.0, "text": "hello world"}],
+                "language": "en",
+            },
+            "transcription_provider": "openai",
+            "transcription_model": "whisper-1",
+        }
+        metadata = build_metadata()
+        geo = {"geo": {"lat": 1.0, "lng": 2.0}, "geo_formatted_address": "123 Main"}
+
+        with patch("app.worker.api_client.call") as api_call_mock:
+            with patch("app.geocoding.geocoding.lookup_geo", return_value=geo):
+                with patch("app.notifications.notification.send_notifications"):
+                    transcript_text = worker.post_transcribe_task.run(
+                        result,
+                        metadata,
+                        "https://example.com/audio.wav",
+                        id=42,
+                    )
+
+        self.assertEqual("hello world", transcript_text)
+        api_call_mock.assert_called_once()
+        self.assertEqual("patch", api_call_mock.call_args.args[0])
+        self.assertEqual("calls/42", api_call_mock.call_args.args[1])
+        self.assertEqual(
+            "openai",
+            api_call_mock.call_args.kwargs["json"]["raw_metadata"][
+                "transcription_provider"
+            ],
+        )
+        self.assertEqual(
+            "whisper-1",
+            api_call_mock.call_args.kwargs["json"]["raw_metadata"][
+                "transcription_model"
+            ],
+        )
+        indexed_metadata = search_adapter.index_call.call_args.args[1]
+        self.assertEqual("openai", indexed_metadata["transcription_provider"])
+        self.assertEqual("whisper-1", indexed_metadata["transcription_model"])

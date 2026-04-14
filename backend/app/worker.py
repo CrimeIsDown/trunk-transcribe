@@ -24,7 +24,7 @@ from app.core.config import (
 from app.utils import api_client
 from app.utils.exceptions import before_send
 from app.utils.storage import fetch_audio
-from app.whisper.base import TranscribeOptions, WhisperResult
+from app.whisper.base import TranscribeOptions, TranscribeTaskResult, WhisperResult
 from app.whisper.exceptions import WhisperException
 from app.whisper.task import WhisperTask
 from app.whisper.transcribe import transcribe
@@ -166,14 +166,22 @@ def transcribe_task(
     options: TranscribeOptions,
     audio_url: str,
     whisper_implementation: Optional[str] = None,
-) -> WhisperResult:
+) -> TranscribeTaskResult:
     audio_file = fetch_audio(audio_url)
+    transcription_provider, transcription_model = self.resolve_provider_and_model(
+        whisper_implementation
+    )
     try:
-        return transcribe(
+        result = transcribe(
             model=self.model(whisper_implementation),
             audio_file=audio_file,
             options=options,
         )
+        return {
+            "result": result,
+            "transcription_provider": transcription_provider,
+            "transcription_model": transcription_model,
+        }
     finally:
         try:
             os.unlink(audio_file)
@@ -183,7 +191,7 @@ def transcribe_task(
 
 @celery.task(name="post_transcribe")
 def post_transcribe_task(
-    result: WhisperResult,
+    result: TranscribeTaskResult | WhisperResult,
     metadata: Metadata,
     raw_audio_url: str,
     id: Optional[int | str] = None,
@@ -197,21 +205,28 @@ def post_transcribe_task(
 
     logger.debug(result)
 
-    if "digital" in metadata["audio_type"]:
+    transcription_result = result
+    enriched_metadata: Metadata = dict(metadata)
+    if "result" in result:
+        transcription_result = result["result"]
+        enriched_metadata["transcription_provider"] = result["transcription_provider"]
+        enriched_metadata["transcription_model"] = result["transcription_model"]
+
+    if "digital" in enriched_metadata["audio_type"]:
         from app.radio.digital import process_response
-    elif metadata["audio_type"] == "analog":
+    elif enriched_metadata["audio_type"] == "analog":
         from app.radio.analog import process_response
     else:
         raise Reject(
-            f"Audio type {metadata['audio_type']} not supported", requeue=False
+            f"Audio type {enriched_metadata['audio_type']} not supported", requeue=False
         )
     try:
-        transcript = process_response(result, metadata)
+        transcript = process_response(transcription_result, enriched_metadata)
     except WhisperException as e:
         logger.warning(e)
         return None
 
-    geo = lookup_geo(metadata, transcript)
+    geo = lookup_geo(enriched_metadata, transcript)
 
     if not id:
         raw_metadata = json.dumps(metadata)
@@ -220,7 +235,11 @@ def post_transcribe_task(
         api_client.call(
             "patch",
             f"calls/{id}",
-            json={"raw_transcript": transcript.transcript, "geo": geo},
+            json={
+                "raw_metadata": enriched_metadata,
+                "raw_transcript": transcript.transcript,
+                "geo": geo,
+            },
         )
 
     global search_adapters
@@ -232,11 +251,11 @@ def post_transcribe_task(
 
     for search in search_adapters:
         search_url = search.index_call(
-            id, metadata, raw_audio_url, transcript, geo, index_name
+            id, enriched_metadata, raw_audio_url, transcript, geo, index_name
         )
 
     try:
-        send_notifications(raw_audio_url, metadata, transcript, geo, search_url)
+        send_notifications(raw_audio_url, enriched_metadata, transcript, geo, search_url)
     except Exception as e:
         logger.exception("Failed to send notifications", exc_info=e)
 
