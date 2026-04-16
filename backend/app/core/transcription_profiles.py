@@ -183,10 +183,10 @@ def infer_profile_from_legacy_env(
 
     family = backend or "whisper"
     platform = "local"
-    variant = os.getenv("ASR_VARIANT") or family
+    variant = os.getenv("ASR_VARIANT") or ("large-v3" if family == "whisper" else family)
 
     if provider == "speaches" and not model:
-        model = "Systran/faster-distil-whisper-small.en"
+        model = "Systran/faster-whisper-large-v3"
     if not provider:
         provider = {
             "whisper": "speaches",
@@ -195,7 +195,7 @@ def infer_profile_from_legacy_env(
         }.get(family, "speaches")
     if not model:
         model = {
-            "whisper": "Systran/faster-distil-whisper-small.en",
+            "whisper": "Systran/faster-whisper-large-v3",
             "qwen": "qwen2.5-omni",
             "voxtral": "mistralai/Voxtral-Mini-4B-Realtime-2602",
         }.get(family, family)
@@ -215,4 +215,3 @@ def resolve_transcription_profile(
     return TranscriptionProfile.parse(
         infer_profile_from_legacy_env(explicit_profile, default_profile)
     )
-

@@ -14,7 +14,7 @@ class TestTranscriptionTaskModelSelection(unittest.TestCase):
     def test_default_profile_uses_local_whisper_defaults(self):
         with patch.dict(os.environ, {}, clear=True):
             self.assertEqual(
-                "kind=pool;provider=speaches;model=Systran/faster-distil-whisper-small.en;platform=local;family=whisper;variant=whisper",
+                "kind=pool;provider=speaches;model=Systran/faster-whisper-large-v3;platform=local;family=whisper;variant=large-v3",
                 self.task.default_profile,
             )
 

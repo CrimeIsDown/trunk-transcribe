@@ -57,7 +57,7 @@ services:
         PY
         exec uvicorn --factory speaches.main:create_app
     environment:
-      - ASR_MODEL=${ASR_MODEL:-Systran/faster-distil-whisper-small.en}
+      - ASR_MODEL=${ASR_MODEL:-Systran/faster-whisper-large-v3}
     healthcheck:
       test:
         - CMD

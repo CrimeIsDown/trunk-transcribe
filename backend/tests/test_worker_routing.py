@@ -32,7 +32,7 @@ class TestWorkerRouting(unittest.TestCase):
     def test_get_transcription_queue_defaults_to_local_whisper_pool(self):
         with patch.dict("os.environ", {}, clear=True):
             self.assertEqual(
-                "transcribe.remote.pool.local.whisper.default",
+                "transcribe.remote.pool.local.whisper.large-v3",
                 worker.get_transcription_queue(),
             )
 

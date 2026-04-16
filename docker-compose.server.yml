@@ -19,6 +19,8 @@ services:
       - ./docker/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
       - ./docker/healthcheck.sh:/usr/local/bin/healthcheck.sh
     env_file: .env
+    environment:
+      - DEFAULT_TRANSCRIPTION_PROFILE=${DEFAULT_TRANSCRIPTION_PROFILE:-kind=pool;platform=local;family=whisper;variant=large-v3;provider=speaches;model=Systran/faster-whisper-large-v3}
     restart: always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/api/v1/healthz"]

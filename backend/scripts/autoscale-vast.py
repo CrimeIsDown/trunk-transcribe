@@ -80,7 +80,7 @@ class PoolAutoscaler:
             os.getenv("AUTOSCALE_ASR_POOL")
             or profile.asr_pool
             or os.getenv("ASR_POOL")
-            or "local.whisper.default"
+            or "local.whisper.large-v3"
         )
         self.queue_name = os.getenv("AUTOSCALE_QUEUE_NAME") or profile.queue_name
         self.healthcheck_path = os.getenv("AUTOSCALE_HEALTHCHECK_PATH", "/v1/models")

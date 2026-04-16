@@ -61,8 +61,8 @@ class Settings(BaseSettings):
     CELERY_QUEUES: Annotated[list[str], NoDecode, BeforeValidator(parse_csv_list)] = []
     CELERY_PREFETCH_MULTIPLIER: int = 1
     DEFAULT_TRANSCRIPTION_PROFILE: str = (
-        "kind=pool;platform=local;family=whisper;variant=default;"
-        "provider=speaches;model=Systran/faster-distil-whisper-small.en"
+        "kind=pool;platform=local;family=whisper;variant=large-v3;"
+        "provider=speaches;model=Systran/faster-whisper-large-v3"
     )
     TRANSCRIPTION_PROFILE: str | None = None
     TRANSCRIPTION_BACKEND: str | None = None
