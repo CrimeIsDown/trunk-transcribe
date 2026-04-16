@@ -11,7 +11,7 @@ dependencies = [
     "flower<3.0,>=2.0",
     "meilisearch<1,>=0",
     "python-dotenv<1,>=0",
-    "python-multipart<1,>=0",
+    "python-multipart>=0.0.26,<1",
     "pytz",
     "requests<3.0,>=2.28",
     "uvicorn[standard]<1,>=0",
@@ -45,7 +45,7 @@ readme = "README.md"
 [dependency-groups]
 dev = [
     "coverage<8.0.0,>=7.2.5",
-    "pytest<9.0.0,>=8.3.2",
+    "pytest>=9.0.3,<10.0.0",
     "mypy<2.0.0,>=1.14.0",
     "ruff<1.0.0,>=0.6.3",
     "types-requests<3.0.0.0,>=2.32.0.20240712",
