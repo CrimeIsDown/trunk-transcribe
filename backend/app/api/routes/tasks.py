@@ -23,8 +23,7 @@ router = APIRouter()
 def queue_for_transcription(
     call_audio: UploadFile,
     call_json: UploadFile,
-    whisper_implementation: str | None = None,
-    transcription_backend: str | None = None,
+    transcription_profile: str | None = None,
 ) -> JSONResponse:
     metadata = json.loads(call_json.file.read())
 
@@ -60,8 +59,7 @@ def queue_for_transcription(
             audio_url,
             metadata,
             build_transcribe_options(metadata),
-            whisper_implementation,
-            transcription_backend=transcription_backend,
+            transcription_profile,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

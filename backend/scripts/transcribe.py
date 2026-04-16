@@ -7,24 +7,33 @@ from dotenv import load_dotenv
 
 from app.whisper.base import TranscribeOptions
 from app.whisper.transcribe import cleanup_transcript
+from app.core.transcription_profiles import (
+    build_pool_profile,
+    build_vendor_profile,
+)
 
 load_dotenv()
 
 from app.whisper.config import get_transcript_cleanup_config, get_whisper_config
-from app.whisper.task import WhisperTask
+from app.whisper.task import TranscriptionTask
 
 parser = argparse.ArgumentParser(description="Audio Transcription CLI")
 parser.add_argument("audio_file", help="Path to the audio file")
 parser.add_argument(
-    "--implementation",
-    default=os.getenv("WHISPER_IMPLEMENTATION", "whisper-asr-api"),
-    help="Specify the API-backed implementation to use",
+    "--profile",
+    default=os.getenv("TRANSCRIPTION_PROFILE"),
+    help="Structured transcription profile string",
+)
+parser.add_argument(
+    "--provider",
+    default=os.getenv("ASR_PROVIDER") or os.getenv("WHISPER_IMPLEMENTATION", "speaches"),
+    help="ASR provider to use when --profile is not set",
 )
 parser.add_argument(
     "--model",
     default=os.getenv("ASR_MODEL")
     or os.getenv("WHISPER_MODEL", "Systran/faster-distil-whisper-small.en"),
-    help="ASR model to use",
+    help="ASR model to use when --profile is not set",
 )
 parser.add_argument("--prompt", help="Prompt to pass to the ASR backend")
 parser.add_argument(
@@ -38,7 +47,20 @@ parser.add_argument(
 def main():
     args = parser.parse_args()
 
-    model = WhisperTask().model(f"{args.implementation}:{args.model}")
+    profile = args.profile
+    if not profile:
+        if args.provider in {"openai", "deepinfra"}:
+            profile = build_vendor_profile(args.provider, args.model)
+        else:
+            profile = build_pool_profile(
+                platform="local",
+                family=os.getenv("TRANSCRIPTION_BACKEND", "whisper"),
+                variant=os.getenv("ASR_VARIANT", "cli"),
+                provider=args.provider,
+                model=args.model,
+            )
+
+    model = TranscriptionTask().model(profile)
 
     options: TranscribeOptions = {
         "cleanup": args.cleanup,

@@ -6,6 +6,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from app.api.depends import get_db
+from app.core.transcription_profiles import build_pool_profile, build_vendor_profile
 from app.main import app
 
 API_PREFIX = "/api/v1"
@@ -35,9 +36,16 @@ class TestApiRoutes(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
 
-    def test_tasks_route_queues_job_with_explicit_implementation(self):
+    def test_tasks_route_queues_job_with_explicit_profile(self):
         metadata = build_metadata(audio_type="analog")
         queue_result = SimpleNamespace(id="task-123")
+        profile = build_pool_profile(
+            platform="vast",
+            family="whisper",
+            variant="large-v3",
+            provider="speaches",
+            model="Systran/faster-whisper-large-v3",
+        )
 
         with patch.dict("os.environ", {"API_KEY": ""}, clear=False):
             with patch(
@@ -49,7 +57,8 @@ class TestApiRoutes(unittest.TestCase):
                         return_value=queue_result,
                     ) as queue_mock:
                         response = self.client.post(
-                            f"{API_PREFIX}/tasks?whisper_implementation=deepinfra:openai/whisper-large-v3-turbo&transcription_backend=qwen",
+                            f"{API_PREFIX}/tasks",
+                            params={"transcription_profile": profile},
                             files={
                                 "call_audio": ("tiny.wav", b"RIFF", "audio/wav"),
                                 "call_json": (
@@ -64,15 +73,13 @@ class TestApiRoutes(unittest.TestCase):
         self.assertEqual({"task_id": "task-123"}, response.json())
         upload_mock.assert_called_once()
         queue_mock.assert_called_once()
-        self.assertEqual(
-            "deepinfra:openai/whisper-large-v3-turbo", queue_mock.call_args.args[3]
-        )
-        self.assertEqual("qwen", queue_mock.call_args.kwargs["transcription_backend"])
+        self.assertEqual(profile, queue_mock.call_args.args[3])
 
     def test_calls_route_queues_job_and_uses_db_call_id(self):
         metadata = build_metadata(audio_type="analog")
         db_call = SimpleNamespace(id=42)
         queue_result = SimpleNamespace(id="task-456")
+        profile = build_vendor_profile("openai", "whisper-1")
 
         app.dependency_overrides[get_db] = lambda: object()
         try:
@@ -86,11 +93,12 @@ class TestApiRoutes(unittest.TestCase):
                         return_value=db_call,
                     ) as create_call_mock:
                         with patch(
-                            "app.api.routes.calls.worker.queue_task",
+                        "app.api.routes.calls.worker.queue_task",
                             return_value=queue_result,
                         ) as queue_mock:
                             response = self.client.post(
-                                f"{API_PREFIX}/calls?whisper_implementation=openai:whisper-1&transcription_backend=voxtral",
+                                f"{API_PREFIX}/calls",
+                                params={"transcription_profile": profile},
                                 files={
                                     "call_audio": ("tiny.wav", b"RIFF", "audio/wav"),
                                     "call_json": (
@@ -108,13 +116,10 @@ class TestApiRoutes(unittest.TestCase):
         upload_mock.assert_called_once()
         create_call_mock.assert_called_once()
         queue_mock.assert_called_once()
-        self.assertEqual("openai:whisper-1", queue_mock.call_args.args[3])
+        self.assertEqual(profile, queue_mock.call_args.args[3])
         self.assertEqual(42, queue_mock.call_args.args[4])
-        self.assertEqual(
-            "voxtral", queue_mock.call_args.kwargs["transcription_backend"]
-        )
 
-    def test_tasks_route_rejects_invalid_transcription_backend(self):
+    def test_tasks_route_rejects_invalid_transcription_profile(self):
         metadata = build_metadata(audio_type="analog")
 
         with patch.dict("os.environ", {"API_KEY": ""}, clear=False):
@@ -123,7 +128,8 @@ class TestApiRoutes(unittest.TestCase):
                 return_value="s3://audio.wav",
             ):
                 response = self.client.post(
-                    f"{API_PREFIX}/tasks?transcription_backend=unknown",
+                    f"{API_PREFIX}/tasks",
+                    params={"transcription_profile": "kind=broken"},
                     files={
                         "call_audio": ("tiny.wav", b"RIFF", "audio/wav"),
                         "call_json": (
@@ -135,7 +141,7 @@ class TestApiRoutes(unittest.TestCase):
                 )
 
         self.assertEqual(400, response.status_code)
-        self.assertIn("Unsupported transcription backend", response.json()["detail"])
+        self.assertIn("Unsupported transcription profile kind", response.json()["detail"])
 
     def test_preflight_options_allows_localhost_3001(self):
         with patch.dict("os.environ", {"API_KEY": "testing"}, clear=False):

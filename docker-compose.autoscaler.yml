@@ -20,12 +20,19 @@ services:
       - --interval
       - ${AUTOSCALE_INTERVAL:-60}
       - --image
-      - ${AUTOSCALE_WORKER_IMAGE:-ghcr.io/crimeisdown/trunk-transcribe:${VERSION:-main}}
+      - ${AUTOSCALE_INSTANCE_IMAGE:-ghcr.io/crimeisdown/trunk-transcribe:${VERSION:-main}}
     env_file: .env
     environment:
-      - AUTOSCALE_BACKEND
-      - AUTOSCALE_QUEUE
-      - AUTOSCALE_WORKER_IMAGE
+      - AUTOSCALE_ASR_POOL
+      - AUTOSCALE_QUEUE_NAME
+      - AUTOSCALE_TRANSCRIPTION_PROFILE
+      - AUTOSCALE_TEMPLATE_HASH
+      - AUTOSCALE_INSTANCE_IMAGE
+      - AUTOSCALE_INSTANCE_ARGS_JSON
+      - AUTOSCALE_HEALTHCHECK_PATH
+      - AUTOSCALE_INTERNAL_PORT
+      - AUTOSCALE_SEARCH_PARAMS
+      - AUTOSCALE_TARGET_MESSAGES_PER_INSTANCE
       - AUTOSCALE_GPU_RAM_MB
     volumes:
       - ./backend/app:/src/backend/app

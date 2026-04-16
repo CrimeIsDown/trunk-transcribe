@@ -14,11 +14,12 @@ services:
       - ./config:/src/config
       - ./docker/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
     environment:
-      - DEFAULT_TRANSCRIPTION_BACKEND=${DEFAULT_TRANSCRIPTION_BACKEND:-whisper}
-      - TRANSCRIPTION_BACKEND=voxtral
-      - CELERY_QUEUES=transcribe_voxtral
+      - DEFAULT_TRANSCRIPTION_PROFILE=${DEFAULT_TRANSCRIPTION_PROFILE:-kind=pool;platform=local;family=voxtral;variant=realtime;provider=vllm;model=mistralai/Voxtral-Mini-4B-Realtime-2602}
+      - TRANSCRIPTION_PROFILE=kind=pool;platform=local;family=voxtral;variant=realtime;provider=vllm;model=mistralai/Voxtral-Mini-4B-Realtime-2602
+      - CELERY_QUEUES=transcribe.remote.pool.local.voxtral.realtime
       - ASR_API_URL=${ASR_API_URL:-http://asr-voxtral:8000/v1}
       - ASR_PROVIDER=${ASR_PROVIDER:-vllm}
+      - ASR_VARIANT=${ASR_VARIANT:-realtime}
       - ASR_MODEL=${ASR_MODEL:-mistralai/Voxtral-Mini-4B-Realtime-2602}
       - CELERY_LOGLEVEL
       - CELERY_BROKER_URL

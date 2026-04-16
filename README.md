@@ -13,9 +13,9 @@ This is experimental alpha-version software, use at your own risk. Expect breaki
 ## Architecture
 
 1. `transcribe.sh` runs from trunk-recorder which makes a POST request to the API, passing along the call WAV and JSON
-1. API resolves a `transcription_backend` for the request and adds the transcription job to the matching RabbitMQ queue
-1. A backend-specific worker stack consumes exactly one backend queue: `transcribe_whisper`, `transcribe_api`, `transcribe_qwen`, or `transcribe_voxtral`
-1. Every backend worker uses the same OpenAI-compatible transcription contract: send audio to `POST /v1/audio/transcriptions`, receive verbose JSON back, and normalize that into the shared transcript shape
+1. API resolves a structured `transcription_profile` for the request and adds the transcription job to the matching RabbitMQ queue
+1. A worker stack consumes one queue per operational profile, for example `transcribe.remote.vendor`, `transcribe.remote.pool.local.whisper.large-v3`, or `transcribe.remote.pool.vast.whisper.large-v3`
+1. Every worker uses the same OpenAI-compatible transcription contract: send audio to `POST /v1/audio/transcriptions`, receive verbose JSON back, and normalize that into the shared transcript shape
 1. The `post_transcribe` worker stores the results in search and sends notifications
 
 See [docs/architecture.md](./docs/architecture.md) for Mermaid diagrams covering the full runtime topology and the current transcription contract.
@@ -64,12 +64,12 @@ There are numerous `docker-compose.*.yml` files in this repo for various configu
 
 ### Backend-specific workers
 
-Each transcription machine should run exactly one backend-specific worker stack:
+Each transcription machine should run exactly one profile-specific worker stack:
 
-- `docker-compose.worker-whisper.yml` consumes `transcribe_whisper` and runs [`speaches`](https://github.com/speaches-ai/speaches)
-- `docker-compose.worker-api.yml` consumes `transcribe_api` and forwards to OpenAI or DeepInfra
-- `docker-compose.worker-qwen.yml` consumes `transcribe_qwen` and runs [`trunk-reporter/qwen3-asr-server`](https://github.com/trunk-reporter/qwen3-asr-server)
-- `docker-compose.worker-voxtral.yml` consumes `transcribe_voxtral` and runs [`vllm serve`](https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html) for [`mistralai/Voxtral-Mini-4B-Realtime-2602`](https://huggingface.co/mistralai/Voxtral-Mini-4B-Realtime-2602)
+- `docker-compose.worker-whisper.yml` consumes `transcribe.remote.pool.local.whisper.large-v3` and runs [`speaches`](https://github.com/speaches-ai/speaches)
+- `docker-compose.worker-api.yml` consumes `transcribe.remote.vendor` by default and forwards to OpenAI, DeepInfra, or a remote ASR router, depending on `TRANSCRIPTION_PROFILE`
+- `docker-compose.worker-qwen.yml` consumes `transcribe.remote.pool.local.qwen.p25` and runs [`trunk-reporter/qwen3-asr-server`](https://github.com/trunk-reporter/qwen3-asr-server)
+- `docker-compose.worker-voxtral.yml` consumes `transcribe.remote.pool.local.voxtral.realtime` and runs [`vllm serve`](https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html) for [`mistralai/Voxtral-Mini-4B-Realtime-2602`](https://huggingface.co/mistralai/Voxtral-Mini-4B-Realtime-2602)
 
 The shared `docker-compose.worker.yml` service is the `post_transcribe` worker. Keep at least one of those running somewhere in the deployment.
 
@@ -89,9 +89,9 @@ COMPOSE_FILE=docker-compose.worker-api.yml
 docker compose up -d
 ```
 
-The API worker does not need any GPU reservation. Set `WHISPER_IMPLEMENTATION` to `openai` or `deepinfra`, then provide the matching API key.
+The remote worker does not need any GPU reservation. Set `TRANSCRIPTION_PROFILE` to a vendor profile such as `kind=vendor;provider=openai;model=whisper-1` or `kind=vendor;provider=deepinfra;model=openai/whisper-large-v3-turbo`, then provide the matching API key.
 
-All four backend stacks now share one runtime boundary: the worker talks to an OpenAI-compatible `/v1/audio/transcriptions` endpoint. The difference between Whisper, API, Qwen, and Voxtral is queue routing and deployment shape, not a different in-process provider implementation.
+All stacks now share one runtime boundary: the worker talks to an OpenAI-compatible `/v1/audio/transcriptions` endpoint. The difference between vendor profiles, local pools, and Vast pools is queue routing and deployment shape, not a different in-process provider implementation.
 
 To add another Qwen machine:
 
@@ -119,11 +119,8 @@ To use the paid Whisper API by OpenAI, run the API backend instead of the Whispe
 # Run the regular post worker plus an API-forwarding worker
 COMPOSE_FILE=docker-compose.server.yml:docker-compose.worker.yml:docker-compose.worker-api.yml
 
-# Route new jobs to the API queue
-DEFAULT_TRANSCRIPTION_BACKEND=api
-
-# Use the OpenAI-compatible speech API
-WHISPER_IMPLEMENTATION=openai
+# Route new jobs to the vendor queue
+DEFAULT_TRANSCRIPTION_PROFILE=kind=vendor;provider=openai;model=whisper-1
 OPENAI_API_KEY=my-api-key
 ```
 
@@ -134,17 +131,11 @@ You may also want to set `CELERY_CONCURRENCY` to a higher number since the worke
 To use DeepInfra's OpenAI-compatible Whisper API, run the API backend and set the following in your `.env` file:
 
 ```
-# Route jobs to the API queue
-DEFAULT_TRANSCRIPTION_BACKEND=api
-
-# Switch to DeepInfra implementation
-WHISPER_IMPLEMENTATION=deepinfra
+# Route jobs to the vendor queue
+DEFAULT_TRANSCRIPTION_PROFILE=kind=vendor;provider=deepinfra;model=openai/whisper-large-v3-turbo
 
 # DeepInfra API key
 DEEPINFRA_API_KEY=my-api-key
-
-# Optional model override (defaults to openai/whisper-large-v3-turbo)
-# WHISPER_MODEL=openai/whisper-large-v3-turbo
 ```
 
 In both cases, the worker still uses the same `POST /v1/audio/transcriptions` contract that it uses for the local Whisper, Qwen, and Voxtral servers.
@@ -186,16 +177,18 @@ To start the autoscaler, set the following in your `.env`:
 COMPOSE_FILE=docker-compose.server.yml:docker-compose.worker.yml:docker-compose.autoscaler.yml
 # your API key from vast.ai, or omit to have it read from ~/.vast_api_key
 VAST_API_KEY=
-# One autoscaler should manage one backend queue
-AUTOSCALE_BACKEND=whisper
-AUTOSCALE_QUEUE=transcribe_whisper
-AUTOSCALE_WORKER_IMAGE=ghcr.io/crimeisdown/trunk-transcribe:main-whisper-large-v3-cuda_12.1.0
+# One autoscaler should manage one ASR pool queue
+AUTOSCALE_TRANSCRIPTION_PROFILE=kind=pool;platform=vast;family=whisper;variant=large-v3;provider=speaches;model=Systran/faster-whisper-large-v3
+AUTOSCALE_ASR_POOL=vast.whisper.large-v3
+AUTOSCALE_QUEUE_NAME=transcribe.remote.pool.vast.whisper.large-v3
+AUTOSCALE_INSTANCE_IMAGE=ghcr.io/crimeisdown/trunk-transcribe:main-whisper-large-v3-cuda_12.1.0
+ASR_ROUTER_ENDPOINT_TARGETS=pool.vast.whisper.large-v3
 # Tune these settings as needed
 AUTOSCALE_MIN_INSTANCES=1
 AUTOSCALE_MAX_INSTANCES=10
 ```
 
-The Vast autoscaler is only useful for GPU-backed backends. The `api` backend is just request forwarding, so run `docker-compose.worker-api.yml` on standard CPU compute instead.
+The Vast autoscaler is only useful for GPU-backed ASR pools. Vendor profiles are just request forwarding, so run `docker-compose.worker-api.yml` on standard CPU compute instead.
 
 If you want to maintain a constant number of instances on Vast.ai instead of autoscaling, just set the min and max instances to the same value. Run a separate autoscaler per backend when you want to scale more than one backend queue.
 

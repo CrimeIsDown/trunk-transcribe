@@ -20,16 +20,17 @@ flowchart LR
     end
 
     subgraph QUEUES[RabbitMQ queues]
-        QW[transcribe_whisper]
-        QA[transcribe_api]
-        QQ[transcribe_qwen]
-        QV[transcribe_voxtral]
+        QVENDOR[transcribe.remote.vendor]
+        QWL[transcribe.remote.pool.local.whisper.large-v3]
+        QQL[transcribe.remote.pool.local.qwen.p25]
+        QVL[transcribe.remote.pool.local.voxtral.realtime]
+        QWV[transcribe.remote.pool.vast.whisper.large-v3]
         QP[post_transcribe]
     end
 
     subgraph EXEC[Backend workers]
+        WR[worker-remote]
         WP[worker-whisper]
-        WA[worker-api]
         WQ[worker-qwen]
         WV[worker-voxtral]
     end
@@ -39,6 +40,7 @@ flowchart LR
         PA[Vendor APIs<br/>OpenAI: whisper-1<br/>DeepInfra: whisper-large-v3-turbo]
         PQW[Qwen server<br/>default model: qwen3-asr-p25]
         PV[Voxtral vLLM<br/>default model: Voxtral-Mini-4B-Realtime-2602]
+        PR[ASR Router<br/>pool.vast.whisper.large-v3]
     end
 
     subgraph POSTPROC[Post-processing]
@@ -55,15 +57,18 @@ flowchart LR
     end
 
     TR -->|upload call + metadata| API
-    API -->|enqueue by transcription_backend| QW
-    API -->|enqueue by transcription_backend| QA
-    API -->|enqueue by transcription_backend| QQ
-    API -->|enqueue by transcription_backend| QV
+    API -->|enqueue by transcription_profile| QVENDOR
+    API -->|enqueue by transcription_profile| QWL
+    API -->|enqueue by transcription_profile| QQL
+    API -->|enqueue by transcription_profile| QVL
+    API -->|enqueue by transcription_profile| QWV
 
-    QW --> WP -->|POST /v1/audio/transcriptions| PW
-    QA --> WA -->|POST /v1/audio/transcriptions| PA
-    QQ --> WQ -->|POST /v1/audio/transcriptions| PQW
-    QV --> WV -->|POST /v1/audio/transcriptions| PV
+    QVENDOR --> WR -->|POST /v1/audio/transcriptions| PA
+    QWL --> WP -->|POST /v1/audio/transcriptions| PW
+    QQL --> WQ -->|POST /v1/audio/transcriptions| PQW
+    QVL --> WV -->|POST /v1/audio/transcriptions| PV
+    QWV --> WR -->|POST /v1/audio/transcriptions + X-ASR-Endpoint-Target| PR
+    PR -->|load balance| PW
 
     PW -->|normalized transcript| QP
     PA -->|normalized transcript| QP
@@ -83,12 +88,13 @@ flowchart LR
 
 ## Default Backend Stacks
 
-| Backend | Queue | Worker compose | Provider server | Default model |
+| Profile | Queue | Worker compose | Provider server | Default model |
 | --- | --- | --- | --- | --- |
-| Whisper | `transcribe_whisper` | `docker-compose.worker-whisper.yml` | `ghcr.io/speaches-ai/speaches` | `Systran/faster-distil-whisper-small.en` |
-| API | `transcribe_api` | `docker-compose.worker-api.yml` | OpenAI or DeepInfra | Provider-specific |
-| Qwen | `transcribe_qwen` | `docker-compose.worker-qwen.yml` | `ghcr.io/trunk-reporter/qwen3-asr-server:gpu` | `qwen3-asr-p25` |
-| Voxtral | `transcribe_voxtral` | `docker-compose.worker-voxtral.yml` | `vllm/vllm-openai:latest` | `mistralai/Voxtral-Mini-4B-Realtime-2602` |
+| `kind=vendor;provider=openai;model=whisper-1` | `transcribe.remote.vendor` | `docker-compose.worker-api.yml` | OpenAI | `whisper-1` |
+| `kind=pool;platform=local;family=whisper;variant=large-v3;...` | `transcribe.remote.pool.local.whisper.large-v3` | `docker-compose.worker-whisper.yml` | `ghcr.io/speaches-ai/speaches` | `Systran/faster-whisper-large-v3` |
+| `kind=pool;platform=local;family=qwen;variant=p25;...` | `transcribe.remote.pool.local.qwen.p25` | `docker-compose.worker-qwen.yml` | `ghcr.io/trunk-reporter/qwen3-asr-server:gpu` | `qwen3-asr-p25` |
+| `kind=pool;platform=local;family=voxtral;variant=realtime;...` | `transcribe.remote.pool.local.voxtral.realtime` | `docker-compose.worker-voxtral.yml` | `vllm/vllm-openai:latest` | `mistralai/Voxtral-Mini-4B-Realtime-2602` |
+| `kind=pool;platform=vast;family=whisper;variant=large-v3;...` | `transcribe.remote.pool.vast.whisper.large-v3` | `docker-compose.worker-api.yml` + `asr-router` | Vast ASR pool | `Systran/faster-whisper-large-v3` |
 
 ## Runtime Contract
 
@@ -102,8 +108,8 @@ That means queue routing is still backend-specific, but execution is no longer s
 
 ## Notes
 
-- Each machine should run one backend-specific worker stack plus any shared infrastructure it needs to reach RabbitMQ and the API.
-- The backend worker normalizes transcripts before handing them to the shared `post_transcribe` flow.
-- The `api` backend is forwarding-only and does not need GPU capacity.
-- `autoscale-vast` should manage one backend queue per autoscaler instance.
+- Each machine should run one profile-specific worker stack plus any shared infrastructure it needs to reach RabbitMQ and the API.
+- The worker normalizes transcripts before handing them to the shared `post_transcribe` flow.
+- Vendor profiles are forwarding-only and do not need GPU capacity.
+- `autoscale-vast` manages one ASR pool queue per autoscaler instance.
 - Flower observes queue and worker state; it is not on the transcript data path.

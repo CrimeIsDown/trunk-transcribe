@@ -4,24 +4,19 @@ import argparse
 import functools
 import json
 import logging
+import math
 import os
 import re
-import subprocess
 import time
-from functools import lru_cache
 from http.client import HTTPConnection
-from math import floor
-from statistics import mean
 from threading import Thread
-from typing import Tuple
-from urllib.parse import urlparse
 
 import requests
 import sentry_sdk
 from dotenv import load_dotenv
 
-from app import worker
-from app.core.config import resolve_transcription_backend
+from app.asr_pool.vast import get_vast_api_key, list_vast_pool_instances
+from app.core.transcription_profiles import resolve_transcription_profile
 
 load_dotenv()
 
@@ -30,9 +25,6 @@ if sentry_dsn:
     sentry_sdk.init(
         dsn=sentry_dsn,
         release=os.getenv("GIT_COMMIT"),
-        # Set traces_sample_rate to 1.0 to capture 100%
-        # of transactions for performance monitoring.
-        # We recommend adjusting this value in production.
         traces_sample_rate=float(os.getenv("SENTRY_TRACE_SAMPLE_RATE", "0.1")),
         _experiments={
             "profiles_sample_rate": float(
@@ -41,83 +33,82 @@ if sentry_dsn:
         },
     )
 
-
 DEFAULT_MIN_INSTANCES = 1
 DEFAULT_MAX_INSTANCES = 10
 DEFAULT_INTERVAL = 60
-FORBIDDEN_INSTANCE_CONFIG = "config/forbidden_instances.json"
-DEFAULT_NON_WHISPER_GPU_RAM_MB = 24 * 1024
+DEFAULT_TARGET_MESSAGES_PER_INSTANCE = 4
 PASSTHROUGH_ENV_PREFIXES = (
     "ASR_",
-    "CELERY_",
-    "DEEPGRAM_",
-    "DEEPINFRA_",
-    "OPENAI_",
+    "CUDA_",
+    "HF_",
     "SENTRY_",
-    "TORCH_",
-    "TRANSCRIPTION_",
+    "VLLM_",
     "WHISPER_",
 )
-PASSTHROUGH_ENV_NAMES = {
-    "API_BASE_URL",
-    "DEFAULT_TRANSCRIPTION_BACKEND",
-    "GIT_COMMIT",
-}
+PASSTHROUGH_ENV_NAMES = {"GIT_COMMIT"}
 
 http = requests.Session()
 http.request = functools.partial(http.request, timeout=10)  # type: ignore
 
 
-class Autoscaler:
+class PoolAutoscaler:
     envs: dict[str, str] = {}
     message_rates: list[float] = []
-    pending_instances: dict[str, int] = {}
-    forbidden_instances: set[str] = set()
 
     def __init__(
         self,
-        min: int = DEFAULT_MIN_INSTANCES,
-        max: int = DEFAULT_MAX_INSTANCES,
+        min_instances: int = DEFAULT_MIN_INSTANCES,
+        max_instances: int = DEFAULT_MAX_INSTANCES,
         interval: int = DEFAULT_INTERVAL,
         image: str | None = None,
     ):
-        super().__init__()
-        self.min = min
-        self.max = max
+        self.min = min_instances
+        self.max = max_instances
         self.interval = interval
+        self.vast_api_key = get_vast_api_key()
 
-        self.vast_api_key = os.getenv("VAST_API_KEY")
-        if not self.vast_api_key:
-            self.vast_api_key = open(os.path.expanduser("~/.vast_api_key")).read()
-        self.vast_api_key = self.vast_api_key.strip()
+        profile = resolve_transcription_profile(
+            explicit_profile=os.getenv("AUTOSCALE_TRANSCRIPTION_PROFILE")
+            or os.getenv("TRANSCRIPTION_PROFILE"),
+            default_profile=os.getenv("DEFAULT_TRANSCRIPTION_PROFILE"),
+        )
+        if profile.kind != "pool":
+            raise RuntimeError("The Vast autoscaler only supports pool transcription profiles.")
 
-        self.backend = resolve_transcription_backend(
-            os.getenv("AUTOSCALE_BACKEND") or os.getenv("TRANSCRIPTION_BACKEND"),
-            default_backend=os.getenv("DEFAULT_TRANSCRIPTION_BACKEND", "whisper"),
-            whisper_implementation=os.getenv("WHISPER_IMPLEMENTATION"),
+        self.profile = profile
+        self.pool_name = (
+            os.getenv("AUTOSCALE_ASR_POOL")
+            or profile.asr_pool
+            or os.getenv("ASR_POOL")
+            or "local.whisper.default"
         )
-        self.queue = os.getenv("AUTOSCALE_QUEUE") or worker.get_transcription_queue(
-            self.backend
+        self.queue_name = os.getenv("AUTOSCALE_QUEUE_NAME") or profile.queue_name
+        self.healthcheck_path = os.getenv("AUTOSCALE_HEALTHCHECK_PATH", "/v1/models")
+        self.internal_port = int(os.getenv("AUTOSCALE_INTERNAL_PORT", "8000"))
+        self.target_messages_per_instance = int(
+            os.getenv(
+                "AUTOSCALE_TARGET_MESSAGES_PER_INSTANCE",
+                str(DEFAULT_TARGET_MESSAGES_PER_INSTANCE),
+            )
         )
-        self.model = os.getenv("WHISPER_MODEL") or os.getenv("ASR_MODEL", "large-v3")
-        self.implementation = os.getenv("WHISPER_IMPLEMENTATION", "whisper-asr-api")
+        self.boot_timeout_seconds = int(
+            os.getenv("AUTOSCALE_BOOT_TIMEOUT_SECONDS", "1200")
+        )
+        self.template_hash = os.getenv("AUTOSCALE_TEMPLATE_HASH")
+        self.image = image or os.getenv("AUTOSCALE_INSTANCE_IMAGE") or os.getenv(
+            "AUTOSCALE_WORKER_IMAGE"
+        )
+        self.instance_args = json.loads(os.getenv("AUTOSCALE_INSTANCE_ARGS_JSON", "[]"))
+        self.search_params = self._load_search_params()
         self.autoscale_gpu_ram_mb = int(os.getenv("AUTOSCALE_GPU_RAM_MB", "0") or "0")
 
-        # Figure out the public IP/host for external access
-        hostname = urlparse(os.getenv("API_BASE_URL", "")).hostname
-        if not hostname:
-            hostname = http.get("https://checkip.amazonaws.com").text.strip()
-
         self.envs = {
-            k: v.replace("rabbitmq", hostname)
+            k: v
             for k, v in os.environ.items()
             if k.startswith(PASSTHROUGH_ENV_PREFIXES) or k in PASSTHROUGH_ENV_NAMES
         }
-        self.envs["CELERY_QUEUES"] = self.queue
-        self.envs["TRANSCRIPTION_BACKEND"] = self.backend
-
-        if os.getenv("SENTRY_DSN"):
-            self.envs["SENTRY_DSN"] = os.getenv("SENTRY_DSN", "")
+        self.envs["ASR_POOL"] = self.pool_name
+        self.envs["ASR_VARIANT"] = profile.variant or ""
 
         cuda_version = os.getenv("CUDA_VERSION", "12.1.0")
         cuda_version_matches = re.match(r"(\d+)\.(\d+)\.(\d+)", cuda_version)
@@ -127,430 +118,245 @@ class Autoscaler:
             else "12.1"
         )
 
-        if image:
-            self.image = image
-        else:
-            self.image = os.getenv(
-                "AUTOSCALE_WORKER_IMAGE",
-                f"ghcr.io/crimeisdown/trunk-transcribe:{os.getenv('VERSION', 'main')}",
-            )
-
-        if os.path.isfile(FORBIDDEN_INSTANCE_CONFIG):
-            with open(FORBIDDEN_INSTANCE_CONFIG) as config:
-                self.forbidden_instances = set(json.load(config))
-
-    def _get_image_digest(self, image: str):
-        repo, tag = image.split(":", 1)
-        registry, repository = repo.split("/", 1)
-
-        r = http.get(f"https://{registry}/token?scope=repository:{repository}:pull")
-        r.raise_for_status()
-        token = r.json()["token"]
-
-        r = http.get(
-            f"https://{registry}/v2/{repository}/manifests/{tag}",
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Accept": "application/vnd.oci.image.index.v1+json",
-            },
-        )
-        r.raise_for_status()
-        digest = r.headers.get("Docker-Content-Digest")
-        if digest:
-            return f"{repo}@{digest}"
-        raise Exception("Could not find image digest")
-
-    def _make_instance_hostname(self, instance: dict) -> str:
-        return f"{instance['machine_id']}.{instance['host_id']}.vast.ai"
-
-    def _update_running_instances(self, instances: list[dict]):
-        self.running_instances = [
-            self._make_instance_hostname(instance)
-            for instance in list(
-                filter(
-                    lambda i: i["actual_status"] == "running"
-                    and "deletion_reason" not in i,
-                    instances,
-                )
-            )
-        ]
-
-    def _update_pending_instances(self, instances: list[dict]):
-        pending_instances = {}
-        for instance in list(
-            filter(
-                lambda i: i["actual_status"] != "running"
-                and "deletion_reason" not in i,
-                instances,
-            )
-        ):
-            hostname = None
-            concurrency = 0
-            for env in instance["extra_env"]:
-                key = env[0]
-                value = env[1]
-                if key == "CELERY_HOSTNAME":
-                    hostname = value
-                    continue
-                if key == "CELERY_CONCURRENCY":
-                    concurrency = int(value)
-                    continue
-            if hostname and concurrency:
-                pending_instances[hostname] = concurrency
-
-        self.pending_instances = pending_instances
-
-    def get_worker_status(self) -> list[dict]:
-        workers = []
-        result = worker.celery.control.inspect(timeout=10).stats()
-        if result:
-            for name, stats in result.items():
-                workers.append({"name": name, "stats": stats})
-        return workers
-
-    def get_queue_status(self) -> dict:
-        broker_api = os.getenv("FLOWER_BROKER_API")
-        url = f"{broker_api}queues/%2F/{self.queue}"
-        r = http.get(url)
-        r.raise_for_status()
-        return r.json()
-
-    @lru_cache()
-    def get_git_commit(self) -> str:
-        if os.getenv("GIT_COMMIT"):
-            return os.environ["GIT_COMMIT"][:7]
-        p = subprocess.run(
-            [
-                "git",
-                "rev-parse",
-                "--short",
-                "HEAD",
-            ],
-            capture_output=True,
-        )
-        p.check_returncode()
-        return p.stdout.decode("utf-8").strip()
-
-    def find_available_instances(self, vram_needed: float) -> list[dict]:
-        if vram_needed <= 0:
-            raise RuntimeError(
-                "The api transcription backend does not require GPU autoscaling. Run docker-compose.worker-api.yml on standard compute instead."
-            )
-        vram_needed = max(10 * 1024, vram_needed)
+    def _load_search_params(self) -> dict:
+        if os.getenv("AUTOSCALE_SEARCH_PARAMS"):
+            return json.loads(os.getenv("AUTOSCALE_SEARCH_PARAMS", "{}"))
         query = {
             "rentable": {"eq": "true"},
             "num_gpus": {"eq": "1"},
-            "gpu_ram": {"gte": f"{vram_needed:.1f}"},
             "cuda_max_good": {"gte": self.cuda_version},
             "order": [["dph_total", "asc"]],
             "type": "ask" if os.getenv("VAST_ONDEMAND") else "bid",
         }
-
-        r = http.get(
-            "https://console.vast.ai/api/v0/bundles/",
-            params={"q": json.dumps(query)},
-            headers={"Authorization": f"Bearer {self.vast_api_key}"},
-        )
-        r.raise_for_status()
-
-        # Filter this list to exclude any instances we're already renting, and exclude non-RTX GPUs
-        return list(
-            filter(
-                lambda offer: self._make_instance_hostname(offer)
-                not in (self.running_instances + list(self.forbidden_instances))
-                and "RTX" in offer["gpu_name"],
-                r.json()["offers"],
-            )
-        )
-
-    def get_current_instances(self) -> list[dict]:
-        r = http.get(
-            "https://console.vast.ai/api/v0/instances/",
-            params={"owner": "me"},
-            headers={"Authorization": f"Bearer {self.vast_api_key}"},
-        )
-        r.raise_for_status()
-        # Filter instances to those owned by this API
-        instances = list(
-            filter(
-                lambda i: ["CELERY_BROKER_URL", self.envs["CELERY_BROKER_URL"]]
-                in i["extra_env"]
-                and ["CELERY_QUEUES", self.queue] in i["extra_env"],
-                r.json()["instances"],
-            )
-        )
-        self._update_running_instances(instances)
-        self._update_pending_instances(instances)
-        return instances
-
-    def _get_vram_required(self) -> float:
         if self.autoscale_gpu_ram_mb:
-            return float(self.autoscale_gpu_ram_mb)
+            query["gpu_ram"] = {"gte": f"{float(self.autoscale_gpu_ram_mb):.1f}"}
+        return query
 
-        if self.backend == "api":
-            return 0.0
+    def get_queue_status(self) -> dict:
+        broker_api = os.getenv("FLOWER_BROKER_API")
+        response = http.get(f"{broker_api}queues/%2F/{self.queue_name}")
+        response.raise_for_status()
+        return response.json()
 
-        if self.backend != "whisper":
-            return float(DEFAULT_NON_WHISPER_GPU_RAM_MB)
+    def list_instances(self):
+        return list_vast_pool_instances(
+            pool_name=self.pool_name,
+            vast_api_key=self.vast_api_key,
+            healthcheck_path=self.healthcheck_path,
+            internal_port=self.internal_port,
+        )
 
-        if self.implementation in {"openai", "deepinfra"}:
-            return float(10 * 1024)
+    def ready_instances(self):
+        ready = []
+        for instance in self.list_instances():
+            if instance.actual_status != "running":
+                continue
+            try:
+                response = http.get(instance.health_url)
+                response.raise_for_status()
+                ready.append(instance)
+            except requests.RequestException:
+                continue
+        return ready
 
-        return float(DEFAULT_NON_WHISPER_GPU_RAM_MB)
+    def pending_instances(self):
+        return [
+            instance
+            for instance in self.list_instances()
+            if instance.actual_status != "running"
+        ]
+
+    def find_available_instances(self) -> list[dict]:
+        response = http.get(
+            "https://console.vast.ai/api/v0/bundles/",
+            params={"q": json.dumps(self.search_params)},
+            headers={"Authorization": f"Bearer {self.vast_api_key}"},
+        )
+        response.raise_for_status()
+
+        current_hosts = {
+            f"{instance.raw['machine_id']}.{instance.raw['host_id']}.vast.ai"
+            for instance in self.list_instances()
+            if instance.raw.get("machine_id") and instance.raw.get("host_id")
+        }
+        offers = []
+        for offer in response.json().get("offers", []):
+            host = f"{offer['machine_id']}.{offer['host_id']}.vast.ai"
+            if host in current_hosts:
+                continue
+            offers.append(offer)
+        return offers
 
     def create_instances(self, count: int) -> int:
-        logging.info(f"Scaling up by {count} instances")
+        logging.info("Scaling pool %s up by %s instances", self.pool_name, count)
+        offers = self.find_available_instances()
+        created = 0
 
-        vram_required = self._get_vram_required()
-        instances = self.find_available_instances(vram_required)
-
-        instances_created = 0
-
-        image = self.image
-        # Try to avoid image caching if possible
-        if "@" not in image:
-            try:
-                image = self._get_image_digest(image)
-            except Exception as e:
-                logging.exception(e)
-                sentry_sdk.capture_exception(e)
-                pass
-
-        while count and len(instances):
-            instance = instances.pop(0)
+        while count and offers:
+            offer = offers.pop(0)
             count -= 1
-
-            instance_id = instance["id"]
-
-            # Adjust concurrency based on GPU RAM
-            concurrency = floor(instance["gpu_ram"] / vram_required)
-            self.envs["CELERY_CONCURRENCY"] = str(max(1, concurrency))
-
-            # Set a nice hostname so we don't use a random Docker hash
-            git_commit = self.get_git_commit()
-            hostname = self._make_instance_hostname(instance)
-            self.envs["CELERY_HOSTNAME"] = f"celery-{git_commit}@{hostname}"
-
-            body = {
+            ask_id = offer["id"]
+            body: dict[str, object] = {
                 "client_id": "me",
-                "image": image,
-                "args": ["worker"],
                 "env": self.envs,
-                "disk": 16,
+                "disk": int(os.getenv("AUTOSCALE_DISK_GB", "16")),
                 "runtype": "args",
             }
+            if self.template_hash:
+                body["template_hash_id"] = self.template_hash
+            else:
+                if not self.image:
+                    raise RuntimeError(
+                        "Set AUTOSCALE_TEMPLATE_HASH or AUTOSCALE_INSTANCE_IMAGE."
+                    )
+                body["image"] = self.image
+                if self.instance_args:
+                    body["args"] = self.instance_args
 
             if not os.getenv("VAST_ONDEMAND"):
-                # Bid 1.25x the minimum bid
-                body["price"] = max(
-                    round(float(instance["dph_total"]) * 1.25, 6), 0.001
-                )
+                body["price"] = max(round(float(offer["dph_total"]) * 1.25, 6), 0.001)
 
-            r = http.put(
-                f"https://console.vast.ai/api/v0/asks/{instance_id}/",
+            response = http.put(
+                f"https://console.vast.ai/api/v0/asks/{ask_id}/",
                 headers={"Authorization": f"Bearer {self.vast_api_key}"},
                 json=body,
             )
-            r.raise_for_status()
+            response.raise_for_status()
+            created += 1
             logging.info(
-                f"Started instance {instance_id}, a {instance['gpu_name']} for ${instance['dph_total'] if os.getenv('VAST_ONDEMAND') else body['price']}/hr"
+                "Started pool instance %s for pool=%s gpu=%s",
+                ask_id,
+                self.pool_name,
+                offer.get("gpu_name"),
             )
-            # Update our other vars
-            self.running_instances.append(hostname)
-            instances_created += 1
+        return created
 
-        return instances_created
+    def delete_instances(self, count: int = 0, delete_unhealthy: bool = False) -> int:
+        instances = self.list_instances()
+        deletable = []
+        now = time.time()
 
-    def delete_instances(
-        self, count: int = 0, delete_exited: bool = False, delete_errored: bool = False
-    ) -> int:
-        instances = self.get_current_instances()
-        online_workers = " ".join(
-            [worker["name"] for worker in self.get_worker_status()]
-        )
-        deletable_instances = []
-        bad_instances = []
-        MAX_LOADING_DURATION = 1200
-
-        for instance in instances:
-            is_disconnected = (
-                instance["actual_status"] == "running"
-                and time.time() - instance["start_date"] > MAX_LOADING_DURATION + 300
-                and self._make_instance_hostname(instance) not in online_workers
-            )
-            is_stuck = (
-                instance["actual_status"] == "loading"
-                and time.time() - instance["start_date"] > MAX_LOADING_DURATION
-            )
-            is_full = (
-                instance["disk_usage"] / instance["disk_space"] > 0.9
-                if instance["disk_space"]
-                else False
-            )
-            is_errored = (
-                instance["status_msg"] and "error" in instance["status_msg"].lower()
-            )
-            errored = delete_errored and (is_stuck or is_disconnected or is_errored)
-            exited = delete_exited and (
-                instance["actual_status"] == "exited"
-                or instance["cur_state"] == "stopped"
-            )
-            if errored or exited or is_full:
-                if is_disconnected:
-                    instance["deletion_reason"] = "disconnected"
-                if is_stuck:
-                    instance["deletion_reason"] = "stuck_loading"
-                if is_errored:
-                    instance["deletion_reason"] = "error"
-                if exited:
-                    instance["deletion_reason"] = "exited"
-                if is_full:
-                    instance["deletion_reason"] = "disk_space_full"
-                deletable_instances.append(instance)
+        if delete_unhealthy:
+            for instance in instances:
+                is_stuck = (
+                    instance.actual_status == "loading"
+                    and now - instance.start_date > self.boot_timeout_seconds
+                )
+                is_errored = bool(
+                    instance.status_msg and "error" in instance.status_msg.lower()
+                )
                 if is_stuck or is_errored:
-                    bad_instances.append(instance)
-                    self.forbidden_instances.add(self._make_instance_hostname(instance))
-
-        if len(bad_instances):
-            with open(FORBIDDEN_INSTANCE_CONFIG, "w") as config:
-                json.dump(list(self.forbidden_instances), config)
+                    deletable.append(instance)
 
         if count:
-            logging.info(f"Scaling down by {count} instances")
-            # Sort instance list by most expensive first, so those get deleted first
-            instances = sorted(
-                instances,
-                key=lambda instance: instance["dph_total"],
-                reverse=True,
+            healthy_running = [
+                instance
+                for instance in instances
+                if instance.actual_status == "running"
+                and instance not in deletable
+            ]
+            healthy_running.sort(key=lambda item: item.hourly_cost, reverse=True)
+            deletable.extend(healthy_running[:count])
+
+        deleted = 0
+        for instance in deletable:
+            response = http.delete(
+                f"https://console.vast.ai/api/v0/instances/{instance.id}/",
+                headers={"Authorization": f"Bearer {self.vast_api_key}"},
+                json={},
             )
-            for instance in instances:
-                if count:
-                    instance["deletion_reason"] = "reduce_replicas"
-                    deletable_instances.append(instance)
-                    count -= 1
-                else:
-                    break
-
-        if len(deletable_instances):
-            for instance in deletable_instances:
-                r = http.delete(
-                    f"https://console.vast.ai/api/v0/instances/{instance['id']}/",
-                    headers={"Authorization": f"Bearer {self.vast_api_key}"},
-                    json={},
-                )
-                r.raise_for_status()
-                age_hrs = (time.time() - instance["start_date"]) / (60 * 60)
-                logging.info(
-                    f"[reason: {instance['deletion_reason']}] Deleted instance {instance['id']} (a {instance['gpu_name']} for ${instance['dph_total']:.3f}/hr), was up for {age_hrs:.2f} hours. Last status: {instance['status_msg']}"
-                )
-
-        self._update_running_instances(instances)
-        self._update_pending_instances(instances)
-
-        return len(deletable_instances)
+            response.raise_for_status()
+            deleted += 1
+            logging.info(
+                "Deleted pool instance %s from pool=%s status=%s",
+                instance.id,
+                self.pool_name,
+                instance.actual_status,
+            )
+        return deleted
 
     def monitor_queue(self):
         while True:
             time.sleep(2)
             try:
                 queue = self.get_queue_status()
-                message_rate = (
-                    queue["messages_details"]["rate"]
-                    if "messages_details" in queue
-                    else 0
-                )
-            except Exception as e:
-                logging.exception(e)
-                sentry_sdk.capture_exception(e)
+                rate = queue.get("messages_details", {}).get("rate", 0)
+            except Exception as exc:
+                logging.exception(exc)
+                sentry_sdk.capture_exception(exc)
                 continue
-
-            self.message_rates.append(message_rate)
+            self.message_rates.append(rate)
             if len(self.message_rates) > self.interval / 2:
                 self.message_rates.pop(0)
 
-    def calculate_needed_instances(self) -> Tuple[int, int]:
+    def calculate_needed_instances(self) -> tuple[int, int]:
         queue = self.get_queue_status()
-
-        current_instances = queue["consumers"]
-
-        needed_instances = current_instances
-
-        if len(self.message_rates):
-            message_rate = mean(self.message_rates)
-        else:
-            message_rate = queue["messages_details"]["rate"]
-
+        ready = len(self.ready_instances())
+        pending = len(self.pending_instances())
+        messages = int(queue.get("messages") or 0)
+        needed = max(self.min, math.ceil(messages / self.target_messages_per_instance))
+        if messages > 0 and ready + pending == 0:
+            needed = max(needed, 1)
         logging.info(
-            f"Current avg message rate: {message_rate:.2f} / Current message count: {queue['messages']} / Current instances: {current_instances}"
+            "pool=%s queue=%s messages=%s ready=%s pending=%s target=%s",
+            self.pool_name,
+            self.queue_name,
+            messages,
+            ready,
+            pending,
+            needed,
         )
-
-        if message_rate > 0.4 or not queue["consumers"]:
-            needed_instances += 1
-        elif queue["messages"] > 400 and queue["consumers"] > 0:
-            ack_rate_per_consumer = (
-                queue["message_stats"]["ack_details"]["rate"] / queue["consumers"]
-            )
-            time_to_clear_queue = queue["messages"] / ack_rate_per_consumer
-            if time_to_clear_queue > 120:
-                needed_instances += 1
-        elif message_rate < -0.5 and queue["messages"] < 10:
-            needed_instances -= 1
-
-        return current_instances, needed_instances
+        return ready + pending, min(max(needed, self.min), self.max)
 
     def maybe_scale(self) -> int:
-        self.delete_instances(delete_exited=True, delete_errored=True)
-
-        current_instances, needed_instances = self.calculate_needed_instances()
-        current_instances += len(self.pending_instances)
-
-        target_instances = min(max(needed_instances, self.min), self.max)
-
-        if target_instances > current_instances:
-            return self.create_instances(target_instances - current_instances)
-        if target_instances < current_instances:
-            return -self.delete_instances(current_instances - target_instances)
-
+        self.delete_instances(delete_unhealthy=True)
+        active_instances, target_instances = self.calculate_needed_instances()
+        if target_instances > active_instances:
+            return self.create_instances(target_instances - active_instances)
+        if target_instances < active_instances:
+            return -self.delete_instances(active_instances - target_instances)
         return 0
 
     def run(self):
         logging.info(
-            f"Started autoscaler: backend={self.backend} queue={self.queue} min_instances={self.min} max_instances={self.max} interval={self.interval}"
+            "Started pool autoscaler: pool=%s queue=%s min=%s max=%s interval=%s",
+            self.pool_name,
+            self.queue_name,
+            self.min,
+            self.max,
+            self.interval,
         )
-
-        # Start monitoring the queue stats
-        t = Thread(target=self.monitor_queue)
-        t.start()
+        thread = Thread(target=self.monitor_queue, daemon=True)
+        thread.start()
 
         while True:
             start = time.time()
             try:
                 change = self.maybe_scale()
-                logging.info(f"Ran maybe_scale, change={change}")
-            except Exception as e:
-                logging.exception(e)
-                sentry_sdk.capture_exception(e)
-            end = time.time()
-            last_sleep_duration = self.interval - (end - start)
-            time.sleep(max(last_sleep_duration, 0))
+                logging.info("Ran maybe_scale, change=%s", change)
+            except Exception as exc:
+                logging.exception(exc)
+                sentry_sdk.capture_exception(exc)
+            sleep_duration = self.interval - (time.time() - start)
+            time.sleep(max(sleep_duration, 0))
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Start workers with vast.ai")
+    parser = argparse.ArgumentParser(description="Scale a Vast.ai ASR pool")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
     parser.add_argument(
         "--min-instances",
         type=int,
         metavar="N",
         default=DEFAULT_MIN_INSTANCES,
-        help="Minimum number of worker instances",
+        help="Minimum number of pool instances",
     )
     parser.add_argument(
         "--max-instances",
         type=int,
         metavar="N",
         default=DEFAULT_MAX_INSTANCES,
-        help="Maximum number of worker instances",
+        help="Maximum number of pool instances",
     )
     parser.add_argument(
         "--interval",
@@ -558,11 +364,7 @@ if __name__ == "__main__":
         default=DEFAULT_INTERVAL,
         help="Interval of autoscaling loop in seconds",
     )
-    parser.add_argument(
-        "--image",
-        type=str,
-        help="Docker image to run",
-    )
+    parser.add_argument("--image", type=str, help="Container image to run")
     args = parser.parse_args()
 
     if args.verbose:
@@ -572,11 +374,10 @@ if __name__ == "__main__":
         level=logging.DEBUG if args.verbose else logging.INFO,
     )
 
-    autoscaler = Autoscaler(
-        min=args.min_instances,
-        max=args.max_instances,
+    autoscaler = PoolAutoscaler(
+        min_instances=args.min_instances,
+        max_instances=args.max_instances,
         interval=args.interval,
         image=args.image,
     )
-
     autoscaler.run()

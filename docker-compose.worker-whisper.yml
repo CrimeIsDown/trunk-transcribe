@@ -14,13 +14,13 @@ services:
       - ./config:/src/config
       - ./docker/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
     environment:
-      - DEFAULT_TRANSCRIPTION_BACKEND=${DEFAULT_TRANSCRIPTION_BACKEND:-whisper}
-      - TRANSCRIPTION_BACKEND=whisper
-      - CELERY_QUEUES=transcribe_whisper
+      - DEFAULT_TRANSCRIPTION_PROFILE=${DEFAULT_TRANSCRIPTION_PROFILE:-kind=pool;platform=local;family=whisper;variant=large-v3;provider=speaches;model=Systran/faster-whisper-large-v3}
+      - TRANSCRIPTION_PROFILE=kind=pool;platform=local;family=whisper;variant=large-v3;provider=speaches;model=Systran/faster-whisper-large-v3
+      - CELERY_QUEUES=transcribe.remote.pool.local.whisper.large-v3
       - ASR_API_URL=${ASR_API_URL:-http://asr-whisper:8000/v1}
       - ASR_PROVIDER=${ASR_PROVIDER:-speaches}
+      - ASR_VARIANT=${ASR_VARIANT:-large-v3}
       - ASR_MODEL=${ASR_MODEL:-Systran/faster-whisper-large-v3}
-      - WHISPER_IMPLEMENTATION=${WHISPER_IMPLEMENTATION:-whisper-asr-api}
       - CELERY_LOGLEVEL
       - CELERY_BROKER_URL
       - CELERY_RESULT_BACKEND

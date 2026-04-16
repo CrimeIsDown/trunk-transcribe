@@ -40,6 +40,8 @@ elif [ "$1" = 'worker' ]; then
         -Q ${CELERY_QUEUES:-transcribe,post_transcribe}
 elif [ "$1" = 'flower' ]; then
     exec uv run --directory backend celery --app=app.worker.celery flower --port=5555
+elif [ "$1" = 'asr-router' ]; then
+    exec uv run --directory backend uvicorn app.asr_router.main:app --host 0.0.0.0 --port ${ASR_ROUTER_PORT:-8001} --log-level ${UVICORN_LOG_LEVEL:-info}
 elif [ "$1" = 'chat-ui' ]; then
     exec uv run --directory backend python -m app.ai.scanner_chat_web
 fi

@@ -4,190 +4,112 @@ from threading import Lock
 
 from celery_batches import Batches
 
-from app.core.config import (
-    API_TRANSCRIPTION_IMPLEMENTATIONS,
-    resolve_transcription_backend,
+from app.core.transcription_profiles import (
+    DEFAULT_DEEPINFRA_BASE_URL,
+    DEFAULT_OPENAI_BASE_URL,
+    TranscriptionProfile,
+    resolve_transcription_profile,
 )
 from app.task import Task
 from .base import BaseWhisper
 
-API_IMPLEMENTATIONS = list(API_TRANSCRIPTION_IMPLEMENTATIONS)
-LOCAL_IMPLEMENTATIONS = ["whisper", "faster-whisper", "whispers2t", "whisper.cpp"]
-OPENAI_COMPATIBLE_PROVIDER_BASE_URLS = {
-    "openai": "https://api.openai.com/v1",
-    "deepinfra": "https://api.deepinfra.com/v1/openai",
-}
 
-
-class WhisperTask(Task):
+class TranscriptionTask(Task):
     _models: dict[str, BaseWhisper] = {}
     model_lock = Lock()
 
-    def model(self, implementation: str | None = None) -> BaseWhisper:
-        if not implementation:
-            implementation = self.default_implementation
-        implementation = self.normalize_implementation(implementation)
-        if implementation not in self._models:
-            self._models[implementation] = self.initialize_model(implementation)
-        return self._models[implementation]
+    def model(self, transcription_profile: str | None = None) -> BaseWhisper:
+        profile = self.resolve_profile(transcription_profile)
+        if profile.canonical not in self._models:
+            self._models[profile.canonical] = self.initialize_model(profile.canonical)
+        return self._models[profile.canonical]
 
-    def normalize_implementation(self, implementation: str) -> str:
-        name, _, model = implementation.partition(":")
-        if name in API_IMPLEMENTATIONS:
-            return f"whisper-asr-api:{name}:{model}"
-        return implementation
+    def resolve_profile(
+        self, transcription_profile: str | None = None
+    ) -> TranscriptionProfile:
+        if transcription_profile is None:
+            transcription_profile = self.default_profile
+        return resolve_transcription_profile(
+            explicit_profile=transcription_profile,
+            default_profile=os.getenv("DEFAULT_TRANSCRIPTION_PROFILE"),
+        )
 
     def resolve_provider_and_model(
-        self, implementation: str | None = None
+        self, transcription_profile: str | None = None
     ) -> tuple[str, str]:
-        normalized = self.normalize_implementation(
-            implementation or self.default_implementation
-        )
-        implementation_name, _, provider_model = normalized.partition(":")
-        if implementation_name != "whisper-asr-api":
-            raise RuntimeError(f"Unknown implementation {implementation_name}")
-
-        provider_name = None
-        model_name = None
-        if provider_model:
-            provider_name, _, model_name = provider_model.partition(":")
-
-        provider_name = provider_name or os.getenv("ASR_PROVIDER") or "speaches"
-
-        model_name = (
-            model_name
-            or os.getenv("ASR_MODEL")
-            or os.getenv("WHISPER_MODEL")
-        )
-
-        if provider_name == "openai" and not model_name:
-            model_name = "whisper-1"
-        elif provider_name == "deepinfra" and not model_name:
-            model_name = "openai/whisper-large-v3-turbo"
-        elif not model_name:
-            model_name = "Systran/faster-distil-whisper-small.en"
-
-        return provider_name, model_name
+        profile = self.resolve_profile(transcription_profile)
+        return profile.provider, profile.model
 
     @property
-    def default_implementation(self) -> str:
-        backend = resolve_transcription_backend(
-            os.getenv("TRANSCRIPTION_BACKEND"),
-            default_backend=os.getenv("DEFAULT_TRANSCRIPTION_BACKEND", "whisper"),
-            whisper_implementation=os.getenv("WHISPER_IMPLEMENTATION"),
-        )
+    def default_profile(self) -> str:
+        return resolve_transcription_profile(
+            explicit_profile=os.getenv("TRANSCRIPTION_PROFILE"),
+            default_profile=os.getenv("DEFAULT_TRANSCRIPTION_PROFILE"),
+        ).canonical
 
-        if backend in {"qwen", "voxtral"}:
-            provider_name = os.getenv("ASR_PROVIDER", backend)
-            backend_model_name = os.getenv("ASR_MODEL", backend)
-            return f"whisper-asr-api:{provider_name}:{backend_model_name}"
-
-        if backend == "api":
-            whisper_implementation = os.getenv("WHISPER_IMPLEMENTATION")
-            if whisper_implementation not in API_IMPLEMENTATIONS:
-                supported = ", ".join(API_IMPLEMENTATIONS)
-                raise RuntimeError(
-                    f"TRANSCRIPTION_BACKEND=api requires WHISPER_IMPLEMENTATION to be one of: {supported}"
-                )
-
-            api_model_name: str | None = os.getenv("WHISPER_MODEL")
-
-            if whisper_implementation == "openai":
-                api_model_name = "whisper-1"
-
-            if whisper_implementation == "deepinfra" and not api_model_name:
-                api_model_name = "openai/whisper-large-v3-turbo"
-
-            return f"whisper-asr-api:{whisper_implementation}:{api_model_name}"
-
-        whisper_implementation = os.getenv("WHISPER_IMPLEMENTATION", "whisper-asr-api")
-        if whisper_implementation in LOCAL_IMPLEMENTATIONS:
-            supported = ", ".join(API_IMPLEMENTATIONS + ["whisper-asr-api"])
-            raise RuntimeError(
-                f"Local Whisper implementations have been removed. Use one of: {supported}"
-            )
-
-        whisper_model_name: str | None = os.getenv("WHISPER_MODEL")
-
-        if whisper_implementation == "openai":
-            whisper_model_name = "whisper-1"
-
-        if whisper_implementation == "deepinfra" and not whisper_model_name:
-            whisper_model_name = "openai/whisper-large-v3-turbo"
-
-        if whisper_implementation == "whisper-asr-api":
-            provider_name = os.getenv("ASR_PROVIDER", "speaches")
-            whisper_model_name = (
-                os.getenv("ASR_MODEL")
-                or whisper_model_name
-                or "Systran/faster-distil-whisper-small.en"
-            )
-            return f"whisper-asr-api:{provider_name}:{whisper_model_name}"
-
-        return f"{whisper_implementation}:{whisper_model_name}"
-
-    def initialize_model(self, implementation: str) -> BaseWhisper:
+    def initialize_model(self, transcription_profile: str) -> BaseWhisper:
         with self.model_lock:
-            implementation = self.normalize_implementation(implementation)
-            implementation, _, model = implementation.partition(":")
-            if implementation == "whisper-asr-api":
-                from .whisper_asr_api import WhisperAsrApi
+            profile = self.resolve_profile(transcription_profile)
+            from .whisper_asr_api import WhisperAsrApi
 
-                provider_name, model_name = self.resolve_provider_and_model(
-                    f"{implementation}:{model}" if model else implementation
-                )
-                headers = self._get_provider_headers(provider_name)
-                base_url = self._get_provider_base_url(provider_name)
-                logging.info(
-                    "Initializing ASR client provider=%s model=%s base_url=%s",
-                    provider_name,
-                    model_name,
-                    base_url,
-                )
-                return WhisperAsrApi(
-                    base_url=base_url,
-                    provider=provider_name,
-                    model=model_name,
-                    headers=headers,
-                )
-
-            if implementation in LOCAL_IMPLEMENTATIONS:
-                raise RuntimeError(
-                    f"Local Whisper implementation {implementation} is no longer supported"
-                )
-
-            raise RuntimeError(f"Unknown implementation {implementation}")
-
-    def _get_provider_base_url(self, provider_name: str | None) -> str:
-        if provider_name == "openai":
-            return os.getenv(
-                "OPENAI_BASE_URL",
-                os.getenv(
-                    "ASR_API_URL", OPENAI_COMPATIBLE_PROVIDER_BASE_URLS["openai"]
-                ),
+            headers = self._get_profile_headers(profile)
+            base_url = self._get_profile_base_url(profile)
+            logging.info(
+                "Initializing ASR client kind=%s provider=%s model=%s base_url=%s endpoint_target=%s",
+                profile.kind,
+                profile.provider,
+                profile.model,
+                base_url,
+                profile.endpoint_target,
             )
-        if provider_name == "deepinfra":
-            return os.getenv(
-                "DEEPINFRA_BASE_URL",
-                os.getenv(
-                    "ASR_API_URL", OPENAI_COMPATIBLE_PROVIDER_BASE_URLS["deepinfra"]
-                ),
+            return WhisperAsrApi(
+                base_url=base_url,
+                provider=profile.provider,
+                model=profile.model,
+                headers=headers,
             )
+
+    def _get_profile_base_url(self, profile: TranscriptionProfile) -> str:
+        if profile.kind == "vendor":
+            if profile.provider == "openai":
+                return os.getenv("OPENAI_BASE_URL", DEFAULT_OPENAI_BASE_URL)
+            if profile.provider == "deepinfra":
+                return os.getenv("DEEPINFRA_BASE_URL", DEFAULT_DEEPINFRA_BASE_URL)
+            raise RuntimeError(f"Unsupported vendor provider {profile.provider}")
+
+        if profile.platform == "vast":
+            return (
+                os.getenv("ASR_ROUTER_URL")
+                or os.getenv("ASR_API_URL")
+                or "http://asr-router:8001/v1"
+            )
+
         return os.getenv("ASR_API_URL", "http://localhost:5000/v1")
 
-    def _get_provider_headers(self, provider_name: str | None) -> dict[str, str]:
-        if provider_name == "openai":
-            api_key = os.getenv("OPENAI_API_KEY")
-            if not api_key:
-                raise RuntimeError("OPENAI_API_KEY env must be set.")
-            return {"Authorization": f"Bearer {api_key}"}
-        if provider_name == "deepinfra":
-            api_key = os.getenv("DEEPINFRA_API_KEY")
-            if not api_key:
-                raise RuntimeError("DEEPINFRA_API_KEY env must be set.")
-            return {"Authorization": f"Bearer {api_key}"}
-        return {}
+    def _get_profile_headers(self, profile: TranscriptionProfile) -> dict[str, str]:
+        headers: dict[str, str] = {}
+        if profile.kind == "vendor":
+            if profile.provider == "openai":
+                api_key = os.getenv("OPENAI_API_KEY")
+                if not api_key:
+                    raise RuntimeError("OPENAI_API_KEY env must be set.")
+                headers["Authorization"] = f"Bearer {api_key}"
+                return headers
+            if profile.provider == "deepinfra":
+                api_key = os.getenv("DEEPINFRA_API_KEY")
+                if not api_key:
+                    raise RuntimeError("DEEPINFRA_API_KEY env must be set.")
+                headers["Authorization"] = f"Bearer {api_key}"
+                return headers
+            raise RuntimeError(f"Unsupported vendor provider {profile.provider}")
+
+        if profile.platform == "vast":
+            headers["X-ASR-Endpoint-Target"] = profile.endpoint_target
+        return headers
 
 
-class WhisperBatchTask(Batches, WhisperTask):
+WhisperTask = TranscriptionTask
+
+
+class WhisperBatchTask(Batches, TranscriptionTask):
     pass

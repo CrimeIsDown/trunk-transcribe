@@ -2,129 +2,57 @@ import os
 import unittest
 from unittest.mock import Mock, PropertyMock, patch
 
-from app.whisper.task import WhisperTask
+from app.core.transcription_profiles import build_pool_profile, build_vendor_profile
+from app.whisper.task import TranscriptionTask
 
 
-class TestWhisperTaskModelSelection(unittest.TestCase):
+class TestTranscriptionTaskModelSelection(unittest.TestCase):
     def setUp(self):
-        WhisperTask._models = {}
-        self.task = WhisperTask()
+        TranscriptionTask._models = {}
+        self.task = TranscriptionTask()
 
-    def test_default_implementation_requires_env(self):
+    def test_default_profile_uses_local_whisper_defaults(self):
         with patch.dict(os.environ, {}, clear=True):
             self.assertEqual(
-                "whisper-asr-api:speaches:Systran/faster-distil-whisper-small.en",
-                self.task.default_implementation,
+                "kind=pool;provider=speaches;model=Systran/faster-distil-whisper-small.en;platform=local;family=whisper;variant=whisper",
+                self.task.default_profile,
             )
 
-    def test_default_implementation_openai_promotes_to_api_backend(self):
-        with patch.dict(
-            os.environ,
-            {"WHISPER_IMPLEMENTATION": "openai", "WHISPER_MODEL": "custom-model"},
-            clear=True,
-        ):
-            self.assertEqual(
-                "whisper-asr-api:openai:whisper-1", self.task.default_implementation
-            )
+    def test_resolve_profile_uses_explicit_vendor_profile(self):
+        profile = self.task.resolve_profile(build_vendor_profile("openai", "whisper-1"))
+        self.assertEqual("vendor", profile.kind)
+        self.assertEqual("openai", profile.provider)
+        self.assertEqual("whisper-1", profile.model)
 
-    def test_default_implementation_deepinfra_promotes_to_api_backend(self):
-        with patch.dict(
-            os.environ, {"WHISPER_IMPLEMENTATION": "deepinfra"}, clear=True
-        ):
-            self.assertEqual(
-                "whisper-asr-api:deepinfra:openai/whisper-large-v3-turbo",
-                self.task.default_implementation,
+    def test_resolve_profile_uses_explicit_pool_profile(self):
+        profile = self.task.resolve_profile(
+            build_pool_profile(
+                platform="vast",
+                family="whisper",
+                variant="large-v3",
+                provider="speaches",
+                model="Systran/faster-whisper-large-v3",
             )
+        )
+        self.assertEqual("pool", profile.kind)
+        self.assertEqual("vast", profile.platform)
+        self.assertEqual("large-v3", profile.variant)
 
-    def test_api_backend_requires_vendor_api_implementation(self):
-        with patch.dict(os.environ, {"TRANSCRIPTION_BACKEND": "api"}, clear=True):
-            with self.assertRaisesRegex(
-                RuntimeError,
-                "TRANSCRIPTION_BACKEND=api requires WHISPER_IMPLEMENTATION",
-            ):
-                _ = self.task.default_implementation
+    def test_resolve_provider_and_model_for_vendor(self):
+        self.assertEqual(
+            ("openai", "whisper-1"),
+            self.task.resolve_provider_and_model(
+                build_vendor_profile("openai", "whisper-1")
+            ),
+        )
 
-    def test_default_implementation_whisper_uses_asr_api_by_default(self):
-        with patch.dict(
-            os.environ,
-            {
-                "ASR_PROVIDER": "speaches",
-                "ASR_MODEL": "Systran/faster-whisper-large-v3",
-            },
-            clear=True,
-        ):
-            self.assertEqual(
-                "whisper-asr-api:speaches:Systran/faster-whisper-large-v3",
-                self.task.default_implementation,
-            )
-
-    def test_default_implementation_qwen_uses_generic_asr_api(self):
-        with patch.dict(
-            os.environ,
-            {
-                "TRANSCRIPTION_BACKEND": "qwen",
-                "ASR_PROVIDER": "vllm",
-                "ASR_MODEL": "qwen2.5-omni",
-            },
-            clear=True,
-        ):
-            self.assertEqual(
-                "whisper-asr-api:vllm:qwen2.5-omni",
-                self.task.default_implementation,
-            )
-
-    def test_default_implementation_voxtral_defaults_provider_and_model(self):
-        with patch.dict(os.environ, {"TRANSCRIPTION_BACKEND": "voxtral"}, clear=True):
-            self.assertEqual(
-                "whisper-asr-api:voxtral:voxtral",
-                self.task.default_implementation,
-            )
-
-    def test_resolve_provider_and_model_uses_whisper_defaults(self):
-        with patch.dict(
-            os.environ,
-            {
-                "ASR_PROVIDER": "speaches",
-                "ASR_MODEL": "Systran/faster-whisper-large-v3",
-            },
-            clear=True,
-        ):
-            self.assertEqual(
-                ("speaches", "Systran/faster-whisper-large-v3"),
-                self.task.resolve_provider_and_model("whisper-asr-api"),
-            )
-
-    def test_resolve_provider_and_model_applies_vendor_defaults(self):
-        with patch.dict(os.environ, {}, clear=True):
-            self.assertEqual(
-                ("openai", "custom-model"),
-                self.task.resolve_provider_and_model("openai:custom-model"),
-            )
-            self.assertEqual(
-                ("openai", "whisper-1"),
-                self.task.resolve_provider_and_model("openai"),
-            )
-            self.assertEqual(
-                ("deepinfra", "openai/whisper-large-v3-turbo"),
-                self.task.resolve_provider_and_model("deepinfra"),
-            )
-
-    def test_default_implementation_rejects_removed_local_implementations(self):
-        with patch.dict(
-            os.environ, {"WHISPER_IMPLEMENTATION": "faster-whisper"}, clear=True
-        ):
-            with self.assertRaisesRegex(
-                RuntimeError, "Local Whisper implementations have been removed"
-            ):
-                _ = self.task.default_implementation
-
-    def test_model_uses_default_implementation_when_not_provided(self):
+    def test_model_uses_default_profile_when_not_provided(self):
         expected_model = Mock()
         with patch.object(
-            WhisperTask,
-            "default_implementation",
+            TranscriptionTask,
+            "default_profile",
             new_callable=PropertyMock,
-            return_value="whisper-asr-api:openai:whisper-1",
+            return_value=build_vendor_profile("openai", "whisper-1"),
         ):
             with patch.object(
                 self.task, "initialize_model", return_value=expected_model
@@ -132,26 +60,25 @@ class TestWhisperTaskModelSelection(unittest.TestCase):
                 model = self.task.model()
         self.assertIs(expected_model, model)
         initialize_model_mock.assert_called_once_with(
-            "whisper-asr-api:openai:whisper-1"
+            build_vendor_profile("openai", "whisper-1")
         )
 
     def test_model_caches_initialized_models(self):
         expected_model = Mock()
+        profile = build_vendor_profile("openai", "whisper-1")
         with patch.object(
             self.task, "initialize_model", return_value=expected_model
         ) as initialize_model_mock:
-            model_1 = self.task.model("openai:whisper-1")
-            model_2 = self.task.model("openai:whisper-1")
+            model_1 = self.task.model(profile)
+            model_2 = self.task.model(profile)
 
         self.assertIs(model_1, model_2)
-        initialize_model_mock.assert_called_once_with(
-            "whisper-asr-api:openai:whisper-1"
-        )
+        initialize_model_mock.assert_called_once_with(profile)
 
     def test_initialize_model_openai_requires_api_key(self):
         with patch.dict(os.environ, {}, clear=True):
             with self.assertRaisesRegex(RuntimeError, "OPENAI_API_KEY env must be set"):
-                self.task.initialize_model("whisper-asr-api:openai:whisper-1")
+                self.task.initialize_model(build_vendor_profile("openai", "whisper-1"))
 
     def test_initialize_model_deepinfra_requires_api_key(self):
         with patch.dict(os.environ, {}, clear=True):
@@ -159,13 +86,10 @@ class TestWhisperTaskModelSelection(unittest.TestCase):
                 RuntimeError, "DEEPINFRA_API_KEY env must be set"
             ):
                 self.task.initialize_model(
-                    "whisper-asr-api:deepinfra:openai/whisper-large-v3-turbo"
+                    build_vendor_profile(
+                        "deepinfra", "openai/whisper-large-v3-turbo"
+                    )
                 )
-
-    def test_initialize_model_unknown_implementation_raises(self):
-        with patch.dict(os.environ, {}, clear=True):
-            with self.assertRaisesRegex(RuntimeError, "Unknown implementation unknown"):
-                self.task.initialize_model("unknown:model")
 
 
 if __name__ == "__main__":

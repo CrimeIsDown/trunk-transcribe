@@ -17,16 +17,15 @@ from sentry_sdk.integrations.celery import CeleryIntegration
 
 from app.core.config import (
     POST_TRANSCRIBE_QUEUE,
-    TRANSCRIPTION_QUEUE_BY_BACKEND,
-    resolve_transcription_backend,
     settings,
 )
+from app.core.transcription_profiles import resolve_transcription_profile
 from app.utils import api_client
 from app.utils.exceptions import before_send
 from app.utils.storage import fetch_audio
 from app.whisper.base import TranscribeOptions, TranscribeTaskResult, WhisperResult
 from app.whisper.exceptions import WhisperException
-from app.whisper.task import WhisperTask
+from app.whisper.task import TranscriptionTask
 from app.whisper.transcribe import transcribe
 
 if TYPE_CHECKING:
@@ -72,31 +71,26 @@ logger = logging.getLogger(__name__)
 
 
 def get_transcription_queue(
-    backend: str | None = None, whisper_implementation: str | None = None
+    transcription_profile: str | None = None,
 ) -> str:
-    resolved_backend = resolve_transcription_backend(
-        backend,
-        default_backend=settings.resolved_default_transcription_backend,
-        whisper_implementation=whisper_implementation
-        or settings.WHISPER_IMPLEMENTATION,
+    resolved_profile = resolve_transcription_profile(
+        explicit_profile=transcription_profile,
+        default_profile=settings.DEFAULT_TRANSCRIPTION_PROFILE,
     )
-    return TRANSCRIPTION_QUEUE_BY_BACKEND[resolved_backend]
+    return resolved_profile.queue_name
 
 
 def queue_task(
     audio_url: str,
     metadata: Metadata,
     options: TranscribeOptions,
-    whisper_implementation: Optional[str] = None,
+    transcription_profile: Optional[str] = None,
     id: Optional[int | str] = None,
     index_name: Optional[str] = None,
-    transcription_backend: Optional[str] = None,
 ):
-    transcription_queue = get_transcription_queue(
-        transcription_backend, whisper_implementation
-    )
+    transcription_queue = get_transcription_queue(transcription_profile)
     return (
-        transcribe_task.s(options, audio_url, whisper_implementation).set(
+        transcribe_task.s(options, audio_url, transcription_profile).set(
             queue=transcription_queue
         )
         | post_transcribe_task.s(metadata, audio_url, id, index_name).set(
@@ -160,20 +154,20 @@ def task_retry(**kwargs):
     logger.warning(f"Task {kwargs['request'].kwargsrepr} failed, retrying...")
 
 
-@celery.task(base=WhisperTask, bind=True, name="transcribe_audio")
+@celery.task(base=TranscriptionTask, bind=True, name="transcribe_audio")
 def transcribe_task(
     self,
     options: TranscribeOptions,
     audio_url: str,
-    whisper_implementation: Optional[str] = None,
+    transcription_profile: Optional[str] = None,
 ) -> TranscribeTaskResult:
     audio_file = fetch_audio(audio_url)
     transcription_provider, transcription_model = self.resolve_provider_and_model(
-        whisper_implementation
+        transcription_profile
     )
     try:
         result = transcribe(
-            model=self.model(whisper_implementation),
+            model=self.model(transcription_profile),
             audio_file=audio_file,
             options=options,
         )

@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from app import worker
+from app.core.transcription_profiles import build_pool_profile, build_vendor_profile
 
 
 def build_metadata(audio_type: str = "analog") -> dict:
@@ -28,57 +29,36 @@ class TestWorkerRouting(unittest.TestCase):
     def tearDown(self):
         worker.search_adapters = []
 
-    def test_get_transcription_queue_defaults_to_whisper(self):
-        with patch.dict(
-            "os.environ",
-            {
-                "DEFAULT_TRANSCRIPTION_BACKEND": "whisper",
-                "WHISPER_IMPLEMENTATION": "whisper-asr-api",
-            },
-            clear=True,
-        ):
-            self.assertEqual("transcribe_whisper", worker.get_transcription_queue())
-
-    def test_get_transcription_queue_maps_known_backends(self):
-        with patch.dict(
-            "os.environ", {"WHISPER_IMPLEMENTATION": "whisper-asr-api"}, clear=True
-        ):
+    def test_get_transcription_queue_defaults_to_local_whisper_pool(self):
+        with patch.dict("os.environ", {}, clear=True):
             self.assertEqual(
-                "transcribe_whisper", worker.get_transcription_queue("whisper")
-            )
-            self.assertEqual("transcribe_api", worker.get_transcription_queue("api"))
-            self.assertEqual("transcribe_qwen", worker.get_transcription_queue("qwen"))
-            self.assertEqual(
-                "transcribe_voxtral", worker.get_transcription_queue("voxtral")
+                "transcribe.remote.pool.local.whisper.default",
+                worker.get_transcription_queue(),
             )
 
-    def test_get_transcription_queue_defaults_to_api_for_vendor_implementations(self):
-        with patch.dict(
-            "os.environ",
-            {
-                "DEFAULT_TRANSCRIPTION_BACKEND": "whisper",
-                "WHISPER_IMPLEMENTATION": "deepinfra",
-            },
-            clear=True,
-        ):
-            self.assertEqual("transcribe_api", worker.get_transcription_queue())
-
-    def test_get_transcription_queue_promotes_vendor_api_implementations(self):
+    def test_get_transcription_queue_routes_vendor_profiles(self):
         self.assertEqual(
-            "transcribe_api", worker.get_transcription_queue("whisper", "openai:whisper-1")
-        )
-        self.assertEqual(
-            "transcribe_api",
+            "transcribe.remote.vendor",
             worker.get_transcription_queue(
-                None, "deepinfra:openai/whisper-large-v3-turbo"
+                build_vendor_profile("openai", "whisper-1")
             ),
         )
 
-    def test_get_transcription_queue_rejects_unknown_backend(self):
-        with self.assertRaisesRegex(ValueError, "Unsupported transcription backend"):
-            worker.get_transcription_queue("unknown")
+    def test_get_transcription_queue_routes_pool_profiles(self):
+        self.assertEqual(
+            "transcribe.remote.pool.vast.whisper.large-v3",
+            worker.get_transcription_queue(
+                build_pool_profile(
+                    platform="vast",
+                    family="whisper",
+                    variant="large-v3",
+                    provider="speaches",
+                    model="Systran/faster-whisper-large-v3",
+                )
+            ),
+        )
 
-    def test_queue_task_routes_to_backend_queue_and_post_queue(self):
+    def test_queue_task_routes_to_profile_queue_and_post_queue(self):
         transcribe_signature = MagicMock()
         transcribe_signature.set.return_value = transcribe_signature
         post_signature = MagicMock()
@@ -94,6 +74,13 @@ class TestWorkerRouting(unittest.TestCase):
             "decode_options": {},
             "cleanup_config": [],
         }
+        profile = build_pool_profile(
+            platform="vast",
+            family="whisper",
+            variant="large-v3",
+            provider="speaches",
+            model="Systran/faster-whisper-large-v3",
+        )
 
         with patch("app.worker.transcribe_task.s", return_value=transcribe_signature):
             with patch(
@@ -103,15 +90,17 @@ class TestWorkerRouting(unittest.TestCase):
                     "https://example.com/audio.wav",
                     {"audio_type": "analog"},
                     options,
-                    transcription_backend="qwen",
+                    transcription_profile=profile,
                 )
 
         self.assertEqual("queued", result)
-        transcribe_signature.set.assert_called_once_with(queue="transcribe_qwen")
+        transcribe_signature.set.assert_called_once_with(
+            queue="transcribe.remote.pool.vast.whisper.large-v3"
+        )
         post_signature.set.assert_called_once_with(queue="post_transcribe")
         chain_result.apply_async.assert_called_once_with()
 
-    def test_queue_task_routes_vendor_api_jobs_to_api_queue(self):
+    def test_queue_task_routes_vendor_jobs_to_vendor_queue(self):
         transcribe_signature = MagicMock()
         transcribe_signature.set.return_value = transcribe_signature
         post_signature = MagicMock()
@@ -136,11 +125,15 @@ class TestWorkerRouting(unittest.TestCase):
                     "https://example.com/audio.wav",
                     {"audio_type": "analog"},
                     options,
-                    whisper_implementation="deepinfra:openai/whisper-large-v3-turbo",
+                    transcription_profile=build_vendor_profile(
+                        "deepinfra", "openai/whisper-large-v3-turbo"
+                    ),
                 )
 
         self.assertEqual("queued", result)
-        transcribe_signature.set.assert_called_once_with(queue="transcribe_api")
+        transcribe_signature.set.assert_called_once_with(
+            queue="transcribe.remote.vendor"
+        )
         post_signature.set.assert_called_once_with(queue="post_transcribe")
         chain_result.apply_async.assert_called_once_with()
 
@@ -190,3 +183,7 @@ class TestWorkerRouting(unittest.TestCase):
         indexed_metadata = search_adapter.index_call.call_args.args[1]
         self.assertEqual("openai", indexed_metadata["transcription_provider"])
         self.assertEqual("whisper-1", indexed_metadata["transcription_model"])
+
+
+if __name__ == "__main__":
+    unittest.main()

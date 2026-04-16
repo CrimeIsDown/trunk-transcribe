@@ -51,8 +51,7 @@ def create_call(
     call_audio_url: Annotated[str, Form()] | None = None,
     call_audio: UploadFile | None = None,
     db: Session = Depends(get_db),
-    whisper_implementation: str | None = None,
-    transcription_backend: str | None = None,
+    transcription_profile: str | None = None,
     batch: bool = False,
 ) -> JSONResponse:
     metadata = json.loads(call_json.file.read())
@@ -102,9 +101,8 @@ def create_call(
             audio_url,
             metadata,
             build_transcribe_options(metadata),
-            whisper_implementation,
+            transcription_profile,
             db_call.id,
-            transcription_backend=transcription_backend,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

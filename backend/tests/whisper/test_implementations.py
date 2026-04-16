@@ -4,6 +4,8 @@ import unittest
 import wave
 from unittest.mock import Mock, patch
 
+from app.core.transcription_profiles import build_pool_profile, build_vendor_profile
+
 
 def build_options(
     initial_prompt: str = "alpha bravo", vad_filter: bool = False
@@ -156,12 +158,12 @@ class TestWhisperImplementations(unittest.TestCase):
             os.unlink(audio_path)
 
     def test_whisper_task_initialize_model_uses_http_adapter_for_openai(self):
-        from app.whisper.task import WhisperTask
+        from app.whisper.task import TranscriptionTask
         from app.whisper.whisper_asr_api import WhisperAsrApi
 
         with patch.dict(os.environ, {"OPENAI_API_KEY": "openai-key"}, clear=True):
-            implementation = WhisperTask().initialize_model(
-                "whisper-asr-api:openai:whisper-1"
+            implementation = TranscriptionTask().initialize_model(
+                build_vendor_profile("openai", "whisper-1")
             )
 
         self.assertIsInstance(implementation, WhisperAsrApi)
@@ -170,7 +172,7 @@ class TestWhisperImplementations(unittest.TestCase):
         self.assertEqual({"Authorization": "Bearer openai-key"}, implementation.headers)
 
     def test_whisper_task_initialize_model_uses_http_adapter_for_deepinfra(self):
-        from app.whisper.task import WhisperTask
+        from app.whisper.task import TranscriptionTask
         from app.whisper.whisper_asr_api import WhisperAsrApi
 
         with patch.dict(
@@ -181,8 +183,8 @@ class TestWhisperImplementations(unittest.TestCase):
             },
             clear=True,
         ):
-            implementation = WhisperTask().initialize_model(
-                "whisper-asr-api:deepinfra:model-x"
+            implementation = TranscriptionTask().initialize_model(
+                build_vendor_profile("deepinfra", "model-x")
             )
 
         self.assertIsInstance(implementation, WhisperAsrApi)
@@ -190,6 +192,32 @@ class TestWhisperImplementations(unittest.TestCase):
         self.assertEqual("model-x", implementation.model)
         self.assertEqual(
             {"Authorization": "Bearer deepinfra-key"}, implementation.headers
+        )
+
+    def test_transcription_task_initialize_model_uses_router_for_vast_pool(self):
+        from app.whisper.task import TranscriptionTask
+        from app.whisper.whisper_asr_api import WhisperAsrApi
+
+        with patch.dict(
+            os.environ,
+            {"ASR_ROUTER_URL": "http://asr-router:8001/v1"},
+            clear=True,
+        ):
+            implementation = TranscriptionTask().initialize_model(
+                build_pool_profile(
+                    platform="vast",
+                    family="whisper",
+                    variant="large-v3",
+                    provider="speaches",
+                    model="Systran/faster-whisper-large-v3",
+                )
+            )
+
+        self.assertIsInstance(implementation, WhisperAsrApi)
+        self.assertEqual("http://asr-router:8001/v1", implementation.base_url)
+        self.assertEqual(
+            {"X-ASR-Endpoint-Target": "pool.vast.whisper.large-v3"},
+            implementation.headers,
         )
 
 

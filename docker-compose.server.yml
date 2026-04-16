@@ -76,7 +76,7 @@ services:
     environment:
       - CELERY_BROKER_URL
       - CELERY_RESULT_BACKEND
-      - CELERY_QUEUES=transcribe_whisper,transcribe_api,transcribe_qwen,transcribe_voxtral,post_transcribe
+      - CELERY_QUEUES=transcribe.remote.vendor,transcribe.remote.pool.local.whisper.large-v3,transcribe.remote.pool.local.qwen.p25,transcribe.remote.pool.local.voxtral.realtime,transcribe.remote.pool.vast.whisper.large-v3,post_transcribe
       - FLOWER_PURGE_OFFLINE_WORKERS=120
       - FLOWER_PERSISTENT=1
       - FLOWER_DB=/src/data/flower
@@ -158,6 +158,30 @@ services:
       - MEILI_INDEX
       - API_KEY
       - WEBSOCKET_URL=ws://localhost:${API_PORT:-8000}/api/v1/ws
+
+  asr-router:
+    image: ghcr.io/crimeisdown/trunk-transcribe:${VERSION:-main}
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      cache_from:
+        - ghcr.io/crimeisdown/trunk-transcribe:main
+    command: asr-router
+    volumes:
+      - ./backend/app:/src/backend/app
+      - ./backend/alembic.ini:/src/backend/alembic.ini
+      - ./backend/pyproject.toml:/src/backend/pyproject.toml
+      - ./config:/src/config
+      - ./docker/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
+    env_file: .env
+    environment:
+      - ASR_ROUTER_PORT=8001
+      - ASR_ROUTER_ENDPOINT_TARGETS=${ASR_ROUTER_ENDPOINT_TARGETS:-}
+      - ASR_ROUTER_INTERNAL_PORT=${ASR_ROUTER_INTERNAL_PORT:-8000}
+      - ASR_ROUTER_HEALTHCHECK_PATH=${ASR_ROUTER_HEALTHCHECK_PATH:-/v1/models}
+    ports:
+      - ${ASR_ROUTER_PORT:-8001}:8001
+    restart: always
 
 volumes:
   flower-data:

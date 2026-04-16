@@ -14,11 +14,12 @@ services:
       - ./config:/src/config
       - ./docker/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
     environment:
-      - DEFAULT_TRANSCRIPTION_BACKEND=${DEFAULT_TRANSCRIPTION_BACKEND:-whisper}
-      - TRANSCRIPTION_BACKEND=qwen
-      - CELERY_QUEUES=transcribe_qwen
+      - DEFAULT_TRANSCRIPTION_PROFILE=${DEFAULT_TRANSCRIPTION_PROFILE:-kind=pool;platform=local;family=qwen;variant=p25;provider=qwen3-asr-server;model=qwen3-asr-p25}
+      - TRANSCRIPTION_PROFILE=kind=pool;platform=local;family=qwen;variant=p25;provider=qwen3-asr-server;model=qwen3-asr-p25
+      - CELERY_QUEUES=transcribe.remote.pool.local.qwen.p25
       - ASR_API_URL=${ASR_API_URL:-http://asr-qwen:8765/v1}
       - ASR_PROVIDER=${ASR_PROVIDER:-qwen3-asr-server}
+      - ASR_VARIANT=${ASR_VARIANT:-p25}
       - ASR_MODEL=${ASR_MODEL:-qwen3-asr-p25}
       - CELERY_LOGLEVEL
       - CELERY_BROKER_URL

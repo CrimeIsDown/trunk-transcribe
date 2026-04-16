@@ -14,10 +14,9 @@ services:
       - ./config:/src/config
       - ./docker/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
     environment:
-      - DEFAULT_TRANSCRIPTION_BACKEND=${DEFAULT_TRANSCRIPTION_BACKEND:-api}
-      - TRANSCRIPTION_BACKEND=api
-      - CELERY_QUEUES=transcribe_api
-      - WHISPER_IMPLEMENTATION
+      - DEFAULT_TRANSCRIPTION_PROFILE=${DEFAULT_TRANSCRIPTION_PROFILE:-kind=vendor;provider=openai;model=whisper-1}
+      - TRANSCRIPTION_PROFILE=${TRANSCRIPTION_PROFILE:-kind=vendor;provider=openai;model=whisper-1}
+      - CELERY_QUEUES=${CELERY_QUEUES:-transcribe.remote.vendor}
       - WHISPER_MODEL
       - OPENAI_API_KEY
       - DEEPINFRA_API_KEY

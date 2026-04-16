@@ -133,9 +133,8 @@ def create_call_from_sdrtrunk(
         audio_url,
         metadata,
         build_transcribe_options(metadata),
-        whisper_implementation=None,
+        transcription_profile=None,
         id=db_call.id,
-        transcription_backend=None,
     )
 
     return Response("Call imported successfully.", status_code=200)
