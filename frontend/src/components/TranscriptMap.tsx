@@ -42,17 +42,9 @@ import {
   transformCurrentRefinements,
   transformSystemRefinementItems,
 } from '@/lib/transcriptSearchLabels'
+import { useTranscriptSearchCredentials } from '@/hooks/useTranscriptSearchCredentials'
 import CallTimeRangeFilter from './CallTimeRangeFilter'
 import { Hit as HitComponent } from './Hit'
-
-const hostUrl = import.meta.env.VITE_MEILI_URL || 'http://localhost:7700'
-const apiKey = import.meta.env.VITE_MEILI_MASTER_KEY || 'testing'
-const baseIndexName = import.meta.env.VITE_MEILI_INDEX || 'calls'
-const splitByMonth = import.meta.env.VITE_MEILI_INDEX_SPLIT_BY_MONTH === 'true'
-const archiveIndexConfig: TranscriptSearchIndexConfig = {
-  baseIndexName,
-  splitByMonth,
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -302,13 +294,50 @@ function TranscriptMapResults({ indexName }: { indexName: string }) {
 }
 
 export default function TranscriptMap() {
-  const searchClient = instantMeiliSearch(hostUrl, apiKey).searchClient
+  const { credentials, error, isLoading } = useTranscriptSearchCredentials()
+  const archiveIndexConfig = useMemo<TranscriptSearchIndexConfig | null>(() => {
+    if (!credentials) {
+      return null
+    }
+
+    return {
+      baseIndexName: credentials.baseIndexName,
+      splitByMonth: credentials.splitByMonth,
+    }
+  }, [credentials])
+  const searchClient = useMemo(() => {
+    if (!credentials) {
+      return null
+    }
+
+    return instantMeiliSearch(credentials.hostUrl, credentials.apiKey).searchClient
+  }, [credentials])
   const searchLocationSearch =
     typeof window === 'undefined' ? '' : window.location.search
-  const indexName = getTranscriptSearchIndexNameFromLocation(
-    searchLocationSearch,
-    archiveIndexConfig,
-  )
+  const indexName =
+    archiveIndexConfig === null
+      ? ''
+      : getTranscriptSearchIndexNameFromLocation(
+          searchLocationSearch,
+          archiveIndexConfig,
+        )
+
+  if (isLoading) {
+    return (
+      <Alert variant="secondary" className="m-3">
+        Loading transcript map…
+      </Alert>
+    )
+  }
+
+  if (!credentials || !archiveIndexConfig || !searchClient) {
+    return (
+      <Alert variant="danger" className="m-3">
+        Failed to load search credentials.
+        {error ? <div className="small mt-2">{error.message}</div> : null}
+      </Alert>
+    )
+  }
 
   const routing = {
     router: history({
@@ -326,8 +355,12 @@ export default function TranscriptMap() {
           arrayLimit: 99,
         }) as unknown as UiState
 
-        if (splitByMonth && Object.keys(routeState).length) {
-          return remapSearchStateIndex(routeState, baseIndexName, indexName)
+        if (credentials.splitByMonth && Object.keys(routeState).length) {
+          return remapSearchStateIndex(
+            routeState,
+            credentials.baseIndexName,
+            indexName,
+          )
         }
 
         if (!Object.keys(routeState).length) {

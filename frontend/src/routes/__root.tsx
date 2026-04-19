@@ -5,6 +5,7 @@ import { TanStackDevtools } from '@tanstack/react-devtools'
 import type { ReactNode } from 'react'
 
 import Header from '../components/Header'
+import { AppProviders } from '../providers/AppProviders'
 
 import appCss from '../styles.css?url'
 import copilotCss from '@copilotkit/react-ui/styles.css?url'
@@ -64,20 +65,22 @@ function RootDocument({ children }: { children: ReactNode }) {
           agent="scanner_chat"
           showDevConsole={import.meta.env.DEV}
         >
-          <Header />
-          {children}
-          <TanStackDevtools
-            config={{
-              position: 'bottom-left',
-            }}
-            plugins={[
-              {
-                name: 'Tanstack Router',
-                render: <TanStackRouterDevtoolsPanel />,
-              },
-            ]}
-          />
-          <Scripts />
+          <AppProviders>
+            <Header />
+            {children}
+            <TanStackDevtools
+              config={{
+                position: 'bottom-left',
+              }}
+              plugins={[
+                {
+                  name: 'Tanstack Router',
+                  render: <TanStackRouterDevtoolsPanel />,
+                },
+              ]}
+            />
+            <Scripts />
+          </AppProviders>
         </CopilotKit>
       </body>
     </html>

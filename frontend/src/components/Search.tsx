@@ -42,20 +42,13 @@ import {
 	transformCurrentRefinements,
 	transformHierarchyMenuItems,
 	transformSystemRefinementItems,
-} from "@/lib/transcriptSearchLabels";
+	} from "@/lib/transcriptSearchLabels";
+import { useTranscriptSearchCredentials } from "@/hooks/useTranscriptSearchCredentials";
 import CallTimeRangeFilter from "./CallTimeRangeFilter";
 import SearchAnalysisPanel from "./chat/SearchAnalysisPanel";
 import { Hit as HitComponent } from "./Hit";
 import SavedTranscriptSearches from "./SavedTranscriptSearches";
 
-const hostUrl = import.meta.env.VITE_MEILI_URL || "http://localhost:7700";
-const apiKey = import.meta.env.VITE_MEILI_MASTER_KEY || "testing";
-const baseIndexName = import.meta.env.VITE_MEILI_INDEX || "calls";
-const splitByMonth = import.meta.env.VITE_MEILI_INDEX_SPLIT_BY_MONTH === "true";
-const archiveIndexConfig: TranscriptSearchIndexConfig = {
-	baseIndexName,
-	splitByMonth,
-};
 const AUTO_REFRESH_INTERVAL_MS = 10_000;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -141,12 +134,19 @@ function TranscriptArchiveIndexNotice({
 	baseIndexName: string;
 	indexName: string;
 	splitByMonth: boolean;
-}) {
-	const { indexUiState } = useInstantSearch<UiState>();
-	const currentMonthIndexName = useMemo(
-		() => getTranscriptCurrentMonthIndexName(archiveIndexConfig),
-		[baseIndexName, splitByMonth],
-	);
+	}) {
+		const { indexUiState } = useInstantSearch<UiState>();
+		const archiveIndexConfig: TranscriptSearchIndexConfig = useMemo(
+			() => ({
+				baseIndexName,
+				splitByMonth,
+			}),
+			[baseIndexName, splitByMonth],
+		);
+		const currentMonthIndexName = useMemo(
+			() => getTranscriptCurrentMonthIndexName(archiveIndexConfig),
+			[archiveIndexConfig],
+		);
 	const indexState = (indexUiState || {}) as Record<string, unknown>;
 	const searchScope = useMemo(
 		() => extractScannerSearchScope(indexState),
@@ -376,32 +376,69 @@ function SearchToolbarActions({ indexName }: { indexName: string }) {
 	);
 }
 
-const SearchComponent = () => {
-	const searchClient = instantMeiliSearch(hostUrl, apiKey).searchClient;
-	const searchLocationSearch =
-		typeof window === "undefined" ? "" : window.location.search;
-	const indexName = getTranscriptSearchIndexNameFromLocation(
-		searchLocationSearch,
-		archiveIndexConfig,
-	);
+	const SearchComponent = () => {
+		const { credentials, error, isLoading } = useTranscriptSearchCredentials();
+		const archiveIndexConfig = useMemo<TranscriptSearchIndexConfig | null>(() => {
+			if (!credentials) {
+				return null;
+			}
 
-	const [filtersOpen, setFiltersOpen] = useState(true);
-	const [selectedHitId, setSelectedHitId] = useState<string | undefined>(() =>
-		typeof window === "undefined"
+			return {
+				baseIndexName: credentials.baseIndexName,
+				splitByMonth: credentials.splitByMonth,
+			};
+		}, [credentials]);
+		const searchClient = useMemo(() => {
+			if (!credentials) {
+				return null;
+			}
+
+			return instantMeiliSearch(credentials.hostUrl, credentials.apiKey).searchClient;
+		}, [credentials]);
+		const searchLocationSearch =
+			typeof window === "undefined" ? "" : window.location.search;
+		const indexName =
+			archiveIndexConfig === null
+				? ""
+				: getTranscriptSearchIndexNameFromLocation(
+						searchLocationSearch,
+						archiveIndexConfig,
+					);
+
+		const [filtersOpen, setFiltersOpen] = useState(true);
+		const [selectedHitId, setSelectedHitId] = useState<string | undefined>(() =>
+			typeof window === "undefined"
 			? undefined
 			: parseSelectedHitId(window.location.hash),
 	);
 
 	let timer: ReturnType<typeof setTimeout>;
-	const queryHook = (query: string, refine: (nextQuery: string) => void) => {
-		clearTimeout(timer);
-		timer = setTimeout(() => refine(query), 500);
-	};
+		const queryHook = (query: string, refine: (nextQuery: string) => void) => {
+			clearTimeout(timer);
+			timer = setTimeout(() => refine(query), 500);
+		};
 
-	const routing = {
-		router: history({
-			windowTitle: (routeState) => {
-				const indexState = routeState[indexName] || {};
+		if (isLoading) {
+			return (
+				<Alert variant="secondary" className="m-3">
+					Loading transcript search…
+				</Alert>
+			);
+		}
+
+		if (!credentials || !archiveIndexConfig || !searchClient) {
+			return (
+				<Alert variant="danger" className="m-3">
+					Failed to load search credentials.
+					{error ? <div className="small mt-2">{error.message}</div> : null}
+				</Alert>
+			);
+		}
+
+		const routing = {
+			router: history({
+				windowTitle: (routeState) => {
+					const indexState = routeState[indexName] || {};
 
 				if (!indexState.query) {
 					return "Search Scanner Transcripts";
@@ -410,17 +447,17 @@ const SearchComponent = () => {
 				return `${indexState.query} - Search Scanner Transcripts`;
 			},
 			parseURL: ({ qsModule, location }): UiState => {
-				const routeState = qsModule.parse(location.search.slice(1), {
-					arrayLimit: 99,
-				}) as unknown as UiState;
+					const routeState = qsModule.parse(location.search.slice(1), {
+						arrayLimit: 99,
+					}) as unknown as UiState;
 
-				if (splitByMonth && Object.keys(routeState).length) {
-					return remapSearchStateIndex(
-						routeState,
-						baseIndexName,
-						indexName,
-					);
-				}
+					if (credentials.splitByMonth && Object.keys(routeState).length) {
+						return remapSearchStateIndex(
+							routeState,
+							credentials.baseIndexName,
+							indexName,
+						);
+					}
 
 				if (!Object.keys(routeState).length) {
 					const defaultSort = `${indexName}:start_time:desc`;
@@ -673,12 +710,12 @@ const SearchComponent = () => {
 						</div>
 					</Collapse>
 				</Col>
-				<Col className="search-panel__results">
-					<TranscriptArchiveIndexNotice
-						baseIndexName={baseIndexName}
-						indexName={indexName}
-						splitByMonth={splitByMonth}
-					/>
+					<Col className="search-panel__results">
+						<TranscriptArchiveIndexNotice
+							baseIndexName={credentials.baseIndexName}
+							indexName={indexName}
+							splitByMonth={credentials.splitByMonth}
+						/>
 					<TranscriptSearchResults
 						indexName={indexName}
 						selectedHitId={selectedHitId}
