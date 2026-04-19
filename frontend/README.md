@@ -17,6 +17,16 @@ To build this application for production:
 npm run build
 ```
 
+## Configuration
+
+Optional market defaults (leave unset for city-agnostic defaults):
+
+- `VITE_TRANSCRIPT_MAP_CENTER`: map center as `"lat,lng"` (example: `"41.8781,-87.6298"`).
+- `VITE_TRANSCRIPT_MAP_ZOOM`: map zoom as a number (example: `"10"`).
+- `VITE_TRANSCRIPT_MAP_BOUNDING_BOX`: initial bounds as `"south,west,north,east"` (example: `"41.45,-88.05,42.1,-87.35"`).
+- `VITE_TRANSCRIPT_SEARCH_PRESET_SHORT_NAMES`: comma-separated `short_name` system ids used by the preset button (example: `"chi_cpd,chi_cfd,chi_oemc"`).
+- `VITE_TRANSCRIPT_SEARCH_PRESET_LABEL`: label for the preset button (example: `"Chicago only"`).
+
 ## Testing
 
 This project uses [Vitest](https://vitest.dev/) for testing. You can run the tests with:
