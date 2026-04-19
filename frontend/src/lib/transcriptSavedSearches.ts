@@ -160,16 +160,38 @@ export function persistTranscriptSavedSearches(
   return normalizedEntries
 }
 
-export function createTranscriptSavedSearchEntry(
+export function createTranscriptSavedSearchEntryFromState(
   name: string,
-  indexUiState: Record<string, unknown> | undefined,
+  state: ScannerSearchUiState,
 ): TranscriptSavedSearchEntry {
   const now = new Date().toISOString()
   return {
     id: generateSavedSearchId(),
     name: normalizeSavedSearchName(name),
-    state: extractTranscriptSavedSearchState(indexUiState),
+    state,
     createdAt: now,
+    updatedAt: now,
+  }
+}
+
+export function createTranscriptSavedSearchEntry(
+  name: string,
+  indexUiState: Record<string, unknown> | undefined,
+): TranscriptSavedSearchEntry {
+  return createTranscriptSavedSearchEntryFromState(
+    name,
+    extractTranscriptSavedSearchState(indexUiState),
+  )
+}
+
+export function updateTranscriptSavedSearchEntryFromState(
+  entry: TranscriptSavedSearchEntry,
+  state: ScannerSearchUiState,
+): TranscriptSavedSearchEntry {
+  const now = new Date().toISOString()
+  return {
+    ...entry,
+    state,
     updatedAt: now,
   }
 }
@@ -178,12 +200,10 @@ export function updateTranscriptSavedSearchEntry(
   entry: TranscriptSavedSearchEntry,
   indexUiState: Record<string, unknown> | undefined,
 ): TranscriptSavedSearchEntry {
-  const now = new Date().toISOString()
-  return {
-    ...entry,
-    state: extractTranscriptSavedSearchState(indexUiState),
-    updatedAt: now,
-  }
+  return updateTranscriptSavedSearchEntryFromState(
+    entry,
+    extractTranscriptSavedSearchState(indexUiState),
+  )
 }
 
 export function upsertTranscriptSavedSearchEntry(
@@ -202,4 +222,3 @@ export function deleteTranscriptSavedSearchEntry(
 ): TranscriptSavedSearchEntry[] {
   return sortSavedSearches(entries.filter((entry) => entry.id !== id))
 }
-
