@@ -7,16 +7,13 @@ import { useInstantSearch } from 'react-instantsearch'
 
 import {
   buildTranscriptSavedSearchUrl,
-  createTranscriptSavedSearchEntry,
   deleteTranscriptSavedSearchEntry,
   describeTranscriptSavedSearchState,
   extractTranscriptSavedSearchState,
-  loadTranscriptSavedSearches,
-  persistTranscriptSavedSearches,
-  updateTranscriptSavedSearchEntry,
   upsertTranscriptSavedSearchEntry,
   type TranscriptSavedSearchEntry,
 } from '@/lib/transcriptSavedSearches'
+import { useSavedSearchStore } from '@/providers/savedSearchStore'
 
 function formatSavedSearchTimestamp(timestamp: string): string {
   const parsed = new Date(timestamp)
@@ -29,13 +26,28 @@ export default function SavedTranscriptSearches({
   indexName: string
 }) {
   const { indexUiState, setUiState } = useInstantSearch<UiState>()
+  const savedSearchStore = useSavedSearchStore()
   const [savedSearches, setSavedSearches] = useState<TranscriptSavedSearchEntry[]>(
     [],
   )
 
   useEffect(() => {
-    setSavedSearches(loadTranscriptSavedSearches())
-  }, [])
+    let isActive = true
+    savedSearchStore
+      .list()
+      .then((entries) => {
+        if (isActive) {
+          setSavedSearches(entries)
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to load saved searches', error)
+      })
+
+    return () => {
+      isActive = false
+    }
+  }, [savedSearchStore])
 
   const currentState = useMemo(
     () =>
@@ -50,12 +62,7 @@ export default function SavedTranscriptSearches({
     [currentState],
   )
 
-  const persistSavedSearches = (nextSavedSearches: TranscriptSavedSearchEntry[]) => {
-    const normalized = persistTranscriptSavedSearches(nextSavedSearches)
-    setSavedSearches(normalized)
-  }
-
-  const saveCurrentSearch = () => {
+  const saveCurrentSearch = async () => {
     if (typeof window === 'undefined') {
       return
     }
@@ -66,11 +73,14 @@ export default function SavedTranscriptSearches({
       return
     }
 
-    const nextEntry = createTranscriptSavedSearchEntry(name, indexUiState as Record<
-      string,
-      unknown
-    >)
-    persistSavedSearches([...savedSearches, nextEntry])
+    try {
+      const created = await savedSearchStore.create(name, currentState)
+      setSavedSearches((currentEntries) =>
+        upsertTranscriptSavedSearchEntry(currentEntries, created),
+      )
+    } catch (error) {
+      console.error('Failed to create saved search', error)
+    }
   }
 
   const openSavedSearch = (entry: TranscriptSavedSearchEntry) => {
@@ -82,7 +92,7 @@ export default function SavedTranscriptSearches({
     }))
   }
 
-  const updateSavedSearch = (entry: TranscriptSavedSearchEntry) => {
+  const updateSavedSearch = async (entry: TranscriptSavedSearchEntry) => {
     const shouldUpdate =
       typeof window === 'undefined'
         ? true
@@ -92,19 +102,17 @@ export default function SavedTranscriptSearches({
       return
     }
 
-    const updatedEntry = updateTranscriptSavedSearchEntry(
-      entry,
-      indexUiState as Record<string, unknown>,
-    )
-    persistSavedSearches(
-      upsertTranscriptSavedSearchEntry(
-        savedSearches,
-        updatedEntry,
-      ),
-    )
+    try {
+      const updated = await savedSearchStore.update(entry.id, currentState)
+      setSavedSearches((currentEntries) =>
+        upsertTranscriptSavedSearchEntry(currentEntries, updated),
+      )
+    } catch (error) {
+      console.error('Failed to update saved search', error)
+    }
   }
 
-  const removeSavedSearch = (entry: TranscriptSavedSearchEntry) => {
+  const removeSavedSearch = async (entry: TranscriptSavedSearchEntry) => {
     const shouldDelete =
       typeof window === 'undefined'
         ? true
@@ -114,7 +122,14 @@ export default function SavedTranscriptSearches({
       return
     }
 
-    persistSavedSearches(deleteTranscriptSavedSearchEntry(savedSearches, entry.id))
+    try {
+      await savedSearchStore.remove(entry.id)
+      setSavedSearches((currentEntries) =>
+        deleteTranscriptSavedSearchEntry(currentEntries, entry.id),
+      )
+    } catch (error) {
+      console.error('Failed to remove saved search', error)
+    }
   }
 
   return (
@@ -221,4 +236,3 @@ export default function SavedTranscriptSearches({
     </div>
   )
 }
-
