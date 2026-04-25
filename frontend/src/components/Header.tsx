@@ -15,6 +15,10 @@ export default function Header() {
         <div className="px-2 fw-bold">
           <Link to="/map">Transcript Map</Link>
         </div>
+
+        <div className="px-2 fw-bold">
+          <Link to="/alerts">Alerts</Link>
+        </div>
       </nav>
     </header>
   )

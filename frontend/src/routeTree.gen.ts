@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as MapRouteImport } from './routes/map'
 import { Route as LiveRouteImport } from './routes/live'
 import { Route as ChatRouteImport } from './routes/chat'
+import { Route as AlertsRouteImport } from './routes/alerts'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiCopilotkitRouteImport } from './routes/api/copilotkit'
 
@@ -30,6 +31,11 @@ const ChatRoute = ChatRouteImport.update({
   path: '/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AlertsRoute = AlertsRouteImport.update({
+  id: '/alerts',
+  path: '/alerts',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -43,6 +49,7 @@ const ApiCopilotkitRoute = ApiCopilotkitRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/alerts': typeof AlertsRoute
   '/chat': typeof ChatRoute
   '/live': typeof LiveRoute
   '/map': typeof MapRoute
@@ -50,6 +57,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/alerts': typeof AlertsRoute
   '/chat': typeof ChatRoute
   '/live': typeof LiveRoute
   '/map': typeof MapRoute
@@ -58,6 +66,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/alerts': typeof AlertsRoute
   '/chat': typeof ChatRoute
   '/live': typeof LiveRoute
   '/map': typeof MapRoute
@@ -65,14 +74,22 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/chat' | '/live' | '/map' | '/api/copilotkit'
+  fullPaths: '/' | '/alerts' | '/chat' | '/live' | '/map' | '/api/copilotkit'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/chat' | '/live' | '/map' | '/api/copilotkit'
-  id: '__root__' | '/' | '/chat' | '/live' | '/map' | '/api/copilotkit'
+  to: '/' | '/alerts' | '/chat' | '/live' | '/map' | '/api/copilotkit'
+  id:
+    | '__root__'
+    | '/'
+    | '/alerts'
+    | '/chat'
+    | '/live'
+    | '/map'
+    | '/api/copilotkit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AlertsRoute: typeof AlertsRoute
   ChatRoute: typeof ChatRoute
   LiveRoute: typeof LiveRoute
   MapRoute: typeof MapRoute
@@ -102,6 +119,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/alerts': {
+      id: '/alerts'
+      path: '/alerts'
+      fullPath: '/alerts'
+      preLoaderRoute: typeof AlertsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -121,6 +145,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AlertsRoute: AlertsRoute,
   ChatRoute: ChatRoute,
   LiveRoute: LiveRoute,
   MapRoute: MapRoute,
