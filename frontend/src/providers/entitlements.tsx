@@ -3,11 +3,17 @@ import { createContext, useContext, type ReactNode } from "react";
 export type EntitlementsService = {
 	canSearchTranscripts: () => boolean;
 	canCreateAlerts: () => boolean;
+	canUseAssistant: () => boolean;
+	archiveDepthDays: () => number | null;
+	canExportAudio: () => boolean;
 };
 
 const defaultEntitlementsService: EntitlementsService = {
 	canSearchTranscripts: () => true,
 	canCreateAlerts: () => false,
+	canUseAssistant: () => true,
+	archiveDepthDays: () => null,
+	canExportAudio: () => false,
 };
 
 const EntitlementsContext = createContext<EntitlementsService>(
@@ -22,9 +28,7 @@ export function EntitlementsProvider({
 	service?: EntitlementsService;
 }) {
 	return (
-		<EntitlementsContext.Provider
-			value={service ?? defaultEntitlementsService}
-		>
+		<EntitlementsContext.Provider value={service ?? defaultEntitlementsService}>
 			{children}
 		</EntitlementsContext.Provider>
 	);
@@ -33,4 +37,3 @@ export function EntitlementsProvider({
 export function useEntitlements(): EntitlementsService {
 	return useContext(EntitlementsContext);
 }
-

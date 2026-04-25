@@ -22,9 +22,7 @@ import {
 	useInstantSearch,
 	useRefinementList,
 } from "react-instantsearch";
-import {
-	extractScannerSearchScope,
-} from "@/lib/searchState";
+import { extractScannerSearchScope } from "@/lib/searchState";
 import {
 	createTranscriptHitTransformer,
 	parseSelectedHitId,
@@ -42,8 +40,9 @@ import {
 	transformCurrentRefinements,
 	transformHierarchyMenuItems,
 	transformSystemRefinementItems,
-	} from "@/lib/transcriptSearchLabels";
+} from "@/lib/transcriptSearchLabels";
 import { useTranscriptSearchCredentials } from "@/hooks/useTranscriptSearchCredentials";
+import { useEntitlements } from "@/providers/entitlements";
 import CallTimeRangeFilter from "./CallTimeRangeFilter";
 import SearchAnalysisPanel from "./chat/SearchAnalysisPanel";
 import { Hit as HitComponent } from "./Hit";
@@ -134,19 +133,19 @@ function TranscriptArchiveIndexNotice({
 	baseIndexName: string;
 	indexName: string;
 	splitByMonth: boolean;
-	}) {
-		const { indexUiState } = useInstantSearch<UiState>();
-		const archiveIndexConfig: TranscriptSearchIndexConfig = useMemo(
-			() => ({
-				baseIndexName,
-				splitByMonth,
-			}),
-			[baseIndexName, splitByMonth],
-		);
-		const currentMonthIndexName = useMemo(
-			() => getTranscriptCurrentMonthIndexName(archiveIndexConfig),
-			[archiveIndexConfig],
-		);
+}) {
+	const { indexUiState } = useInstantSearch<UiState>();
+	const archiveIndexConfig: TranscriptSearchIndexConfig = useMemo(
+		() => ({
+			baseIndexName,
+			splitByMonth,
+		}),
+		[baseIndexName, splitByMonth],
+	);
+	const currentMonthIndexName = useMemo(
+		() => getTranscriptCurrentMonthIndexName(archiveIndexConfig),
+		[archiveIndexConfig],
+	);
 	const indexState = (indexUiState || {}) as Record<string, unknown>;
 	const searchScope = useMemo(
 		() => extractScannerSearchScope(indexState),
@@ -168,7 +167,10 @@ function TranscriptArchiveIndexNotice({
 	);
 	const searchRange = searchScope.range?.start_time;
 	const nextIndexName = searchRange
-		? getTranscriptSearchIndexNameForRange(searchScope.range, archiveIndexConfig)
+		? getTranscriptSearchIndexNameForRange(
+				searchScope.range,
+				archiveIndexConfig,
+			)
 		: undefined;
 	const shouldRedirect =
 		splitByMonth && Boolean(searchRange) && nextIndexName !== indexName;
@@ -254,6 +256,7 @@ function TranscriptSearchResults({
 	indexName: string;
 	selectedHitId?: string;
 }) {
+	const entitlements = useEntitlements();
 	const { indexUiState, results } = useInstantSearch<UiState>();
 	const indexState = (indexUiState || {}) as Record<string, unknown>;
 	const sortBy =
@@ -293,7 +296,13 @@ function TranscriptSearchResults({
 
 	return (
 		<>
-			<SearchAnalysisPanel indexName={indexName} />
+			{entitlements.canUseAssistant() ? (
+				<SearchAnalysisPanel indexName={indexName} />
+			) : (
+				<Alert variant="secondary" className="mb-3">
+					AI analysis is not available for this account.
+				</Alert>
+			)}
 			<CurrentRefinements transformItems={transformCurrentRefinementItems} />
 			<Stats />
 			<Hits hitComponent={HitWithSelection} transformItems={transformItems} />
@@ -376,69 +385,79 @@ function SearchToolbarActions({ indexName }: { indexName: string }) {
 	);
 }
 
-	const SearchComponent = () => {
-		const { credentials, error, isLoading } = useTranscriptSearchCredentials();
-		const archiveIndexConfig = useMemo<TranscriptSearchIndexConfig | null>(() => {
-			if (!credentials) {
-				return null;
-			}
+const SearchComponent = () => {
+	const { credentials, error, isLoading } = useTranscriptSearchCredentials();
+	const entitlements = useEntitlements();
+	const archiveIndexConfig = useMemo<TranscriptSearchIndexConfig | null>(() => {
+		if (!credentials) {
+			return null;
+		}
 
-			return {
-				baseIndexName: credentials.baseIndexName,
-				splitByMonth: credentials.splitByMonth,
-			};
-		}, [credentials]);
-		const searchClient = useMemo(() => {
-			if (!credentials) {
-				return null;
-			}
+		return {
+			baseIndexName: credentials.baseIndexName,
+			splitByMonth: credentials.splitByMonth,
+		};
+	}, [credentials]);
+	const searchClient = useMemo(() => {
+		if (!credentials) {
+			return null;
+		}
 
-			return instantMeiliSearch(credentials.hostUrl, credentials.apiKey).searchClient;
-		}, [credentials]);
-		const searchLocationSearch =
-			typeof window === "undefined" ? "" : window.location.search;
-		const indexName =
-			archiveIndexConfig === null
-				? ""
-				: getTranscriptSearchIndexNameFromLocation(
-						searchLocationSearch,
-						archiveIndexConfig,
-					);
+		return instantMeiliSearch(credentials.hostUrl, credentials.apiKey)
+			.searchClient;
+	}, [credentials]);
+	const searchLocationSearch =
+		typeof window === "undefined" ? "" : window.location.search;
+	const indexName =
+		archiveIndexConfig === null
+			? ""
+			: getTranscriptSearchIndexNameFromLocation(
+					searchLocationSearch,
+					archiveIndexConfig,
+				);
 
-		const [filtersOpen, setFiltersOpen] = useState(true);
-		const [selectedHitId, setSelectedHitId] = useState<string | undefined>(() =>
-			typeof window === "undefined"
+	const [filtersOpen, setFiltersOpen] = useState(true);
+	const [selectedHitId, setSelectedHitId] = useState<string | undefined>(() =>
+		typeof window === "undefined"
 			? undefined
 			: parseSelectedHitId(window.location.hash),
 	);
 
 	let timer: ReturnType<typeof setTimeout>;
-		const queryHook = (query: string, refine: (nextQuery: string) => void) => {
-			clearTimeout(timer);
-			timer = setTimeout(() => refine(query), 500);
-		};
+	const queryHook = (query: string, refine: (nextQuery: string) => void) => {
+		clearTimeout(timer);
+		timer = setTimeout(() => refine(query), 500);
+	};
 
-		if (isLoading) {
-			return (
-				<Alert variant="secondary" className="m-3">
-					Loading transcript search…
-				</Alert>
-			);
-		}
+	if (isLoading) {
+		return (
+			<Alert variant="secondary" className="m-3">
+				Loading transcript search…
+			</Alert>
+		);
+	}
 
-		if (!credentials || !archiveIndexConfig || !searchClient) {
-			return (
-				<Alert variant="danger" className="m-3">
-					Failed to load search credentials.
-					{error ? <div className="small mt-2">{error.message}</div> : null}
-				</Alert>
-			);
-		}
+	if (!credentials || !archiveIndexConfig || !searchClient) {
+		return (
+			<Alert variant="danger" className="m-3">
+				Failed to load search credentials.
+				{error ? <div className="small mt-2">{error.message}</div> : null}
+			</Alert>
+		);
+	}
 
-		const routing = {
-			router: history({
-				windowTitle: (routeState) => {
-					const indexState = routeState[indexName] || {};
+	if (!entitlements.canSearchTranscripts()) {
+		return (
+			<Alert variant="warning" className="m-3">
+				Transcript search is not available for this account.
+			</Alert>
+		);
+	}
+
+	const routing = {
+		router: history({
+			windowTitle: (routeState) => {
+				const indexState = routeState[indexName] || {};
 
 				if (!indexState.query) {
 					return "Search Scanner Transcripts";
@@ -447,17 +466,17 @@ function SearchToolbarActions({ indexName }: { indexName: string }) {
 				return `${indexState.query} - Search Scanner Transcripts`;
 			},
 			parseURL: ({ qsModule, location }): UiState => {
-					const routeState = qsModule.parse(location.search.slice(1), {
-						arrayLimit: 99,
-					}) as unknown as UiState;
+				const routeState = qsModule.parse(location.search.slice(1), {
+					arrayLimit: 99,
+				}) as unknown as UiState;
 
-					if (credentials.splitByMonth && Object.keys(routeState).length) {
-						return remapSearchStateIndex(
-							routeState,
-							credentials.baseIndexName,
-							indexName,
-						);
-					}
+				if (credentials.splitByMonth && Object.keys(routeState).length) {
+					return remapSearchStateIndex(
+						routeState,
+						credentials.baseIndexName,
+						indexName,
+					);
+				}
 
 				if (!Object.keys(routeState).length) {
 					const defaultSort = `${indexName}:start_time:desc`;
@@ -700,22 +719,25 @@ function SearchToolbarActions({ indexName }: { indexName: string }) {
 									</Accordion.Body>
 								</Accordion.Item>
 
-									<Accordion.Item eventKey="8">
-										<Accordion.Header>Call Time</Accordion.Header>
-										<Accordion.Body>
-										<CallTimeRangeFilter archiveConfig={archiveIndexConfig} />
-										</Accordion.Body>
-									</Accordion.Item>
+								<Accordion.Item eventKey="8">
+									<Accordion.Header>Call Time</Accordion.Header>
+									<Accordion.Body>
+										<CallTimeRangeFilter
+											archiveConfig={archiveIndexConfig}
+											archiveDepthDays={entitlements.archiveDepthDays()}
+										/>
+									</Accordion.Body>
+								</Accordion.Item>
 							</Accordion>
 						</div>
 					</Collapse>
 				</Col>
-					<Col className="search-panel__results">
-						<TranscriptArchiveIndexNotice
-							baseIndexName={credentials.baseIndexName}
-							indexName={indexName}
-							splitByMonth={credentials.splitByMonth}
-						/>
+				<Col className="search-panel__results">
+					<TranscriptArchiveIndexNotice
+						baseIndexName={credentials.baseIndexName}
+						indexName={indexName}
+						splitByMonth={credentials.splitByMonth}
+					/>
 					<TranscriptSearchResults
 						indexName={indexName}
 						selectedHitId={selectedHitId}
