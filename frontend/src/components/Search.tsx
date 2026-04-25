@@ -60,11 +60,36 @@ function buildDefaultIndexUiState(indexName: string) {
 	};
 }
 
-function buildChicagoOnlyIndexUiState(indexName: string) {
+function parseCsvList(value: string | undefined): string[] {
+	if (!value) {
+		return [];
+	}
+
+	return value
+		.split(",")
+		.map((part) => part.trim())
+		.filter(Boolean);
+}
+
+const TRANSCRIPT_SEARCH_PRESET_SHORT_NAMES = parseCsvList(
+	import.meta.env.VITE_TRANSCRIPT_SEARCH_PRESET_SHORT_NAMES,
+);
+
+const TRANSCRIPT_SEARCH_PRESET_LABEL =
+	typeof import.meta.env.VITE_TRANSCRIPT_SEARCH_PRESET_LABEL === "string" &&
+	import.meta.env.VITE_TRANSCRIPT_SEARCH_PRESET_LABEL.trim()
+		? import.meta.env.VITE_TRANSCRIPT_SEARCH_PRESET_LABEL.trim()
+		: "Local only";
+
+function buildPresetIndexUiState(indexName: string) {
+	if (TRANSCRIPT_SEARCH_PRESET_SHORT_NAMES.length === 0) {
+		return buildDefaultIndexUiState(indexName);
+	}
+
 	return {
 		...buildDefaultIndexUiState(indexName),
 		refinementList: {
-			short_name: ["chi_cpd", "chi_cfd", "chi_oemc"],
+			short_name: TRANSCRIPT_SEARCH_PRESET_SHORT_NAMES,
 		},
 	};
 }
@@ -360,16 +385,18 @@ function SearchToolbarActions({ indexName }: { indexName: string }) {
 			>
 				Default filters
 			</Button>
-			<Button
-				type="button"
-				size="sm"
-				variant="outline-primary"
-				onClick={() => {
-					applyIndexUiState(buildChicagoOnlyIndexUiState(indexName));
-				}}
-			>
-				Chicago only
-			</Button>
+			{TRANSCRIPT_SEARCH_PRESET_SHORT_NAMES.length > 0 ? (
+				<Button
+					type="button"
+					size="sm"
+					variant="outline-primary"
+					onClick={() => {
+						applyIndexUiState(buildPresetIndexUiState(indexName));
+					}}
+				>
+					{TRANSCRIPT_SEARCH_PRESET_LABEL}
+				</Button>
+			) : null}
 			<Button
 				type="button"
 				size="sm"
