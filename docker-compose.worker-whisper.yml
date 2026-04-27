@@ -13,6 +13,7 @@ services:
       - ./backend/pyproject.toml:/src/backend/pyproject.toml
       - ./config:/src/config
       - ./docker/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
+      - ./docker/celery-healthcheck.sh:/usr/local/bin/celery-healthcheck.sh
     environment:
       - DEFAULT_TRANSCRIPTION_PROFILE=${DEFAULT_TRANSCRIPTION_PROFILE:-kind=pool;platform=local;family=whisper;variant=large-v3;provider=speaches;model=Systran/faster-whisper-large-v3}
       - TRANSCRIPTION_PROFILE=kind=pool;platform=local;family=whisper;variant=large-v3;provider=speaches;model=Systran/faster-whisper-large-v3
@@ -30,6 +31,12 @@ services:
     depends_on:
       asr-whisper:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "celery-healthcheck.sh"]
+      interval: 60s
+      timeout: 30s
+      retries: 1
+      start_period: 60s
     restart: always
 
   asr-whisper:

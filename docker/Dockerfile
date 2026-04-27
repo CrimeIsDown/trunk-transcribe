@@ -31,7 +31,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 COPY backend/alembic.ini backend/alembic.ini
 COPY backend/app backend/app
 COPY config config
-COPY docker/docker-entrypoint.sh /usr/local/bin/
+COPY docker/docker-entrypoint.sh docker/celery-healthcheck.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh /usr/local/bin/celery-healthcheck.sh
 
 ENV PYTHONPATH=/src/backend
 
