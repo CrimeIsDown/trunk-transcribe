@@ -19,10 +19,13 @@ class TranscriptionTask(Task):
     model_lock = Lock()
 
     def model(self, transcription_profile: str | None = None) -> BaseWhisper:
-        profile = self.resolve_profile(transcription_profile)
-        if profile.canonical not in self._models:
-            self._models[profile.canonical] = self.initialize_model(profile.canonical)
-        return self._models[profile.canonical]
+        self.validate_requested_profile(transcription_profile)
+        worker_profile = self.worker_profile
+        if worker_profile.canonical not in self._models:
+            self._models[worker_profile.canonical] = self.initialize_model(
+                worker_profile.canonical
+            )
+        return self._models[worker_profile.canonical]
 
     def resolve_profile(
         self, transcription_profile: str | None = None
@@ -37,15 +40,33 @@ class TranscriptionTask(Task):
     def resolve_provider_and_model(
         self, transcription_profile: str | None = None
     ) -> tuple[str, str]:
-        profile = self.resolve_profile(transcription_profile)
+        self.validate_requested_profile(transcription_profile)
+        profile = self.worker_profile
         return profile.provider, profile.model
 
     @property
     def default_profile(self) -> str:
+        return self.worker_profile.canonical
+
+    @property
+    def worker_profile(self) -> TranscriptionProfile:
         return resolve_transcription_profile(
             explicit_profile=os.getenv("TRANSCRIPTION_PROFILE"),
             default_profile=os.getenv("DEFAULT_TRANSCRIPTION_PROFILE"),
-        ).canonical
+        )
+
+    def validate_requested_profile(self, transcription_profile: str | None = None) -> None:
+        if transcription_profile is None:
+            return
+
+        requested_profile = self.resolve_profile(transcription_profile)
+        worker_profile = self.worker_profile
+        if requested_profile.model_key != worker_profile.model_key:
+            raise RuntimeError(
+                "Worker model_key mismatch: "
+                f"task requested {requested_profile.model_key!r}, "
+                f"worker is configured for {worker_profile.model_key!r}."
+            )
 
     def initialize_model(self, transcription_profile: str) -> BaseWhisper:
         with self.model_lock:

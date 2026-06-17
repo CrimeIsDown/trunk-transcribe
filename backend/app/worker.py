@@ -15,11 +15,11 @@ from celery import Celery, signals, states
 from celery.exceptions import Reject
 from sentry_sdk.integrations.celery import CeleryIntegration
 
-from app.core.config import (
+from app.core.config import settings
+from app.core.transcription_profiles import (
     POST_TRANSCRIBE_QUEUE,
-    settings,
+    resolve_transcription_profile,
 )
-from app.core.transcription_profiles import resolve_transcription_profile
 from app.utils import api_client
 from app.utils.exceptions import before_send
 from app.utils.storage import fetch_audio

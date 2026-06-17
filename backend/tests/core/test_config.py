@@ -2,7 +2,6 @@ import unittest
 
 from app.core.config import parse_csv_list
 from app.core.transcription_profiles import (
-    REMOTE_VENDOR_QUEUE,
     build_pool_profile,
     build_vendor_profile,
     resolve_transcription_profile,
@@ -40,13 +39,14 @@ class TestParseCsvList(unittest.TestCase):
 class TestTranscriptionProfiles(unittest.TestCase):
     def test_vendor_profile_routes_to_vendor_queue(self):
         profile = resolve_transcription_profile(
-            build_vendor_profile("openai", "whisper-1")
+            build_vendor_profile("openai", "whisper-1", "whisper-large-v3")
         )
         self.assertEqual("vendor", profile.kind)
+        self.assertEqual("whisper-large-v3", profile.model_key)
         self.assertEqual("openai", profile.provider)
         self.assertEqual("whisper-1", profile.model)
         self.assertEqual("vendor.openai", profile.endpoint_target)
-        self.assertEqual(REMOTE_VENDOR_QUEUE, profile.queue_name)
+        self.assertEqual("transcribe.model.whisper-large-v3", profile.queue_name)
         self.assertIsNone(profile.asr_pool)
 
     def test_pool_profile_routes_to_pool_queue(self):
@@ -57,14 +57,37 @@ class TestTranscriptionProfiles(unittest.TestCase):
                 variant="large-v3",
                 provider="speaches",
                 model="Systran/faster-whisper-large-v3",
+                model_key="whisper-large-v3",
             )
         )
         self.assertEqual("pool", profile.kind)
+        self.assertEqual("whisper-large-v3", profile.model_key)
         self.assertEqual("pool.vast.whisper.large-v3", profile.endpoint_target)
         self.assertEqual("vast.whisper.large-v3", profile.asr_pool)
-        self.assertEqual(
-            "transcribe.remote.pool.vast.whisper.large-v3", profile.queue_name
+        self.assertEqual("transcribe.model.whisper-large-v3", profile.queue_name)
+
+    def test_vendor_and_pool_profiles_share_model_key_queue(self):
+        vendor = resolve_transcription_profile(
+            build_vendor_profile("deepinfra", "openai/whisper-large-v3", "whisper-large-v3")
         )
+        pool = resolve_transcription_profile(
+            build_pool_profile(
+                platform="local",
+                family="whisper",
+                variant="large-v3",
+                provider="speaches",
+                model="Systran/faster-whisper-large-v3",
+                model_key="whisper-large-v3",
+            )
+        )
+        self.assertEqual(vendor.queue_name, pool.queue_name)
+
+    def test_profile_requires_model_key(self):
+        with self.assertRaisesRegex(
+            ValueError,
+            "Transcription profile must include a model_key field",
+        ):
+            resolve_transcription_profile("kind=vendor;provider=openai;model=whisper-1")
 
     def test_pool_profile_requires_platform_family_variant(self):
         with self.assertRaisesRegex(
@@ -72,7 +95,7 @@ class TestTranscriptionProfiles(unittest.TestCase):
             "Pool transcription profiles must include platform, family, and variant fields",
         ):
             resolve_transcription_profile(
-                "kind=pool;provider=speaches;model=Systran/faster-whisper-large-v3"
+                "kind=pool;model_key=whisper-large-v3;provider=speaches;model=Systran/faster-whisper-large-v3"
             )
 
     def test_slug_token_normalizes_separators(self):

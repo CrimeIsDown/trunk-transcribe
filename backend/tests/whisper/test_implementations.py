@@ -163,7 +163,7 @@ class TestWhisperImplementations(unittest.TestCase):
 
         with patch.dict(os.environ, {"OPENAI_API_KEY": "openai-key"}, clear=True):
             implementation = TranscriptionTask().initialize_model(
-                build_vendor_profile("openai", "whisper-1")
+                build_vendor_profile("openai", "whisper-1", "whisper-1")
             )
 
         self.assertIsInstance(implementation, WhisperAsrApi)
@@ -184,7 +184,7 @@ class TestWhisperImplementations(unittest.TestCase):
             clear=True,
         ):
             implementation = TranscriptionTask().initialize_model(
-                build_vendor_profile("deepinfra", "model-x")
+                build_vendor_profile("deepinfra", "model-x", "model-x")
             )
 
         self.assertIsInstance(implementation, WhisperAsrApi)
@@ -259,7 +259,9 @@ class TestWhisperImplementations(unittest.TestCase):
         ):
             implementation = TranscriptionTask().initialize_model(
                 build_vendor_profile(
-                    "cloudflare", "@cf/openai/whisper-large-v3-turbo"
+                    "cloudflare",
+                    "@cf/openai/whisper-large-v3-turbo",
+                    "whisper-large-v3-turbo",
                 )
             )
 
@@ -289,6 +291,7 @@ class TestWhisperImplementations(unittest.TestCase):
                     variant="large-v3",
                     provider="speaches",
                     model="Systran/faster-whisper-large-v3",
+                    model_key="whisper-large-v3",
                 )
             )
 
