@@ -1,6 +1,7 @@
 import os
 import unittest
 
+from app.whisper.cloudflare_ai import CloudflareAiWhisper
 from app.whisper.whisper_asr_api import WhisperAsrApi
 
 
@@ -54,6 +55,26 @@ class TestLiveProviders(unittest.TestCase):
             model=model,
             provider="deepinfra",
             headers={"Authorization": f"Bearer {os.environ['DEEPINFRA_API_KEY']}"},
+        )
+        result = implementation.transcribe(TINY_AUDIO_FILE, build_options(), "en")
+        self._assert_result_contract(result)
+
+    @unittest.skipUnless(
+        os.getenv("CLOUDFLARE_API_TOKEN") and os.getenv("CLOUDFLARE_ACCOUNT_ID"),
+        "CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID not set",
+    )
+    def test_cloudflare_live(self):
+        model = os.getenv("CLOUDFLARE_MODEL", "@cf/openai/whisper-large-v3-turbo")
+        implementation = CloudflareAiWhisper(
+            base_url=os.getenv(
+                "CLOUDFLARE_BASE_URL",
+                "https://api.cloudflare.com/client/v4/accounts/"
+                f"{os.environ['CLOUDFLARE_ACCOUNT_ID']}/ai/run",
+            ),
+            model=model,
+            headers={
+                "Authorization": f"Bearer {os.environ['CLOUDFLARE_API_TOKEN']}"
+            },
         )
         result = implementation.transcribe(TINY_AUDIO_FILE, build_options(), "en")
         self._assert_result_contract(result)

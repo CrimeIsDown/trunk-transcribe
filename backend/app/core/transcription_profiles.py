@@ -9,6 +9,7 @@ PROFILE_KINDS = ("vendor", "pool")
 POST_TRANSCRIBE_QUEUE = "post_transcribe"
 DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
 DEFAULT_DEEPINFRA_BASE_URL = "https://api.deepinfra.com/v1/openai"
+DEFAULT_CLOUDFLARE_MODEL = "@cf/openai/whisper-large-v3-turbo"
 
 
 def slug_token(value: str) -> str:
@@ -183,6 +184,12 @@ def infer_profile_from_legacy_env(
         return build_vendor_profile(
             "deepinfra",
             model or "openai/whisper-large-v3-turbo",
+            os.getenv("ASR_MODEL_KEY") or "whisper-large-v3-turbo",
+        )
+    if whisper_implementation == "cloudflare":
+        return build_vendor_profile(
+            "cloudflare",
+            model or DEFAULT_CLOUDFLARE_MODEL,
             os.getenv("ASR_MODEL_KEY") or "whisper-large-v3-turbo",
         )
 

@@ -138,7 +138,20 @@ DEFAULT_TRANSCRIPTION_PROFILE=kind=vendor;model_key=whisper-large-v3-turbo;provi
 DEEPINFRA_API_KEY=my-api-key
 ```
 
-In both cases, the worker still uses the same `POST /v1/audio/transcriptions` contract that it uses for the local Whisper, Qwen, and Voxtral servers.
+### Running workers using Cloudflare Workers AI
+
+To use Cloudflare Workers AI with `@cf/openai/whisper-large-v3-turbo`, run the API backend and set the following in your `.env` file:
+
+```
+# Route jobs to the vendor queue
+DEFAULT_TRANSCRIPTION_PROFILE=kind=vendor;model_key=whisper-large-v3-turbo;provider=cloudflare;model=@cf/openai/whisper-large-v3-turbo
+
+# Cloudflare Workers AI credentials
+CLOUDFLARE_ACCOUNT_ID=my-account-id
+CLOUDFLARE_API_TOKEN=my-api-token
+```
+
+OpenAI and DeepInfra use the same `POST /v1/audio/transcriptions` contract as the local Whisper, Qwen, and Voxtral servers. Cloudflare uses the Workers AI REST endpoint and the worker normalizes its response into the same transcript shape.
 
 ### Running workers on Windows
 
