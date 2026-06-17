@@ -32,21 +32,21 @@ class TestWorkerRouting(unittest.TestCase):
     def test_get_transcription_queue_defaults_to_local_whisper_pool(self):
         with patch.dict("os.environ", {}, clear=True):
             self.assertEqual(
-                "transcribe.remote.pool.local.whisper.large-v3",
+                "transcribe.model.whisper-large-v3",
                 worker.get_transcription_queue(),
             )
 
     def test_get_transcription_queue_routes_vendor_profiles(self):
         self.assertEqual(
-            "transcribe.remote.vendor",
+            "transcribe.model.whisper-1",
             worker.get_transcription_queue(
-                build_vendor_profile("openai", "whisper-1")
+                build_vendor_profile("openai", "whisper-1", "whisper-1")
             ),
         )
 
     def test_get_transcription_queue_routes_pool_profiles(self):
         self.assertEqual(
-            "transcribe.remote.pool.vast.whisper.large-v3",
+            "transcribe.model.whisper-large-v3",
             worker.get_transcription_queue(
                 build_pool_profile(
                     platform="vast",
@@ -54,6 +54,7 @@ class TestWorkerRouting(unittest.TestCase):
                     variant="large-v3",
                     provider="speaches",
                     model="Systran/faster-whisper-large-v3",
+                    model_key="whisper-large-v3",
                 )
             ),
         )
@@ -80,6 +81,7 @@ class TestWorkerRouting(unittest.TestCase):
             variant="large-v3",
             provider="speaches",
             model="Systran/faster-whisper-large-v3",
+            model_key="whisper-large-v3",
         )
 
         with patch("app.worker.transcribe_task.s", return_value=transcribe_signature):
@@ -95,7 +97,7 @@ class TestWorkerRouting(unittest.TestCase):
 
         self.assertEqual("queued", result)
         transcribe_signature.set.assert_called_once_with(
-            queue="transcribe.remote.pool.vast.whisper.large-v3"
+            queue="transcribe.model.whisper-large-v3"
         )
         post_signature.set.assert_called_once_with(queue="post_transcribe")
         chain_result.apply_async.assert_called_once_with()
@@ -126,13 +128,15 @@ class TestWorkerRouting(unittest.TestCase):
                     {"audio_type": "analog"},
                     options,
                     transcription_profile=build_vendor_profile(
-                        "deepinfra", "openai/whisper-large-v3-turbo"
+                        "deepinfra",
+                        "openai/whisper-large-v3-turbo",
+                        "whisper-large-v3-turbo",
                     ),
                 )
 
         self.assertEqual("queued", result)
         transcribe_signature.set.assert_called_once_with(
-            queue="transcribe.remote.vendor"
+            queue="transcribe.model.whisper-large-v3-turbo"
         )
         post_signature.set.assert_called_once_with(queue="post_transcribe")
         chain_result.apply_async.assert_called_once_with()

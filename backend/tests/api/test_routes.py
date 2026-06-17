@@ -45,6 +45,7 @@ class TestApiRoutes(unittest.TestCase):
             variant="large-v3",
             provider="speaches",
             model="Systran/faster-whisper-large-v3",
+            model_key="whisper-large-v3",
         )
 
         with patch.dict("os.environ", {"API_KEY": ""}, clear=False):
@@ -79,7 +80,7 @@ class TestApiRoutes(unittest.TestCase):
         metadata = build_metadata(audio_type="analog")
         db_call = SimpleNamespace(id=42)
         queue_result = SimpleNamespace(id="task-456")
-        profile = build_vendor_profile("openai", "whisper-1")
+        profile = build_vendor_profile("openai", "whisper-1", "whisper-1")
 
         app.dependency_overrides[get_db] = lambda: object()
         try:

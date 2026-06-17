@@ -20,11 +20,11 @@ flowchart LR
     end
 
     subgraph QUEUES[RabbitMQ queues]
-        QVENDOR[transcribe.remote.vendor]
-        QWL[transcribe.remote.pool.local.whisper.large-v3]
-        QQL[transcribe.remote.pool.local.qwen.p25]
-        QVL[transcribe.remote.pool.local.voxtral.realtime]
-        QWV[transcribe.remote.pool.vast.whisper.large-v3]
+        QW1[transcribe.model.whisper-1]
+        QWL[transcribe.model.whisper-large-v3]
+        QWT[transcribe.model.whisper-large-v3-turbo]
+        QQL[transcribe.model.qwen-p25]
+        QVL[transcribe.model.voxtral-realtime]
         QP[post_transcribe]
     end
 
@@ -57,17 +57,18 @@ flowchart LR
     end
 
     TR -->|upload call + metadata| API
-    API -->|enqueue by transcription_profile| QVENDOR
-    API -->|enqueue by transcription_profile| QWL
-    API -->|enqueue by transcription_profile| QQL
-    API -->|enqueue by transcription_profile| QVL
-    API -->|enqueue by transcription_profile| QWV
+    API -->|enqueue by transcription_profile model_key| QW1
+    API -->|enqueue by transcription_profile model_key| QWL
+    API -->|enqueue by transcription_profile model_key| QWT
+    API -->|enqueue by transcription_profile model_key| QQL
+    API -->|enqueue by transcription_profile model_key| QVL
 
-    QVENDOR --> WR -->|POST /v1/audio/transcriptions| PA
+    QW1 --> WR -->|POST /v1/audio/transcriptions| PA
     QWL --> WP -->|POST /v1/audio/transcriptions| PW
+    QWL --> WR -->|POST /v1/audio/transcriptions + X-ASR-Endpoint-Target| PR
+    QWT --> WR -->|POST /v1/audio/transcriptions| PA
     QQL --> WQ -->|POST /v1/audio/transcriptions| PQW
     QVL --> WV -->|POST /v1/audio/transcriptions| PV
-    QWV --> WR -->|POST /v1/audio/transcriptions + X-ASR-Endpoint-Target| PR
     PR -->|load balance| PW
 
     PW -->|normalized transcript| QP
@@ -90,11 +91,11 @@ flowchart LR
 
 | Profile | Queue | Worker compose | Provider server | Default model |
 | --- | --- | --- | --- | --- |
-| `kind=vendor;provider=openai;model=whisper-1` | `transcribe.remote.vendor` | `docker-compose.worker-api.yml` | OpenAI | `whisper-1` |
-| `kind=pool;platform=local;family=whisper;variant=large-v3;...` | `transcribe.remote.pool.local.whisper.large-v3` | `docker-compose.worker-whisper.yml` | `ghcr.io/speaches-ai/speaches` | `Systran/faster-whisper-large-v3` |
-| `kind=pool;platform=local;family=qwen;variant=p25;...` | `transcribe.remote.pool.local.qwen.p25` | `docker-compose.worker-qwen.yml` | `ghcr.io/trunk-reporter/qwen3-asr-server:gpu` | `qwen3-asr-p25` |
-| `kind=pool;platform=local;family=voxtral;variant=realtime;...` | `transcribe.remote.pool.local.voxtral.realtime` | `docker-compose.worker-voxtral.yml` | `vllm/vllm-openai:latest` | `mistralai/Voxtral-Mini-4B-Realtime-2602` |
-| `kind=pool;platform=vast;family=whisper;variant=large-v3;...` | `transcribe.remote.pool.vast.whisper.large-v3` | `docker-compose.worker-api.yml` + `asr-router` | Vast ASR pool | `Systran/faster-whisper-large-v3` |
+| `kind=vendor;model_key=whisper-1;provider=openai;model=whisper-1` | `transcribe.model.whisper-1` | `docker-compose.worker-api.yml` | OpenAI | `whisper-1` |
+| `kind=pool;model_key=whisper-large-v3;platform=local;family=whisper;variant=large-v3;...` | `transcribe.model.whisper-large-v3` | `docker-compose.worker-whisper.yml` | `ghcr.io/speaches-ai/speaches` | `Systran/faster-whisper-large-v3` |
+| `kind=pool;model_key=qwen-p25;platform=local;family=qwen;variant=p25;...` | `transcribe.model.qwen-p25` | `docker-compose.worker-qwen.yml` | `ghcr.io/trunk-reporter/qwen3-asr-server:gpu` | `qwen3-asr-p25` |
+| `kind=pool;model_key=voxtral-realtime;platform=local;family=voxtral;variant=realtime;...` | `transcribe.model.voxtral-realtime` | `docker-compose.worker-voxtral.yml` | `vllm/vllm-openai:latest` | `mistralai/Voxtral-Mini-4B-Realtime-2602` |
+| `kind=pool;model_key=whisper-large-v3;platform=vast;family=whisper;variant=large-v3;...` | `transcribe.model.whisper-large-v3` | `docker-compose.worker-api.yml` + `asr-router` | Vast ASR pool | `Systran/faster-whisper-large-v3` |
 
 ## Runtime Contract
 
@@ -104,12 +105,12 @@ All active transcription backends in this repo now use the same runtime contract
 - the provider returns a verbose JSON transcript
 - the worker normalizes that response into the shared transcript shape used by `post_transcribe`
 
-That means queue routing is still backend-specific, but execution is no longer split between local ASR servers and separate in-process provider SDK implementations.
+That means queue routing is model-specific, while execution strategy stays worker-specific.
 
 ## Notes
 
-- Each machine should run one profile-specific worker stack plus any shared infrastructure it needs to reach RabbitMQ and the API.
+- Each machine should run one model-specific worker stack plus any shared infrastructure it needs to reach RabbitMQ and the API.
 - The worker normalizes transcripts before handing them to the shared `post_transcribe` flow.
 - Vendor profiles are forwarding-only and do not need GPU capacity.
-- `autoscale-vast` manages one ASR pool queue per autoscaler instance.
+- `autoscale-vast` watches one model queue per autoscaler instance while using `ASR_POOL` for Vast instance discovery.
 - Flower observes queue and worker state; it is not on the transcript data path.

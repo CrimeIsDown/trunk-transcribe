@@ -20,7 +20,7 @@ services:
       - ./docker/healthcheck.sh:/usr/local/bin/healthcheck.sh
     env_file: .env
     environment:
-      - DEFAULT_TRANSCRIPTION_PROFILE=${DEFAULT_TRANSCRIPTION_PROFILE:-kind=pool;platform=local;family=whisper;variant=large-v3;provider=speaches;model=Systran/faster-whisper-large-v3}
+      - DEFAULT_TRANSCRIPTION_PROFILE=${DEFAULT_TRANSCRIPTION_PROFILE:-kind=pool;model_key=whisper-large-v3;platform=local;family=whisper;variant=large-v3;provider=speaches;model=Systran/faster-whisper-large-v3}
     restart: always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/api/v1/healthz"]
@@ -78,7 +78,7 @@ services:
     environment:
       - CELERY_BROKER_URL
       - CELERY_RESULT_BACKEND
-      - CELERY_QUEUES=transcribe.remote.vendor,transcribe.remote.pool.local.whisper.large-v3,transcribe.remote.pool.local.qwen.p25,transcribe.remote.pool.local.voxtral.realtime,transcribe.remote.pool.vast.whisper.large-v3,post_transcribe
+      - CELERY_QUEUES=transcribe.model.whisper-1,transcribe.model.whisper-large-v3,transcribe.model.whisper-large-v3-turbo,transcribe.model.qwen-p25,transcribe.model.voxtral-realtime,post_transcribe
       - FLOWER_PURGE_OFFLINE_WORKERS=120
       - FLOWER_PERSISTENT=1
       - FLOWER_DB=/src/data/flower
