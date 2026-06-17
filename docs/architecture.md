@@ -91,6 +91,7 @@ flowchart LR
 | Profile | Queue | Worker compose | Provider server | Default model |
 | --- | --- | --- | --- | --- |
 | `kind=vendor;provider=openai;model=whisper-1` | `transcribe.remote.vendor` | `docker-compose.worker-api.yml` | OpenAI | `whisper-1` |
+| `kind=vendor;provider=cloudflare;model=@cf/openai/whisper-large-v3-turbo` | `transcribe.remote.vendor` | `docker-compose.worker-api.yml` | Cloudflare Workers AI | `@cf/openai/whisper-large-v3-turbo` |
 | `kind=pool;platform=local;family=whisper;variant=large-v3;...` | `transcribe.remote.pool.local.whisper.large-v3` | `docker-compose.worker-whisper.yml` | `ghcr.io/speaches-ai/speaches` | `Systran/faster-whisper-large-v3` |
 | `kind=pool;platform=local;family=qwen;variant=p25;...` | `transcribe.remote.pool.local.qwen.p25` | `docker-compose.worker-qwen.yml` | `ghcr.io/trunk-reporter/qwen3-asr-server:gpu` | `qwen3-asr-p25` |
 | `kind=pool;platform=local;family=voxtral;variant=realtime;...` | `transcribe.remote.pool.local.voxtral.realtime` | `docker-compose.worker-voxtral.yml` | `vllm/vllm-openai:latest` | `mistralai/Voxtral-Mini-4B-Realtime-2602` |
@@ -98,11 +99,13 @@ flowchart LR
 
 ## Runtime Contract
 
-All active transcription backends in this repo now use the same runtime contract:
+Most active transcription backends in this repo use the same runtime contract:
 
 - the worker sends audio to an OpenAI-compatible `POST /v1/audio/transcriptions` endpoint
 - the provider returns a verbose JSON transcript
 - the worker normalizes that response into the shared transcript shape used by `post_transcribe`
+
+Cloudflare Workers AI is the vendor exception: the worker sends base64 audio to Cloudflare's `/client/v4/accounts/{account_id}/ai/run/{model}` endpoint and normalizes the returned Workers AI transcript into the same shared shape.
 
 That means queue routing is still backend-specific, but execution is no longer split between local ASR servers and separate in-process provider SDK implementations.
 

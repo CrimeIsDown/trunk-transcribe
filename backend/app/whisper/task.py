@@ -50,6 +50,15 @@ class TranscriptionTask(Task):
     def initialize_model(self, transcription_profile: str) -> BaseWhisper:
         with self.model_lock:
             profile = self.resolve_profile(transcription_profile)
+            if profile.kind == "vendor" and profile.provider == "cloudflare":
+                from .cloudflare_ai import CloudflareAiWhisper
+
+                return CloudflareAiWhisper(
+                    base_url=self._get_profile_base_url(profile),
+                    model=profile.model,
+                    headers=self._get_profile_headers(profile),
+                )
+
             from .whisper_asr_api import WhisperAsrApi
 
             headers = self._get_profile_headers(profile)
@@ -75,6 +84,16 @@ class TranscriptionTask(Task):
                 return os.getenv("OPENAI_BASE_URL", DEFAULT_OPENAI_BASE_URL)
             if profile.provider == "deepinfra":
                 return os.getenv("DEEPINFRA_BASE_URL", DEFAULT_DEEPINFRA_BASE_URL)
+            if profile.provider == "cloudflare":
+                if base_url := os.getenv("CLOUDFLARE_BASE_URL"):
+                    return base_url
+                account_id = os.getenv("CLOUDFLARE_ACCOUNT_ID")
+                if not account_id:
+                    raise RuntimeError("CLOUDFLARE_ACCOUNT_ID env must be set.")
+                return (
+                    "https://api.cloudflare.com/client/v4/accounts/"
+                    f"{account_id}/ai/run"
+                )
             raise RuntimeError(f"Unsupported vendor provider {profile.provider}")
 
         if profile.platform == "vast":
@@ -99,6 +118,12 @@ class TranscriptionTask(Task):
                 api_key = os.getenv("DEEPINFRA_API_KEY")
                 if not api_key:
                     raise RuntimeError("DEEPINFRA_API_KEY env must be set.")
+                headers["Authorization"] = f"Bearer {api_key}"
+                return headers
+            if profile.provider == "cloudflare":
+                api_key = os.getenv("CLOUDFLARE_API_TOKEN")
+                if not api_key:
+                    raise RuntimeError("CLOUDFLARE_API_TOKEN env must be set.")
                 headers["Authorization"] = f"Bearer {api_key}"
                 return headers
             raise RuntimeError(f"Unsupported vendor provider {profile.provider}")

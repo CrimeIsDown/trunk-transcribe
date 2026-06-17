@@ -194,6 +194,85 @@ class TestWhisperImplementations(unittest.TestCase):
             {"Authorization": "Bearer deepinfra-key"}, implementation.headers
         )
 
+    def test_cloudflare_ai_transcribe_structural_contract(self):
+        from app.whisper.cloudflare_ai import CloudflareAiWhisper
+
+        response = Mock()
+        response.raise_for_status = Mock()
+        response.json.return_value = {
+            "success": True,
+            "result": {
+                "text": "cloudflare asr",
+                "segments": [{"start": 0.0, "end": 1.0, "text": "cloudflare asr"}],
+            },
+        }
+        session = Mock()
+        session.post.return_value = response
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
+            create_tiny_wav(temp_audio.name)
+            audio_path = temp_audio.name
+
+        try:
+            with patch(
+                "app.whisper.cloudflare_ai.requests.Session", return_value=session
+            ):
+                implementation = CloudflareAiWhisper(
+                    base_url="https://api.cloudflare.com/client/v4/accounts/acct/ai/run",
+                    model="@cf/openai/whisper-large-v3-turbo",
+                    headers={"Authorization": "Bearer token"},
+                )
+                result = implementation.transcribe(
+                    audio=audio_path,
+                    options=build_options(vad_filter=True),
+                    language="en",
+                )
+
+            self.assertEqual(
+                "https://api.cloudflare.com/client/v4/accounts/acct/ai/run/@cf/openai/whisper-large-v3-turbo",
+                session.post.call_args.args[0],
+            )
+            kwargs = session.post.call_args.kwargs
+            self.assertEqual("en", kwargs["json"]["language"])
+            self.assertEqual("transcribe", kwargs["json"]["task"])
+            self.assertEqual("alpha bravo", kwargs["json"]["initial_prompt"])
+            self.assertTrue(kwargs["json"]["vad_filter"])
+            self.assertEqual(5, kwargs["json"]["beam_size"])
+            self.assertEqual({"Authorization": "Bearer token"}, kwargs["headers"])
+            response.raise_for_status.assert_called_once()
+            self.assertEqual("en", result["language"])
+            self._assert_result_contract(result)
+        finally:
+            os.unlink(audio_path)
+
+    def test_whisper_task_initialize_model_uses_cloudflare_adapter(self):
+        from app.whisper.cloudflare_ai import CloudflareAiWhisper
+        from app.whisper.task import TranscriptionTask
+
+        with patch.dict(
+            os.environ,
+            {
+                "CLOUDFLARE_ACCOUNT_ID": "account-id",
+                "CLOUDFLARE_API_TOKEN": "cloudflare-token",
+            },
+            clear=True,
+        ):
+            implementation = TranscriptionTask().initialize_model(
+                build_vendor_profile(
+                    "cloudflare", "@cf/openai/whisper-large-v3-turbo"
+                )
+            )
+
+        self.assertIsInstance(implementation, CloudflareAiWhisper)
+        self.assertEqual(
+            "https://api.cloudflare.com/client/v4/accounts/account-id/ai/run",
+            implementation.base_url,
+        )
+        self.assertEqual("@cf/openai/whisper-large-v3-turbo", implementation.model)
+        self.assertEqual(
+            {"Authorization": "Bearer cloudflare-token"}, implementation.headers
+        )
+
     def test_transcription_task_initialize_model_uses_router_for_vast_pool(self):
         from app.whisper.task import TranscriptionTask
         from app.whisper.whisper_asr_api import WhisperAsrApi

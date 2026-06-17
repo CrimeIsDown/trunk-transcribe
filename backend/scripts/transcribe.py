@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from app.whisper.base import TranscribeOptions
 from app.whisper.transcribe import cleanup_transcript
 from app.core.transcription_profiles import (
+    DEFAULT_CLOUDFLARE_MODEL,
     build_pool_profile,
     build_vendor_profile,
 )
@@ -49,8 +50,13 @@ def main():
 
     profile = args.profile
     if not profile:
-        if args.provider in {"openai", "deepinfra"}:
-            profile = build_vendor_profile(args.provider, args.model)
+        if args.provider in {"openai", "deepinfra", "cloudflare"}:
+            model = args.model
+            if args.provider == "cloudflare" and args.model == os.getenv(
+                "WHISPER_MODEL", "Systran/faster-distil-whisper-small.en"
+            ):
+                model = DEFAULT_CLOUDFLARE_MODEL
+            profile = build_vendor_profile(args.provider, model)
         else:
             profile = build_pool_profile(
                 platform="local",

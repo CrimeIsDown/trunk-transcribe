@@ -91,6 +91,36 @@ class TestTranscriptionTaskModelSelection(unittest.TestCase):
                     )
                 )
 
+    def test_initialize_model_cloudflare_requires_account_id(self):
+        with patch.dict(
+            os.environ,
+            {"CLOUDFLARE_API_TOKEN": "cloudflare-token"},
+            clear=True,
+        ):
+            with self.assertRaisesRegex(
+                RuntimeError, "CLOUDFLARE_ACCOUNT_ID env must be set"
+            ):
+                self.task.initialize_model(
+                    build_vendor_profile(
+                        "cloudflare", "@cf/openai/whisper-large-v3-turbo"
+                    )
+                )
+
+    def test_initialize_model_cloudflare_requires_api_token(self):
+        with patch.dict(
+            os.environ,
+            {"CLOUDFLARE_ACCOUNT_ID": "account-id"},
+            clear=True,
+        ):
+            with self.assertRaisesRegex(
+                RuntimeError, "CLOUDFLARE_API_TOKEN env must be set"
+            ):
+                self.task.initialize_model(
+                    build_vendor_profile(
+                        "cloudflare", "@cf/openai/whisper-large-v3-turbo"
+                    )
+                )
+
 
 if __name__ == "__main__":
     unittest.main()
