@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from typing import Literal
 
 PROFILE_KINDS = ("vendor", "pool")
-REMOTE_VENDOR_QUEUE = "transcribe.remote.vendor"
 POST_TRANSCRIBE_QUEUE = "post_transcribe"
 DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
 DEFAULT_DEEPINFRA_BASE_URL = "https://api.deepinfra.com/v1/openai"
@@ -42,6 +41,7 @@ def parse_profile_string(value: str) -> dict[str, str]:
 @dataclass(frozen=True)
 class TranscriptionProfile:
     kind: Literal["vendor", "pool"]
+    model_key: str
     provider: str
     model: str
     platform: str | None = None
@@ -60,13 +60,18 @@ class TranscriptionProfile:
 
         provider = data.get("provider")
         model = data.get("model")
+        model_key = data.get("model_key")
         if not provider or not model:
             raise ValueError(
                 "Transcription profile must include provider and model fields."
             )
+        if not model_key:
+            raise ValueError("Transcription profile must include a model_key field.")
 
         if kind == "vendor":
-            return cls(kind="vendor", provider=provider, model=model)
+            return cls(
+                kind="vendor", model_key=model_key, provider=provider, model=model
+            )
 
         platform = data.get("platform")
         family = data.get("family")
@@ -77,6 +82,7 @@ class TranscriptionProfile:
             )
         return cls(
             kind="pool",
+            model_key=model_key,
             provider=provider,
             model=model,
             platform=platform,
@@ -88,6 +94,7 @@ class TranscriptionProfile:
     def canonical(self) -> str:
         parts = [
             f"kind={self.kind}",
+            f"model_key={self.model_key}",
             f"provider={self.provider}",
             f"model={self.model}",
         ]
@@ -128,22 +135,17 @@ class TranscriptionProfile:
 
     @property
     def queue_name(self) -> str:
-        if self.kind == "vendor":
-            return REMOTE_VENDOR_QUEUE
         return ".".join(
             [
                 "transcribe",
-                "remote",
-                "pool",
-                slug_token(self.platform or ""),
-                slug_token(self.family or ""),
-                slug_token(self.variant or ""),
+                "model",
+                slug_token(self.model_key),
             ]
         )
 
 
-def build_vendor_profile(provider: str, model: str) -> str:
-    return f"kind=vendor;provider={provider};model={model}"
+def build_vendor_profile(provider: str, model: str, model_key: str) -> str:
+    return f"kind=vendor;model_key={model_key};provider={provider};model={model}"
 
 
 def build_pool_profile(
@@ -153,9 +155,10 @@ def build_pool_profile(
     variant: str,
     provider: str,
     model: str,
+    model_key: str,
 ) -> str:
     return (
-        f"kind=pool;platform={platform};family={family};variant={variant};"
+        f"kind=pool;model_key={model_key};platform={platform};family={family};variant={variant};"
         f"provider={provider};model={model}"
     )
 
@@ -175,10 +178,12 @@ def infer_profile_from_legacy_env(
     whisper_implementation = os.getenv("WHISPER_IMPLEMENTATION")
 
     if whisper_implementation == "openai":
-        return build_vendor_profile("openai", "whisper-1")
+        return build_vendor_profile("openai", "whisper-1", "whisper-1")
     if whisper_implementation == "deepinfra":
         return build_vendor_profile(
-            "deepinfra", model or "openai/whisper-large-v3-turbo"
+            "deepinfra",
+            model or "openai/whisper-large-v3-turbo",
+            os.getenv("ASR_MODEL_KEY") or "whisper-large-v3-turbo",
         )
 
     family = backend or "whisper"
@@ -205,6 +210,7 @@ def infer_profile_from_legacy_env(
         variant=variant,
         provider=provider,
         model=model,
+        model_key=os.getenv("ASR_MODEL_KEY") or f"{family}-{variant}",
     )
 
 

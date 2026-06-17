@@ -6,11 +6,7 @@ from typing import Annotated, Any
 from pydantic import BeforeValidator, PostgresDsn, computed_field
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
-from app.core.transcription_profiles import (
-    POST_TRANSCRIBE_QUEUE,
-    REMOTE_VENDOR_QUEUE,
-    resolve_transcription_profile,
-)
+from app.core.transcription_profiles import resolve_transcription_profile
 
 
 def parse_csv_list(value: Any) -> list[str]:
@@ -61,7 +57,7 @@ class Settings(BaseSettings):
     CELERY_QUEUES: Annotated[list[str], NoDecode, BeforeValidator(parse_csv_list)] = []
     CELERY_PREFETCH_MULTIPLIER: int = 1
     DEFAULT_TRANSCRIPTION_PROFILE: str = (
-        "kind=pool;platform=local;family=whisper;variant=large-v3;"
+        "kind=pool;model_key=whisper-large-v3;platform=local;family=whisper;variant=large-v3;"
         "provider=speaches;model=Systran/faster-whisper-large-v3"
     )
     TRANSCRIPTION_PROFILE: str | None = None
@@ -69,6 +65,7 @@ class Settings(BaseSettings):
     ASR_API_URL: str | None = None
     ASR_ROUTER_URL: str | None = None
     ASR_MODEL: str | None = None
+    ASR_MODEL_KEY: str | None = None
     ASR_PROVIDER: str | None = None
     ASR_VARIANT: str | None = None
     ASR_POOL: str | None = None
@@ -115,10 +112,6 @@ class Settings(BaseSettings):
             explicit_profile=self.TRANSCRIPTION_PROFILE,
             default_profile=self.DEFAULT_TRANSCRIPTION_PROFILE,
         )
-
-    @property
-    def remote_vendor_queue(self) -> str:
-        return REMOTE_VENDOR_QUEUE
 
     @property
     def has_meilisearch(self) -> bool:

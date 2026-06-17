@@ -1,6 +1,6 @@
 import os
 import unittest
-from unittest.mock import Mock, PropertyMock, patch
+from unittest.mock import Mock, patch
 
 from app.core.transcription_profiles import build_pool_profile, build_vendor_profile
 from app.whisper.task import TranscriptionTask
@@ -14,13 +14,16 @@ class TestTranscriptionTaskModelSelection(unittest.TestCase):
     def test_default_profile_uses_local_whisper_defaults(self):
         with patch.dict(os.environ, {}, clear=True):
             self.assertEqual(
-                "kind=pool;provider=speaches;model=Systran/faster-whisper-large-v3;platform=local;family=whisper;variant=large-v3",
+                "kind=pool;model_key=whisper-large-v3;provider=speaches;model=Systran/faster-whisper-large-v3;platform=local;family=whisper;variant=large-v3",
                 self.task.default_profile,
             )
 
     def test_resolve_profile_uses_explicit_vendor_profile(self):
-        profile = self.task.resolve_profile(build_vendor_profile("openai", "whisper-1"))
+        profile = self.task.resolve_profile(
+            build_vendor_profile("openai", "whisper-1", "whisper-large-v3")
+        )
         self.assertEqual("vendor", profile.kind)
+        self.assertEqual("whisper-large-v3", profile.model_key)
         self.assertEqual("openai", profile.provider)
         self.assertEqual("whisper-1", profile.model)
 
@@ -32,6 +35,7 @@ class TestTranscriptionTaskModelSelection(unittest.TestCase):
                 variant="large-v3",
                 provider="speaches",
                 model="Systran/faster-whisper-large-v3",
+                model_key="whisper-large-v3",
             )
         )
         self.assertEqual("pool", profile.kind)
@@ -39,46 +43,64 @@ class TestTranscriptionTaskModelSelection(unittest.TestCase):
         self.assertEqual("large-v3", profile.variant)
 
     def test_resolve_provider_and_model_for_vendor(self):
-        self.assertEqual(
-            ("openai", "whisper-1"),
-            self.task.resolve_provider_and_model(
-                build_vendor_profile("openai", "whisper-1")
-            ),
-        )
+        profile = build_vendor_profile("openai", "whisper-1", "whisper-1")
+        with patch.dict(os.environ, {"TRANSCRIPTION_PROFILE": profile}, clear=True):
+            self.assertEqual(
+                ("openai", "whisper-1"),
+                self.task.resolve_provider_and_model(profile),
+            )
 
     def test_model_uses_default_profile_when_not_provided(self):
         expected_model = Mock()
-        with patch.object(
-            TranscriptionTask,
-            "default_profile",
-            new_callable=PropertyMock,
-            return_value=build_vendor_profile("openai", "whisper-1"),
+        profile = build_vendor_profile("openai", "whisper-1", "whisper-1")
+        with patch.dict(
+            os.environ,
+            {"TRANSCRIPTION_PROFILE": profile, "OPENAI_API_KEY": "openai-key"},
+            clear=True,
         ):
             with patch.object(
                 self.task, "initialize_model", return_value=expected_model
             ) as initialize_model_mock:
                 model = self.task.model()
         self.assertIs(expected_model, model)
-        initialize_model_mock.assert_called_once_with(
-            build_vendor_profile("openai", "whisper-1")
-        )
+        initialize_model_mock.assert_called_once_with(profile)
 
     def test_model_caches_initialized_models(self):
         expected_model = Mock()
-        profile = build_vendor_profile("openai", "whisper-1")
-        with patch.object(
-            self.task, "initialize_model", return_value=expected_model
-        ) as initialize_model_mock:
-            model_1 = self.task.model(profile)
-            model_2 = self.task.model(profile)
+        profile = build_vendor_profile("openai", "whisper-1", "whisper-1")
+        with patch.dict(
+            os.environ,
+            {"TRANSCRIPTION_PROFILE": profile, "OPENAI_API_KEY": "openai-key"},
+            clear=True,
+        ):
+            with patch.object(
+                self.task, "initialize_model", return_value=expected_model
+            ) as initialize_model_mock:
+                model_1 = self.task.model(profile)
+                model_2 = self.task.model(profile)
 
         self.assertIs(model_1, model_2)
         initialize_model_mock.assert_called_once_with(profile)
 
+    def test_model_rejects_task_with_different_model_key(self):
+        worker_profile = build_vendor_profile("openai", "whisper-1", "whisper-1")
+        task_profile = build_vendor_profile(
+            "deepinfra", "openai/whisper-large-v3", "whisper-large-v3"
+        )
+        with patch.dict(
+            os.environ,
+            {"TRANSCRIPTION_PROFILE": worker_profile},
+            clear=True,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "Worker model_key mismatch"):
+                self.task.model(task_profile)
+
     def test_initialize_model_openai_requires_api_key(self):
         with patch.dict(os.environ, {}, clear=True):
             with self.assertRaisesRegex(RuntimeError, "OPENAI_API_KEY env must be set"):
-                self.task.initialize_model(build_vendor_profile("openai", "whisper-1"))
+                self.task.initialize_model(
+                    build_vendor_profile("openai", "whisper-1", "whisper-1")
+                )
 
     def test_initialize_model_deepinfra_requires_api_key(self):
         with patch.dict(os.environ, {}, clear=True):
@@ -87,7 +109,9 @@ class TestTranscriptionTaskModelSelection(unittest.TestCase):
             ):
                 self.task.initialize_model(
                     build_vendor_profile(
-                        "deepinfra", "openai/whisper-large-v3-turbo"
+                        "deepinfra",
+                        "openai/whisper-large-v3-turbo",
+                        "whisper-large-v3-turbo",
                     )
                 )
 
