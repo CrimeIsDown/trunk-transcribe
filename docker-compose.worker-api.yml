@@ -17,7 +17,7 @@ services:
     environment:
       - DEFAULT_TRANSCRIPTION_PROFILE=${DEFAULT_TRANSCRIPTION_PROFILE:-kind=vendor;model_key=whisper-1;provider=openai;model=whisper-1}
       - TRANSCRIPTION_PROFILE=${TRANSCRIPTION_PROFILE:-kind=vendor;model_key=whisper-1;provider=openai;model=whisper-1}
-      - CELERY_QUEUES=${CELERY_QUEUES:-transcribe.model.whisper-1}
+      - CELERY_QUEUES
       - WHISPER_MODEL
       - OPENAI_API_KEY
       - DEEPINFRA_API_KEY

@@ -32,12 +32,27 @@ elif [ "$1" = 'worker' ]; then
         fi
     fi
 
+    if [ -z "${CELERY_QUEUES-}" ]; then
+        CELERY_QUEUES="$(uv run --directory backend python - <<'PY'
+from app.core.celery_queues import default_celery_queues
+from app.core.config import settings
+
+print(
+    default_celery_queues(
+        explicit_profile=settings.TRANSCRIPTION_PROFILE,
+        default_profile=settings.DEFAULT_TRANSCRIPTION_PROFILE,
+    )
+)
+PY
+)"
+    fi
+
     exec uv run --directory backend celery --app=app.worker.celery worker \
         -P ${CELERY_POOL:-prefork} \
         -c ${CELERY_CONCURRENCY:-1} \
         -l ${CELERY_LOGLEVEL:-info} \
         -n $CELERY_HOSTNAME \
-        -Q ${CELERY_QUEUES:-transcribe,post_transcribe}
+        -Q "$CELERY_QUEUES"
 elif [ "$1" = 'flower' ]; then
     exec uv run --directory backend celery --app=app.worker.celery flower --port=5555
 elif [ "$1" = 'asr-router' ]; then
