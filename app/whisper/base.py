@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Optional, TypedDict
+from typing import Any, NotRequired, Optional, TypedDict
 
 from app.whisper.config import TranscriptCleanupConfig
 
@@ -8,12 +8,19 @@ class WhisperSegment(TypedDict):
     start: float
     end: float
     text: str
+    speaker: NotRequired[str]
 
 
 class WhisperResult(TypedDict):
     text: str
     segments: list[WhisperSegment]
     language: Optional[str]
+
+
+def format_segment_text(segment: WhisperSegment) -> str:
+    text = segment["text"].strip()
+    speaker = segment.get("speaker")
+    return f"Speaker {speaker}: {text}" if speaker and text else text
 
 
 class TranscribeOptions(TypedDict):

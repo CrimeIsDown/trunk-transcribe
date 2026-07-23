@@ -28,6 +28,17 @@ class TestAnalog(unittest.TestCase):
 
         self.assertEqual(expected_transcript.json, result.json)
 
+    def test_process_response_includes_diarized_speakers(self):
+        self.response["segments"][0]["speaker"] = "A"
+        self.response["segments"][1]["speaker"] = "B"
+
+        result = process_response(self.response, {})
+
+        self.assertEqual(
+            [(None, "Speaker A: Hello"), (None, "Speaker B: world")],
+            result.transcript,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

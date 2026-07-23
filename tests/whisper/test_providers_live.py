@@ -37,7 +37,10 @@ class TestLiveProviders(unittest.TestCase):
 
     @unittest.skipUnless(os.getenv("OPENAI_API_KEY"), "OPENAI_API_KEY not set")
     def test_openai_live(self):
-        implementation = OpenAIApi(api_key=os.environ["OPENAI_API_KEY"])
+        implementation = OpenAIApi(
+            api_key=os.environ["OPENAI_API_KEY"],
+            model=os.getenv("OPENAI_TRANSCRIPTION_MODEL", "whisper-1"),
+        )
         result = implementation.transcribe(TINY_AUDIO_FILE, build_options(), "en")
         self._assert_result_contract(result)
 

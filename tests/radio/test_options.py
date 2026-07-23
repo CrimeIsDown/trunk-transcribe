@@ -6,6 +6,7 @@ from app.radio.analog import build_transcribe_options as build_analog_options
 from app.radio.digital import (
     build_transcribe_options as build_digital_options,
     get_closest_src,
+    process_response as process_digital_response,
 )
 
 
@@ -106,6 +107,26 @@ class TestTranscribeOptions(unittest.TestCase):
         closest = get_closest_src(src_list, segment)
 
         self.assertEqual(200, closest["src"])
+
+    def test_process_digital_response_includes_diarized_speaker(self):
+        metadata = build_metadata(audio_type="digital")
+        response = {
+            "text": "hello",
+            "segments": [
+                {
+                    "start": 0.65,
+                    "end": 0.8,
+                    "text": " hello",
+                    "speaker": "B",
+                }
+            ],
+            "language": "en",
+        }
+
+        result = process_digital_response(response, metadata)
+
+        self.assertEqual(metadata["srcList"][1], result.transcript[0][0])
+        self.assertEqual("Speaker B: hello", result.transcript[0][1])
 
 
 if __name__ == "__main__":

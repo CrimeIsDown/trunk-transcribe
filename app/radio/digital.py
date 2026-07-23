@@ -7,6 +7,7 @@ from app.whisper.base import (
     TranscribeOptions,
     WhisperSegment,
     WhisperResult,
+    format_segment_text,
 )
 from app.whisper.config import get_transcript_cleanup_config, get_whisper_config
 
@@ -45,7 +46,7 @@ def process_response(response: WhisperResult, metadata: Metadata) -> Transcript:
 
     for segment in response["segments"]:
         transcript.append(
-            segment["text"].strip(),
+            format_segment_text(segment),
             get_closest_src(metadata["srcList"], segment),
         )
 

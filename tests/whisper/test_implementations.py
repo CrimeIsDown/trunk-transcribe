@@ -90,6 +90,104 @@ class TestWhisperImplementations(unittest.TestCase):
         finally:
             os.unlink(audio_path)
 
+    def test_openai_gpt_transcribe_normalizes_text_only_response(self):
+        from app.whisper.openai import OpenAIApi
+
+        model_dump = Mock(return_value={"text": "hello from gpt"})
+        create_mock = Mock(return_value=Mock(model_dump=model_dump))
+        client = Mock()
+        client.audio.transcriptions.create = create_mock
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
+            create_tiny_wav(temp_audio.name)
+            audio_path = temp_audio.name
+
+        try:
+            with patch("app.whisper.openai.OpenAI", return_value=client):
+                implementation = OpenAIApi(
+                    api_key="test-key", model="gpt-4o-transcribe"
+                )
+                result = implementation.transcribe(
+                    audio=audio_path, options=build_options(), language="en"
+                )
+
+            kwargs = create_mock.call_args.kwargs
+            self.assertEqual("gpt-4o-transcribe", kwargs["model"])
+            self.assertEqual("json", kwargs["response_format"])
+            self.assertIn("alpha bravo", kwargs["prompt"])
+            self.assertNotIn("chunking_strategy", kwargs)
+            self.assertEqual(
+                {
+                    "text": "hello from gpt",
+                    "segments": [{"start": 0.0, "end": 0.0, "text": "hello from gpt"}],
+                    "language": "en",
+                },
+                result,
+            )
+            self._assert_result_contract(result)
+        finally:
+            os.unlink(audio_path)
+
+    def test_openai_gpt_transcription_models_use_json_response_format(self):
+        from app.whisper.openai import OpenAIApi
+
+        with patch("app.whisper.openai.OpenAI"):
+            for model in (
+                "gpt-4o-transcribe",
+                "gpt-4o-mini-transcribe",
+                "gpt-4o-mini-transcribe-2025-12-15",
+            ):
+                with self.subTest(model=model):
+                    implementation = OpenAIApi(api_key="test-key", model=model)
+                    self.assertEqual("json", implementation.response_format)
+
+    def test_openai_diarization_uses_timestamped_segments_without_prompt(self):
+        from app.whisper.openai import OpenAIApi
+
+        response = {
+            "text": "one two",
+            "segments": [
+                {
+                    "start": 0.1,
+                    "end": 0.8,
+                    "text": "one",
+                    "speaker": "A",
+                },
+                {
+                    "start": 0.9,
+                    "end": 1.5,
+                    "text": "two",
+                    "speaker": "B",
+                },
+            ],
+        }
+        create_mock = Mock(return_value=Mock(model_dump=Mock(return_value=response)))
+        client = Mock()
+        client.audio.transcriptions.create = create_mock
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
+            create_tiny_wav(temp_audio.name)
+            audio_path = temp_audio.name
+
+        try:
+            with patch("app.whisper.openai.OpenAI", return_value=client):
+                implementation = OpenAIApi(
+                    api_key="test-key", model="gpt-4o-transcribe-diarize"
+                )
+                result = implementation.transcribe(
+                    audio=audio_path, options=build_options(), language="en"
+                )
+
+            kwargs = create_mock.call_args.kwargs
+            self.assertEqual("diarized_json", kwargs["response_format"])
+            self.assertEqual("auto", kwargs["chunking_strategy"])
+            self.assertNotIn("prompt", kwargs)
+            self.assertEqual("A", result["segments"][0]["speaker"])
+            self.assertEqual(0.9, result["segments"][1]["start"])
+            self._assert_result_contract(result)
+        finally:
+            os.unlink(audio_path)
+
     def test_deepinfra_api_transcribe_structural_contract(self):
         from app.whisper.deepinfra import DeepInfraApi
 

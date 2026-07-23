@@ -65,13 +65,24 @@ To use the paid Whisper API by OpenAI instead of running the worker on a machine
 
 ```
 # To use the paid OpenAI Whisper API instead of running the model locally
-COMPOSE_FILE=docker-compose.server.yml:docker-compose.worker.yml:docker-compose.openai.yml
+COMPOSE_FILE=docker-compose.server.yml:docker-compose.worker.yml:docker-compose.minio.yml
+WHISPER_IMPLEMENTATION=openai
 
 # OpenAI API key, if using the paid Whisper API
 OPENAI_API_KEY=my-api-key
+
+# Optional: defaults to whisper-1 for backward compatibility
+OPENAI_TRANSCRIPTION_MODEL=gpt-4o-transcribe
 ```
 
 You may also want to set `CELERY_CONCURRENCY` to a higher number since the GPU is not a limitation on concurrency anymore.
+
+Supported OpenAI transcription models include `whisper-1`, `gpt-4o-transcribe`,
+`gpt-4o-mini-transcribe`, and `gpt-4o-transcribe-diarize`.
+`gpt-4o-transcribe` and `gpt-4o-mini-transcribe` do not return timestamped
+segments, so trunk-transcribe stores their complete response as one untimed
+segment. The diarization model returns timestamped speaker segments, which are
+preserved.
 
 ### Running workers using DeepInfra's Whisper API
 

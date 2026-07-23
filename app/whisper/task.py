@@ -30,7 +30,7 @@ class WhisperTask(Task):
         model_name = os.getenv("WHISPER_MODEL")
 
         if whisper_implementation == "openai":
-            model_name = "whisper-1"
+            model_name = os.getenv("OPENAI_TRANSCRIPTION_MODEL", "whisper-1")
 
         if whisper_implementation == "deepgram" and not model_name:
             model_name = "nova-2"
@@ -69,7 +69,7 @@ class WhisperTask(Task):
                     raise RuntimeError("OPENAI_API_KEY env must be set.")
                 from .openai import OpenAIApi
 
-                return OpenAIApi(api_key)
+                return OpenAIApi(api_key, model)
             if implementation == "deepgram":
                 api_key = os.getenv("DEEPGRAM_API_KEY")
                 if not api_key:

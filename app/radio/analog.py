@@ -3,7 +3,7 @@ import os
 from app.models.metadata import Metadata
 from app.models.transcript import Transcript
 from app.utils.cache import get_ttl_hash
-from app.whisper.base import TranscribeOptions, WhisperResult
+from app.whisper.base import TranscribeOptions, WhisperResult, format_segment_text
 from app.whisper.config import get_transcript_cleanup_config, get_whisper_config
 
 
@@ -23,7 +23,7 @@ def process_response(response: WhisperResult, metadata: Metadata) -> Transcript:
     transcript = Transcript()
 
     for segment in response["segments"]:
-        text = segment["text"].strip()
+        text = format_segment_text(segment)
         if len(text):
             # TODO: use segment["start"] and segment["end"] as well
             transcript.append(text)

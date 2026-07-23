@@ -25,6 +25,19 @@ class TestWhisperTaskModelSelection(unittest.TestCase):
         ):
             self.assertEqual("openai:whisper-1", self.task.default_implementation)
 
+    def test_default_implementation_openai_uses_configured_transcription_model(self):
+        with patch.dict(
+            os.environ,
+            {
+                "WHISPER_IMPLEMENTATION": "openai",
+                "OPENAI_TRANSCRIPTION_MODEL": "gpt-4o-mini-transcribe",
+            },
+            clear=True,
+        ):
+            self.assertEqual(
+                "openai:gpt-4o-mini-transcribe", self.task.default_implementation
+            )
+
     def test_default_implementation_deepgram_uses_default_model(self):
         with patch.dict(os.environ, {"WHISPER_IMPLEMENTATION": "deepgram"}, clear=True):
             self.assertEqual("deepgram:nova-2", self.task.default_implementation)
@@ -76,6 +89,15 @@ class TestWhisperTaskModelSelection(unittest.TestCase):
         with patch.dict(os.environ, {}, clear=True):
             with self.assertRaisesRegex(RuntimeError, "OPENAI_API_KEY env must be set"):
                 self.task.initialize_model("openai:whisper-1")
+
+    def test_initialize_model_openai_passes_selected_model(self):
+        with (
+            patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}, clear=True),
+            patch("app.whisper.openai.OpenAIApi") as openai_api,
+        ):
+            self.task.initialize_model("openai:gpt-4o-transcribe")
+
+        openai_api.assert_called_once_with("test-key", "gpt-4o-transcribe")
 
     def test_initialize_model_deepgram_requires_api_key(self):
         with patch.dict(os.environ, {}, clear=True):
