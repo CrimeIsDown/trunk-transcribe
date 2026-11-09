@@ -1,0 +1,33 @@
+# Layer over docker-compose.worker-whisper.yml.
+services:
+  worker-whisper:
+    environment:
+      TRANSCRIPTION_PROFILE: kind=pool;model_key=whisper-thinline-r05-${THINLINE_VARIANT:-large-v3};platform=local;family=whisper;variant=thinline-r05-${THINLINE_VARIANT:-large-v3};provider=speaches;model=thinline/whisper-r05-${THINLINE_VARIANT:-large-v3}
+      CELERY_QUEUES: "" # Derive the queue from TRANSCRIPTION_PROFILE.
+      ASR_API_URL: http://asr-whisper:8000/v1
+      ASR_VARIANT: thinline-r05-${THINLINE_VARIANT:-large-v3}
+      ASR_MODEL: thinline/whisper-r05-${THINLINE_VARIANT:-large-v3}
+
+  asr-whisper:
+    command:
+      - sh
+      - -elc
+      - |
+        python - <<'PY'
+        import os
+        from speaches.executors.whisper.utils import model_registry
+
+        model = os.environ["ASR_MODEL"]
+        try:
+            model_registry.get_model_files(model)
+        except (FileNotFoundError, StopIteration) as exc:
+            raise SystemExit(f"ThinLine model is missing or incomplete: {model}") from exc
+        PY
+        exec uvicorn --factory speaches.main:create_app
+    environment:
+      ASR_MODEL: thinline/whisper-r05-${THINLINE_VARIANT:-large-v3}
+      HF_HUB_CACHE: /thinline-models
+      HF_HUB_OFFLINE: "1"
+      WHISPER__INFERENCE_DEVICE: cuda
+    volumes:
+      - ${THINLINE_MODEL_CACHE:-./scratch/thinline-models}:/thinline-models:ro

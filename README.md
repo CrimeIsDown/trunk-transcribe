@@ -111,6 +111,38 @@ docker compose up -d
 
 The default Voxtral stack uses `vllm/vllm-openai:latest` plus Mistral's recommended serve flags for `mistralai/Voxtral-Mini-4B-Realtime-2602`. If your Hugging Face access requires authentication, set `HF_TOKEN` in `.env` so vLLM can download the model weights.
 
+### Running ThinLine Whisper R05
+
+The [ThinLine R05 releases](https://transcripts.thinlineds.com/) can run on a local NVIDIA Whisper worker. Choose `large-v3`, `large-v3-turbo`, `medium`, `small`, or `tiny`. Each variant has its own transcription queue, so a request can target it alongside an existing stock Whisper worker.
+
+From the repository root, prepare the selected publisher checkpoint once. The converter downloads the merged checkpoint and saves it in Speaches' local CTranslate2 cache. The worker uses the GPU for transcription.
+
+```bash
+uv venv --python 3.12 scratch/thinline-converter
+uv pip install --python scratch/thinline-converter/bin/python \
+  --index-url https://download.pytorch.org/whl/cpu 'torch==2.8.*'
+uv pip install --python scratch/thinline-converter/bin/python \
+  'transformers==4.57.3' 'ctranslate2==4.5.0'
+export THINLINE_VARIANT=large-v3-turbo
+scratch/thinline-converter/bin/python docker/prepare-thinline-model.py "$THINLINE_VARIANT"
+```
+
+Start a worker with the ThinLine override. When running it alongside another worker on the same host, give it a separate Compose project name as shown and configure `.env` to reach the same broker and result backend.
+
+```bash
+docker compose -p "thinline-$THINLINE_VARIANT" \
+  -f docker-compose.worker-whisper.yml \
+  -f docker-compose.worker-whisper-thinline.yml up -d
+```
+
+Pass the matching profile as the `transcription_profile` query parameter when submitting a call or task to the API. To send all default requests to this worker, set `DEFAULT_TRANSCRIPTION_PROFILE` on the API server to the same value.
+
+```bash
+profile="kind=pool;model_key=whisper-thinline-r05-${THINLINE_VARIANT};platform=local;family=whisper;variant=thinline-r05-${THINLINE_VARIANT};provider=speaches;model=thinline/whisper-r05-${THINLINE_VARIANT}"
+```
+
+If you prepare the model in a different cache directory with `--cache`, set `THINLINE_MODEL_CACHE` to that directory when starting Compose.
+
 ### Running workers using OpenAI's paid Whisper API
 
 To use the paid Whisper API by OpenAI, run the API backend instead of the Whisper sidecar worker and set the following in your `.env` file:
