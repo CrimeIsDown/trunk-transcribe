@@ -2,7 +2,7 @@
 services:
   worker-whisper:
     environment:
-      TRANSCRIPTION_PROFILE: kind=pool;model_key=whisper-thinline-r05-${THINLINE_VARIANT:-large-v3};platform=local;family=whisper;variant=thinline-r05-${THINLINE_VARIANT:-large-v3};provider=speaches;model=thinline/whisper-r05-${THINLINE_VARIANT:-large-v3}
+      TRANSCRIPTION_PROFILE: kind=pool;model_key=${THINLINE_MODEL_KEY:-whisper-thinline-r05-${THINLINE_VARIANT:-large-v3}};platform=local;family=whisper;variant=thinline-r05-${THINLINE_VARIANT:-large-v3};provider=speaches;model=thinline/whisper-r05-${THINLINE_VARIANT:-large-v3}
       CELERY_QUEUES: "" # Derive the queue from TRANSCRIPTION_PROFILE.
       ASR_API_URL: http://asr-whisper:8000/v1
       ASR_VARIANT: thinline-r05-${THINLINE_VARIANT:-large-v3}

@@ -138,10 +138,12 @@ docker compose -p "thinline-$THINLINE_VARIANT" \
 Pass the matching profile as the `transcription_profile` query parameter when submitting a call or task to the API. To send all default requests to this worker, set `DEFAULT_TRANSCRIPTION_PROFILE` on the API server to the same value.
 
 ```bash
-profile="kind=pool;model_key=whisper-thinline-r05-${THINLINE_VARIANT};platform=local;family=whisper;variant=thinline-r05-${THINLINE_VARIANT};provider=speaches;model=thinline/whisper-r05-${THINLINE_VARIANT}"
+profile="kind=pool;model_key=${THINLINE_MODEL_KEY:-whisper-thinline-r05-${THINLINE_VARIANT}};platform=local;family=whisper;variant=thinline-r05-${THINLINE_VARIANT};provider=speaches;model=thinline/whisper-r05-${THINLINE_VARIANT}"
 ```
 
 If you prepare the model in a different cache directory with `--cache`, set `THINLINE_MODEL_CACHE` to that directory when starting Compose.
+
+To switch an existing worker to ThinLine while preserving the queue it already serves, set `THINLINE_MODEL_KEY` to that queue's model key. For example, `THINLINE_MODEL_KEY=whisper-large-v3-turbo` keeps consuming `transcribe.model.whisper-large-v3-turbo`. Update every consumer of a shared queue for consistent model selection.
 
 ### Running workers using OpenAI's paid Whisper API
 
